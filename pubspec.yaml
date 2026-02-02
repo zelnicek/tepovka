@@ -1,0 +1,74 @@
+name: tepovka
+description: "An app to measure heart beat"
+publish_to: 'none'
+
+version: 3.0.0+1
+
+environment:
+  sdk: ^3.5.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  camera: ^0.11.0
+  image: ^4.3.0
+  oscilloscope: ^0.2.0+1
+  flutter_svg: ^2.0.0
+  material_design_icons_flutter: ^7.0.7296
+  material_symbols_icons: ^4.2799.0
+  url_launcher: ^6.3.1
+  font_awesome_flutter: ^10.10.0
+  google_nav_bar: ^5.0.6
+  fl_chart: ^1.1.1
+  syncfusion_flutter_charts: ^31.1.21
+  pdf: ^3.10.3
+  open_filex: ^4.5.0
+  printing: ^5.12.0
+  flutter_to_pdf: ^0.4.1
+  flutter_image_compress: ^2.3.0
+  intl: ^0.20.2 
+  health: ^13.1.3
+  card_swiper: ^3.0.1
+  scidart: ^0.0.2-dev.12
+  isolate: ^2.1.1
+  numberpicker: ^2.1.2
+  cupertino_icons: ^1.0.2
+  fftea: ^1.5.0+1
+  iirjdart: ^0.1.0
+  csv: ^6.0.0
+  share_plus: ^12.0.0
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  path_provider: ^2.0.11
+
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/ppg.png
+    - assets/otaznik.webp
+    - assets/folder.png
+    - assets/vut_heart-removebg-preview.png
+    - assets/bmc.png
+    - assets/tepovka.png
+    - assets/Text_loading.png
+    - assets/Help2.png
+    - assets/Quide.png
+    - assets/Icon - Apple Health.png
+    - assets/Apple_Health_badge_US-UK_blk_sRGB.svg
+    - assets/swipe/Quide1.png
+    - assets/swipe/Quide2.png
+    - assets/swipe/Quide3.png
+    - assets/swipe/Quide4.png
+    - assets/swipe/Quide5.png
+    - assets/swipe/Quide6.png
+    - assets/swipe/Quide7.png
+
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
