@@ -10,7 +10,6 @@ import 'package:tepovka/pages/info_app.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:convert';
 import 'package:open_filex/open_filex.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -28,7 +27,11 @@ class Record {
   final List<int> bpmList;
   final List<double> frames;
   final int duration;
-  final Map<String, dynamic> hrv; // Add HRV map
+  final Map<String, dynamic> hrv; // HRV metrics
+  final double respiratoryRate; // RR breaths/min
+  final List<double> bpmHistory; // BPM time series for recovery
+  final Map<String, dynamic> hrr; // HR Recovery metrics
+  final Map<String, dynamic> recoveryChart; // Recovery chart points
 
   Record({
     required this.date,
@@ -40,6 +43,10 @@ class Record {
     required this.frames,
     required this.duration,
     required this.hrv,
+    required this.respiratoryRate,
+    required this.bpmHistory,
+    required this.hrr,
+    required this.recoveryChart,
   });
 
   // Convert Record to JSON format
@@ -54,6 +61,10 @@ class Record {
       'frames': frames,
       'duration': duration,
       'hrv': hrv,
+      'respiratoryRate': respiratoryRate,
+      'bpmHistory': bpmHistory,
+      'hrr': hrr,
+      'recoveryChart': recoveryChart,
     };
   }
 
@@ -78,6 +89,13 @@ class Record {
           : [], // Default to empty list if null
       duration: json['duration'] ?? 30, // Default to 30 if null
       hrv: json['hrv'] ?? {}, // Default to empty map if null
+      respiratoryRate: (json['respiratoryRate'] ?? 0.0).toDouble(),
+      bpmHistory: json['bpmHistory'] != null
+          ? List<double>.from(
+              json['bpmHistory'].map((v) => (v as num).toDouble()))
+          : <double>[],
+      hrr: json['hrr'] ?? {},
+      recoveryChart: json['recoveryChart'] ?? {},
     );
   }
 }
@@ -94,6 +112,8 @@ class _RecordsPageState extends State<RecordsPage> {
   static const double pixelsPerSecond = 20.0; // Used for chart width
   List<Record> _records = [];
   int _selectedIndex = -1;
+  int _overviewRangeIndex = 2; // 0: Den, 1: Týden, 2: Měsíc
+  int _overviewMetricIndex = 0; // 0: TF, 1: HRR60, 2: RMSSD
 
   @override
   void initState() {
@@ -127,6 +147,10 @@ class _RecordsPageState extends State<RecordsPage> {
             frames: rec.frames,
             duration: rec.duration,
             hrv: rec.hrv,
+            respiratoryRate: rec.respiratoryRate,
+            bpmHistory: rec.bpmHistory,
+            hrr: rec.hrr,
+            recoveryChart: rec.recoveryChart,
           ));
         }
 
@@ -247,36 +271,78 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   Widget _buildHRVCard(String title, String value, {Color? valueColor}) {
-    return Card(
-      elevation: 2,
-      color: Colors.white, // White background
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(
-          color: Color.fromARGB(120, 158, 158, 158), // Slick black border
-          width: 1,
+    final iconKey = GlobalKey();
+    final hint = _getMetricInfoText(title);
+    return InkWell(
+      onTap: () => _showAnchoredMetricInfo(title, value, iconKey),
+      borderRadius: BorderRadius.circular(10),
+      child: Card(
+        elevation: 2,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(
+            color: Color.fromARGB(120, 158, 158, 158),
+            width: 1,
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black, // Ensure text is black for contrast
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Tooltip(
+                    message: hint,
+                    waitDuration: const Duration(milliseconds: 500),
+                    showDuration: const Duration(seconds: 4),
+                    preferBelow: false,
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: valueColor ?? Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                color:
-                    valueColor ?? Colors.black, // Use provided color or default
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Tooltip(
+                message: 'Tip: klepni pro vysvětlení',
+                waitDuration: const Duration(milliseconds: 300),
+                child: InkResponse(
+                  key: iconKey,
+                  radius: 16,
+                  onTap: () => _showAnchoredMetricInfo(title, value, iconKey),
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: Colors.black.withOpacity(0.45),
+                  ),
+                ),
               ),
             ),
           ],
@@ -736,7 +802,7 @@ class _RecordsPageState extends State<RecordsPage> {
                     ),
                   ),
                   SizedBox(
-                    height: 200,
+                    height: 170,
                     child: Padding(
                       padding: const EdgeInsets.all(10.0),
                       child: Scrollbar(
@@ -847,48 +913,147 @@ class _RecordsPageState extends State<RecordsPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // HRV Analysis Section
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'HRV Analýza',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(height: 16),
+                  // Collapsible HRV section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Card(
+                      color: Colors.white,
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(
+                            color: Color.fromARGB(120, 158, 158, 158)),
+                      ),
+                      child: ExpansionTile(
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                        initiallyExpanded: false,
+                        title: const Text(
+                          'HRV Analýza',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        childrenPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        children: [
+                          const SizedBox(height: 8),
+                          GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            childAspectRatio: 2,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            children: [
+                              _buildHRVCard('Dechová frekvence',
+                                  '${record.respiratoryRate.toStringAsFixed(1)} dechů/min'),
+                              _buildHRVCard(
+                                  'SDNN', '${sdnn.toStringAsFixed(2)} ms'),
+                              _buildHRVCard(
+                                  'RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
+                              _buildHRVCard(
+                                  'pNN50', '${pnn50.toStringAsFixed(2)} %'),
+                              _buildHRVCard('Průměrný RR',
+                                  '${meanRR.toStringAsFixed(2)} ms'),
+                              _buildHRVCard(
+                                  'SD1', '${sd1.toStringAsFixed(2)} ms'),
+                              _buildHRVCard(
+                                  'SD2', '${sd2.toStringAsFixed(2)} ms'),
+                              _buildHRVCard(
+                                  'SD2/SD1', '${sd2sd1.toStringAsFixed(2)}'),
+                              _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
+                              _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
+                              _buildHRVCard(
+                                  'LF/HF', '${lfhf.toStringAsFixed(2)}'),
+                              _buildHRVCard(
+                                'Index stresu',
+                                '${stressIndex.toStringAsFixed(2)}',
+                                valueColor: _getStressColor(stressIndex),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
+                  // Collapsible HRR section
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      childAspectRatio: 2,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      children: [
-                        _buildHRVCard('SDNN', '${sdnn.toStringAsFixed(2)} ms'),
-                        _buildHRVCard(
-                            'RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
-                        _buildHRVCard('pNN50', '${pnn50.toStringAsFixed(2)} %'),
-                        _buildHRVCard(
-                            'Mean RR', '${meanRR.toStringAsFixed(2)} ms'),
-                        _buildHRVCard('SD1', '${sd1.toStringAsFixed(2)} ms'),
-                        _buildHRVCard('SD2', '${sd2.toStringAsFixed(2)} ms'),
-                        _buildHRVCard(
-                            'SD2/SD1', '${sd2sd1.toStringAsFixed(2)}'),
-                        _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
-                        _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
-                        _buildHRVCard('LF/HF', '${lfhf.toStringAsFixed(2)}'),
-                        _buildHRVCard(
-                          'Stress Index',
-                          '${stressIndex.toStringAsFixed(2)}',
-                          valueColor: _getStressColor(stressIndex),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Card(
+                      color: Colors.white,
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(
+                            color: Color.fromARGB(120, 158, 158, 158)),
+                      ),
+                      child: ExpansionTile(
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                        initiallyExpanded: true,
+                        title: const Text(
+                          'Zotavení srdeční frekvence',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
-                      ],
+                        childrenPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        children: [
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Měří pokles tepové frekvence po zátěži. Vyšší pokles za 60–120 s obvykle značí lepší kardiovaskulární kondici a rychlejší zotavení.',
+                            style:
+                                TextStyle(fontSize: 13, color: Colors.black54),
+                          ),
+                          const SizedBox(height: 6),
+                          _buildRecordRecoveryChart(record),
+                          const SizedBox(height: 6),
+                          GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            childAspectRatio: 2,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            children: [
+                              _buildHRVCard(
+                                  'HR (0–10 s)',
+                                  (record.hrr['hr0'] ?? 0.0) > 0
+                                      ? '${(record.hrr['hr0'] ?? 0.0).toStringAsFixed(1)} bpm'
+                                      : '—'),
+                              _buildHRVCard(
+                                  'HR v 60. s',
+                                  (record.hrr['hr60'] ?? 0.0) > 0
+                                      ? '${(record.hrr['hr60'] ?? 0.0).toStringAsFixed(1)} bpm'
+                                      : '—'),
+                              _buildHRVCard(
+                                  'Pokles 0–60 s',
+                                  (record.hrr['hrr60'] ?? 0.0) > 0
+                                      ? '${(record.hrr['hrr60'] ?? 0.0).toStringAsFixed(1)} bpm'
+                                      : '—'),
+                              _buildHRVCard('Sklon (0–60 s)',
+                                  '${(record.hrr['slope60_bpmPerMin'] ?? 0.0).toStringAsFixed(1)} bpm/min'),
+                              _buildHRVCard(
+                                  'HR v 120. s',
+                                  (record.hrr['hr120'] ?? 0.0) > 0
+                                      ? '${(record.hrr['hr120'] ?? 0.0).toStringAsFixed(1)} bpm'
+                                      : '—'),
+                              _buildHRVCard(
+                                  'Pokles 0–120 s',
+                                  (record.hrr['hrr120'] ?? 0.0) > 0
+                                      ? '${(record.hrr['hrr120'] ?? 0.0).toStringAsFixed(1)} bpm'
+                                      : '—'),
+                              _buildHRVCard(
+                                  'Tau (odhad)',
+                                  (record.hrr['tauSec'] ?? 0.0) > 0
+                                      ? '${(record.hrr['tauSec'] ?? 0.0).toStringAsFixed(1)} s'
+                                      : '—'),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1087,6 +1252,231 @@ class _RecordsPageState extends State<RecordsPage> {
     return peaks;
   }
 
+  Widget _buildRecordRecoveryChart(Record record) {
+    // Build recovery spots from saved points or bpmHistory
+    final List<FlSpot> spots = [];
+    double durationSec = record.duration.toDouble();
+    if (record.recoveryChart.isNotEmpty &&
+        (record.recoveryChart['points'] is List)) {
+      final pts = (record.recoveryChart['points'] as List);
+      for (final p in pts) {
+        final t = (p['t'] as num?)?.toDouble() ?? 0.0;
+        final bpm = (p['bpm'] as num?)?.toDouble() ?? 0.0;
+        if (bpm > 0) spots.add(FlSpot(t, bpm));
+      }
+      final d = record.recoveryChart['durationSec'];
+      if (d is num) durationSec = d.toDouble();
+    } else if (record.bpmHistory.isNotEmpty && durationSec > 0) {
+      final n = record.bpmHistory.length;
+      final secPerSample = durationSec / n;
+      for (int i = 0; i < n; i++) {
+        final bpm = record.bpmHistory[i].toDouble();
+        if (bpm > 0) spots.add(FlSpot(i * secPerSample, bpm));
+      }
+    }
+
+    if (spots.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    final minX = 0.0;
+    final maxX = durationSec;
+    double minY = spots.map((s) => s.y).reduce(min);
+    double maxY = spots.map((s) => s.y).reduce(max);
+    final padding = ((maxY - minY).abs() * 0.1).clamp(2.0, 15.0);
+    minY = (minY - padding).clamp(30.0, 300.0);
+    maxY = (maxY + padding).clamp(30.0, 300.0);
+
+    List<LineChartBarData> markerLines = [];
+    void addVLine(double x, Color color) {
+      if (x <= maxX) {
+        markerLines.add(LineChartBarData(
+          spots: [FlSpot(x, minY), FlSpot(x, maxY)],
+          isCurved: false,
+          color: color.withOpacity(0.35),
+          barWidth: 1.5,
+          dotData: const FlDotData(show: false),
+        ));
+      }
+    }
+
+    addVLine(60, Colors.blueGrey);
+    addVLine(120, Colors.blueGrey);
+
+    return SizedBox(
+      height: 160,
+      child: Card(
+        color: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+          child: LineChart(
+            LineChartData(
+              gridData: const FlGridData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 20,
+                    getTitlesWidget: (value, meta) {
+                      String label = '';
+                      if (value == 0) label = '0s';
+                      if ((value - 60).abs() < 0.01 && maxX >= 60)
+                        label = '60s';
+                      if ((value - 120).abs() < 0.01 && maxX >= 120)
+                        label = '120s';
+                      if ((value - maxX).abs() < 0.01)
+                        label = '${maxX.toInt()}s';
+                      return Text(label, style: const TextStyle(fontSize: 10));
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+              minX: minX,
+              maxX: maxX,
+              minY: minY,
+              maxY: maxY,
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  color: const Color.fromARGB(255, 0, 0, 0),
+                  barWidth: 2.0,
+                  dotData: const FlDotData(show: false),
+                ),
+                ...markerLines,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getMetricInfoText(String title) {
+    switch (title) {
+      // Czech HRR labels
+      case 'HR (0–10 s)':
+        return 'Průměrná tepová frekvence v prvních 10 sekundách zotavení. Slouží jako výchozí hodnota pro porovnání poklesu.';
+      case 'HR v 60. s':
+        return 'Tepová frekvence kolem 60. sekundy po ukončení zátěže. Porovnává se s počáteční HR pro HRR60.';
+      case 'Pokles 0–60 s':
+        return 'Heart Rate Recovery za 60 s: rozdíl HR mezi 0–10 s a 50–60 s. Vyšší = rychlejší zotavení.';
+      case 'Sklon (0–60 s)':
+        return 'Lineární sklon poklesu HR v prvních 60 s, vyjádřený v bpm/min. Více záporný = rychlejší pokles.';
+      case 'HR v 120. s':
+        return 'Tepová frekvence kolem 120. sekundy. Vhodné pro delší zotavení a výpočet HRR120.';
+      case 'Pokles 0–120 s':
+        return 'Heart Rate Recovery za 120 s: rozdíl HR mezi 0–10 s a 110–120 s. Vyšší = lepší kondice.';
+      case 'Tau (odhad)':
+        return 'Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).';
+
+      // HRV labels
+      case 'Dechová frekvence':
+        return 'Dechová frekvence (dechů/min). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.';
+      case 'Průměrný RR':
+        return 'Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou TF (delší RR = nižší BPM).';
+      case 'Index stresu':
+        return 'Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí, interpretuj s ohledem na podmínky měření.';
+      case 'SDNN':
+        return 'Standardní odchylka NN intervalů – celková variabilita srdeční frekvence za celé měření.';
+      case 'RMSSD':
+        return 'Root Mean Square of Successive Differences – citlivé na krátkodobou, parasympatickou aktivitu.';
+      case 'pNN50':
+        return 'Podíl po sobě jdoucích NN intervalů, které se liší o více než 50 ms. Vyšší procento obvykle ukazuje na silnější parasympatickou aktivitu.';
+      case 'SD1':
+        return 'SD1 (Poincaré) – krátkodobá HRV (beat‑to‑beat variabilita).';
+      case 'SD2':
+        return 'SD2 (Poincaré) – dlouhodobá HRV. Zachycuje pomalejší kolísání a trend variability.';
+      case 'SD2/SD1':
+        return 'Poměr dlouhodobé/krátkodobé variability. Vyšší poměr může ukazovat na převahu dlouhodobých oscilací nebo zvýšený stres.';
+      case 'LF':
+        return 'Low Frequency složka (0.04–0.15 Hz) – směs sympatické i parasympatické aktivity. Uvádíme jako procento z (LF+HF).';
+      case 'HF':
+        return 'High Frequency složka (0.15–0.40 Hz) – převážně parasympatická aktivita (dýchací sinusová arytmie). Uvádíme jako procento z (LF+HF).';
+      case 'LF/HF':
+        return 'Poměr LF/HF – orientační ukazatel rovnováhy sympatikus/parasympatikus. Interpretace musí brát v úvahu kontext a délku záznamu.';
+      default:
+        return 'Metrika – vykládej v kontextu délky záznamu, artefaktů a podmínek měření.';
+    }
+  }
+
+  void _showAnchoredMetricInfo(
+      String title, String value, GlobalKey anchorKey) async {
+    final ctx = anchorKey.currentContext;
+    if (ctx == null) {
+      return;
+    }
+    final renderBox = ctx.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      return;
+    }
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    final rect = RelativeRect.fromLTRB(
+      offset.dx,
+      offset.dy + size.height,
+      offset.dx + size.width,
+      offset.dy,
+    );
+    final desc = _getMetricInfoText(title);
+    await showMenu(
+      context: context,
+      position: rect,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      items: [
+        PopupMenuItem(
+          enabled: false,
+          padding: const EdgeInsets.all(0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        value,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(desc),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   List<double> _interpolate(
       List<double> times, List<double> values, List<double> newTimes) {
     List<double> result = [];
@@ -1161,95 +1551,100 @@ class _RecordsPageState extends State<RecordsPage> {
           strokeWidth: 3.0, // Tloušťka indikátoru
           child: _records.isEmpty
               ? const Center(child: Text('Nebyly nalezeny žádné záznamy.'))
-              : ListView.separated(
+              : ListView.builder(
                   padding: const EdgeInsets.all(10),
                   physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: _records.length,
+                  itemCount: _records.length + 1,
                   itemBuilder: (context, index) {
-                    // Vypočítání správného indexu v původním seznamu
-                    int actualIndex = _records.length - 1 - index;
+                    if (index == 0) {
+                      return _buildOverviewSection();
+                    }
+                    int actualIndex =
+                        _records.length - index; // shift by header
                     var record = _records[actualIndex];
-
-                    return Dismissible(
-                      key: UniqueKey(),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Colors.red.withOpacity(0.7),
-                        padding: const EdgeInsets.only(right: 20),
-                        child: const Align(
-                          alignment: Alignment.centerRight,
-                          child: Icon(
-                            Icons.delete,
-                            color: Colors.white,
+                    return Column(
+                      children: [
+                        Dismissible(
+                          key: ValueKey('${record.date}_${record.time}'),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red.withOpacity(0.7),
+                            padding: const EdgeInsets.only(right: 20),
+                            child: const Align(
+                              alignment: Alignment.centerRight,
+                              child: Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          onDismissed: (direction) {
+                            _showDeleteConfirmation(actualIndex);
+                          },
+                          child: GestureDetector(
+                            onTap: () => _showRecordDetail(record),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 5,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.history,
+                                    color: Colors.black.withOpacity(0.7),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      '${record.date} ve ${record.time}',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  SizedBox(
+                                    width: 65,
+                                    child: Text(
+                                      'tep:${record.averageBPM}',
+                                      textAlign: TextAlign.left,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.arrow_forward_ios,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      _showRecordDetail(record);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      onDismissed: (direction) {
-                        _showDeleteConfirmation(
-                            actualIndex); // Použití správného indexu
-                      },
-                      child: GestureDetector(
-                        onTap: () => _showRecordDetail(record),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 5,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.history,
-                                color: Colors.black.withOpacity(0.7),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  '${record.date} ve ${record.time}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              SizedBox(
-                                width: 65,
-                                child: Text(
-                                  'tep:${record.averageBPM}',
-                                  textAlign: TextAlign.left,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: Colors.black,
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  _showRecordDetail(record);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                        const Divider(),
+                      ],
                     );
                   },
-                  separatorBuilder: (context, index) => const Divider(),
                 )),
       bottomNavigationBar: GNav(
         tabMargin: const EdgeInsets.symmetric(horizontal: 10),
@@ -1276,6 +1671,217 @@ class _RecordsPageState extends State<RecordsPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildOverviewSection() {
+    final ranges = ['Den', 'Týden', 'Měsíc'];
+    final selectedRanges = [
+      _overviewRangeIndex == 0,
+      _overviewRangeIndex == 1,
+      _overviewRangeIndex == 2,
+    ];
+    final metrics = ['TF', 'HRR60', 'RMSSD'];
+    final selectedMetrics = [
+      _overviewMetricIndex == 0,
+      _overviewMetricIndex == 1,
+      _overviewMetricIndex == 2,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              const Text(
+                'Přehled z měření',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              ToggleButtons(
+                isSelected: selectedMetrics,
+                onPressed: (i) {
+                  setState(() => _overviewMetricIndex = i);
+                },
+                borderRadius: BorderRadius.circular(8),
+                constraints: const BoxConstraints(minHeight: 32, minWidth: 64),
+                children: metrics.map((m) => Text(m)).toList(),
+              ),
+              const SizedBox(width: 8),
+              ToggleButtons(
+                isSelected: selectedRanges,
+                onPressed: (i) {
+                  setState(() => _overviewRangeIndex = i);
+                },
+                borderRadius: BorderRadius.circular(8),
+                constraints: const BoxConstraints(minHeight: 32, minWidth: 64),
+                children: ranges.map((r) => Text(r)).toList(),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: _buildOverviewChart(),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildOverviewChart() {
+    if (_records.isEmpty) return const SizedBox.shrink();
+    final now = DateTime.now();
+    DateTime cutoff;
+    if (_overviewRangeIndex == 0) {
+      cutoff = now.subtract(const Duration(days: 1));
+    } else if (_overviewRangeIndex == 1) {
+      cutoff = now.subtract(const Duration(days: 7));
+    } else {
+      cutoff = now.subtract(const Duration(days: 30));
+    }
+
+    // Build events with DateTime
+    final events = <Map<String, dynamic>>[];
+    for (final r in _records) {
+      final dtString = '${r.date} ${r.time}';
+      DateTime? t;
+      try {
+        t = DateTime.parse(dtString);
+      } catch (_) {
+        continue;
+      }
+      if (t.isBefore(cutoff)) continue;
+      final val = _getOverviewMetricValue(r);
+      if (val == null) continue;
+      events.add({'t': t, 'val': val});
+    }
+    if (events.isEmpty) return const SizedBox.shrink();
+    events.sort((a, b) => (a['t'] as DateTime).compareTo(b['t'] as DateTime));
+
+    List<FlSpot> spots = [];
+    double minX = 0, maxX = 0, minY = 9999, maxY = -9999;
+
+    if (_overviewRangeIndex == 0) {
+      // Day: x in hours since cutoff
+      for (final e in events) {
+        final t = e['t'] as DateTime;
+        final diff = t.difference(cutoff).inMinutes / 60.0;
+        final y = (e['val'] as double);
+        spots.add(FlSpot(diff, y));
+      }
+      minX = 0;
+      maxX = 24;
+    } else {
+      // Week/Month: aggregate per day
+      final byDay = <String, List<double>>{};
+      for (final e in events) {
+        final t = e['t'] as DateTime;
+        final key =
+            '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+        (byDay[key] ??= []).add((e['val'] as double));
+      }
+      final keys = byDay.keys.toList()..sort();
+      for (int i = 0; i < keys.length; i++) {
+        final vals = byDay[keys[i]]!;
+        final avg = vals.reduce((a, b) => a + b) / vals.length;
+        spots.add(FlSpot(i.toDouble(), avg));
+      }
+      minX = 0;
+      maxX = spots.isEmpty ? 0 : (spots.length - 1).toDouble();
+    }
+
+    for (final s in spots) {
+      minY = min(minY, s.y);
+      maxY = max(maxY, s.y);
+    }
+    final padding = ((maxY - minY).abs() * 0.1).clamp(2.0, 15.0);
+    minY = (minY - padding).clamp(30.0, 300.0);
+    maxY = (maxY + padding).clamp(30.0, 300.0);
+
+    return SizedBox(
+      height: 140,
+      child: Card(
+        color: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+          child: LineChart(
+            LineChartData(
+              gridData: const FlGridData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 20,
+                    getTitlesWidget: (value, meta) {
+                      if (_overviewRangeIndex == 0) {
+                        final hours = value.toInt();
+                        if ([0, 6, 12, 18, 24].contains(hours)) {
+                          return Text('$hours h',
+                              style: const TextStyle(fontSize: 10));
+                        }
+                        return const SizedBox.shrink();
+                      } else {
+                        final idx = value.toInt();
+                        // Show every ~3rd tick to avoid clutter
+                        if (idx % 3 != 0) return const SizedBox.shrink();
+                        return Text('den ${idx + 1}',
+                            style: const TextStyle(fontSize: 10));
+                      }
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+              minX: minX,
+              maxX: maxX,
+              minY: minY,
+              maxY: maxY,
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  color: const Color.fromARGB(255, 0, 0, 0),
+                  barWidth: 2.0,
+                  dotData: const FlDotData(show: false),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  double? _getOverviewMetricValue(Record r) {
+    switch (_overviewMetricIndex) {
+      case 0:
+        return r.averageBPM.toDouble();
+      case 1:
+        final hrr60Num = (r.hrr['hrr60'] ?? 0.0);
+        final hrr60 = (hrr60Num is num) ? hrr60Num.toDouble() : 0.0;
+        return hrr60 > 0 ? hrr60 : null;
+      case 2:
+        final rmssdNum = (r.hrv['rmssd'] ?? 0.0);
+        final rmssd = (rmssdNum is num) ? rmssdNum.toDouble() : 0.0;
+        return rmssd > 0 ? rmssd : null;
+      default:
+        return r.averageBPM.toDouble();
+    }
   }
 }
 

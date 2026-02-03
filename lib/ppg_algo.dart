@@ -717,6 +717,8 @@ class PPGAlgorithm {
     return List<double>.from(_respiratoryRates);
   }
 
+  List<double> getBpmHistory() => List.unmodifiable(_bpmHistory);
+
   double _calculateAverage(final List<double> values) {
     if (values.isEmpty) return 0.0;
     return values.reduce((a, b) => a + b) / values.length;

@@ -26,6 +26,7 @@ class Summmary extends StatefulWidget {
   final List<double> frames;
   final int recordingDuration; // Přidáno: Délka měření
   final double respiratoryRate; // Přidáno: Dechová frekvence
+  final List<double> bpmHistory; // HR time series for Recovery metrics
   final double sdnn; // HRV: SDNN
   final double rmssd; // HRV: RMSSD
   final double pnn50; // HRV: pNN50
@@ -39,6 +40,7 @@ class Summmary extends StatefulWidget {
     required this.frames,
     required this.recordingDuration,
     required this.respiratoryRate, // Přidáno: RR
+    required this.bpmHistory,
     required this.sdnn,
     required this.rmssd,
     required this.pnn50,
@@ -52,6 +54,7 @@ class Summmary extends StatefulWidget {
 class _SummmaryState extends State<Summmary> {
   int _selectedIndex = 0;
   final Health _health = Health();
+  // ignore: unused_field
   List<HealthDataPoint> _healthDataList = [];
   bool _isSaving = false;
   final TextEditingController _notesController = TextEditingController();
@@ -75,6 +78,15 @@ class _SummmaryState extends State<Summmary> {
   double _lfhf = 0.0;
   double _stressIndex = 0.0;
   double _respiratoryRate = 0.0; // Dechová frekvence
+  // HR Recovery metrics
+  double _hr0 = 0.0;
+  double _hr60 = 0.0;
+  double _hr120 = 0.0;
+  double _hrr60 = 0.0;
+  double _hrr120 = 0.0;
+  double _slope60_bpmPerMin = 0.0;
+  double _tauSec = 0.0;
+  List<FlSpot> _recoverySpots = [];
   @override
   void initState() {
     print('bpm_list: ${widget.bpm_list}');
@@ -94,6 +106,186 @@ class _SummmaryState extends State<Summmary> {
 
     _computeSmoothedPeaksAndLabels();
     _computeHRV(); // Compute remaining metrics (LF, HF, stress index)
+    _computeHRRecovery();
+    _buildRecoverySpots();
+  }
+
+  void _computeHRRecovery() {
+    final hist = widget.bpmHistory.where((v) => v > 0).toList();
+    final dur = widget.recordingDuration.toDouble();
+    if (hist.length < 5 || dur <= 0) return;
+
+    final n = hist.length;
+    final secPerSample = dur / n;
+
+    double avgIn(double tStart, double tEnd) {
+      final startIdx = (tStart / secPerSample).floor().clamp(0, n - 1);
+      final endIdx = (tEnd / secPerSample).ceil().clamp(0, n - 1);
+      if (endIdx <= startIdx) return hist[startIdx].toDouble();
+      final slice = hist.sublist(startIdx, endIdx + 1);
+      final valid = slice.where((v) => v > 0).toList();
+      if (valid.isEmpty) return 0.0;
+      return valid.reduce((a, b) => a + b) / valid.length;
+    }
+
+    _hr0 = avgIn(0, 10);
+    if (dur >= 60) {
+      _hr60 = avgIn(50, 60);
+      _hrr60 = (_hr0 - _hr60).clamp(0.0, 300.0);
+      // Slope over first 60s
+      final endT = 60.0;
+      final endIdx = (endT / secPerSample).floor().clamp(1, n - 1);
+      final xs = List<double>.generate(endIdx + 1, (i) => i * secPerSample);
+      final ys = hist.sublist(0, endIdx + 1).map((v) => v.toDouble()).toList();
+      final m = _linRegSlope(xs, ys); // bpm per second
+      _slope60_bpmPerMin = m * 60.0;
+    }
+    if (dur >= 120) {
+      _hr120 = avgIn(110, 120);
+      _hrr120 = (_hr0 - _hr120).clamp(0.0, 300.0);
+      // Tau estimate using log-linear with y_inf as mean of last 20s
+      final yInf = avgIn((dur - 20).clamp(0, dur - 1), dur);
+      if (yInf > 0 && _hr0 > yInf) {
+        final xs = <double>[];
+        final ys = <double>[];
+        final maxT = 120.0;
+        final maxIdx = (maxT / secPerSample).floor().clamp(1, n - 1);
+        for (int i = 0; i <= maxIdx; i++) {
+          final t = i * secPerSample;
+          final y = hist[i].toDouble();
+          final z = y - yInf;
+          if (z > 1e-3) {
+            xs.add(t);
+            ys.add(log(z));
+          }
+        }
+        if (xs.length >= 3) {
+          final slope = _linRegSlope(xs, ys); // slope of ln(z) vs t
+          if (slope < 0) {
+            _tauSec = (-1.0 / slope);
+          }
+        }
+      }
+    }
+  }
+
+  double _linRegSlope(List<double> x, List<double> y) {
+    final n = x.length;
+    if (n == 0 || y.length != n) return 0.0;
+    final meanX = x.reduce((a, b) => a + b) / n;
+    final meanY = y.reduce((a, b) => a + b) / n;
+    double num = 0.0, den = 0.0;
+    for (int i = 0; i < n; i++) {
+      final dx = x[i] - meanX;
+      num += dx * (y[i] - meanY);
+      den += dx * dx;
+    }
+    if (den == 0.0) return 0.0;
+    return num / den;
+  }
+
+  void _buildRecoverySpots() {
+    final hist = widget.bpmHistory.where((v) => v > 0).toList();
+    final dur = widget.recordingDuration.toDouble();
+    _recoverySpots.clear();
+    if (hist.length < 2 || dur <= 0) return;
+    final n = hist.length;
+    final secPerSample = dur / n;
+    for (int i = 0; i < n; i++) {
+      _recoverySpots.add(FlSpot(i * secPerSample, hist[i].toDouble()));
+    }
+  }
+
+  Widget _buildHrrChart() {
+    if (_recoverySpots.length < 2) {
+      return const SizedBox.shrink();
+    }
+    final minX = 0.0;
+    final maxX = widget.recordingDuration.toDouble();
+    double minY = _recoverySpots.map((s) => s.y).reduce(min);
+    double maxY = _recoverySpots.map((s) => s.y).reduce(max);
+    final padding = ((maxY - minY).abs() * 0.1).clamp(2.0, 15.0);
+    minY = (minY - padding).clamp(30.0, 300.0);
+    maxY = (maxY + padding).clamp(30.0, 300.0);
+
+    List<LineChartBarData> markerLines = [];
+    void addVLine(double x, Color color) {
+      if (x <= maxX) {
+        markerLines.add(LineChartBarData(
+          spots: [FlSpot(x, minY), FlSpot(x, maxY)],
+          isCurved: false,
+          color: color.withOpacity(0.35),
+          barWidth: 1.5,
+          dotData: const FlDotData(show: false),
+        ));
+      }
+    }
+
+    addVLine(60, Colors.blueGrey);
+    addVLine(120, Colors.blueGrey);
+
+    return SizedBox(
+      height: 160,
+      child: Card(
+        color: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+          child: LineChart(
+            LineChartData(
+              gridData: const FlGridData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 20,
+                    getTitlesWidget: (value, meta) {
+                      String label = '';
+                      if (value == 0) label = '0s';
+                      if ((value - 60).abs() < 0.01 && maxX >= 60)
+                        label = '60s';
+                      if ((value - 120).abs() < 0.01 && maxX >= 120)
+                        label = '120s';
+                      if ((value - maxX).abs() < 0.01)
+                        label = '${maxX.toInt()}s';
+                      return Text(label, style: const TextStyle(fontSize: 10));
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+              minX: minX,
+              maxX: maxX,
+              minY: minY,
+              maxY: maxY,
+              lineBarsData: [
+                LineChartBarData(
+                  spots: _recoverySpots,
+                  isCurved: true,
+                  color: const Color.fromARGB(255, 0, 0, 0),
+                  barWidth: 2.0,
+                  dotData: const FlDotData(show: false),
+                ),
+                ...markerLines,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _computeSmoothedPeaksAndLabels() {
@@ -222,22 +414,26 @@ class _SummmaryState extends State<Summmary> {
   List<double> _interpolate(
       List<double> times, List<double> values, List<double> newTimes) {
     List<double> result = [];
+    if (times.isEmpty || values.isEmpty || newTimes.isEmpty) return result;
     int idx = 0;
     for (double t in newTimes) {
-      if (t < times[0]) {
-        result.add(values[0]);
+      if (t <= times.first) {
+        result.add(values.first);
         continue;
       }
-      while (idx < times.length - 1 && t >= times[idx + 1]) {
+      while (idx < times.length - 1 && t > times[idx + 1]) {
         idx++;
       }
       if (idx >= times.length - 1) {
         result.add(values.last);
         continue;
       }
-      double frac = (t - times[idx]) / (times[idx + 1] - times[idx]);
-      double val = values[idx] + frac * (values[idx + 1] - values[idx]);
-      result.add(val);
+      final t0 = times[idx];
+      final t1 = times[idx + 1];
+      final v0 = values[idx];
+      final v1 = values[idx + 1];
+      final frac = (t - t0) / (t1 - t0);
+      result.add(v0 + frac * (v1 - v0));
     }
     return result;
   }
@@ -247,14 +443,15 @@ class _SummmaryState extends State<Summmary> {
     return pow(2, (log(n) / log(2)).ceil()).toInt();
   }
 
-  double _integrateBand(List<double> psd, double res, double low, double high) {
+  double _integrateBand(
+      List<double> psd, double freqResolution, double startHz, double endHz) {
+    if (psd.isEmpty || freqResolution <= 0) return 0.0;
+    int startIdx = (startHz / freqResolution).floor().clamp(0, psd.length - 1);
+    int endIdx =
+        (endHz / freqResolution).ceil().clamp(startIdx, psd.length - 1);
     double sum = 0.0;
-    int start = (low / res).ceil();
-    int end = (high / res).floor();
-    for (int i = start; i <= end; i++) {
-      if (i < psd.length) {
-        sum += psd[i];
-      }
+    for (int i = startIdx; i <= endIdx; i++) {
+      sum += psd[i];
     }
     return sum;
   }
@@ -407,6 +604,18 @@ class _SummmaryState extends State<Summmary> {
       final notesContent = _notesController.text;
       final bpmList = widget.bpm_list;
       final frames = widget.frames.skip(2).toList();
+      // Derived series for full record
+      final smoothedWaveform = _smoothedData
+          .map((s) => {
+                't': s.x,
+                'y': s.y,
+              })
+          .toList();
+      final peakTimesSec = _peakSpots.map((s) => s.x).toList();
+      final rrIntervalsMs = <double>[];
+      for (int i = 1; i < _peakSpots.length; i++) {
+        rrIntervalsMs.add((_peakSpots[i].x - _peakSpots[i - 1].x) * 1000.0);
+      }
       final record = {
         'date': formattedDate,
         'time': formattedTime,
@@ -414,7 +623,11 @@ class _SummmaryState extends State<Summmary> {
         'dataForPlot': dataForPlot,
         'notes': notesContent,
         'bpmList': bpmList,
+        'bpmHistory': widget.bpmHistory,
         'frames': frames,
+        'waveformSmoothed': smoothedWaveform,
+        'peakTimesSec': peakTimesSec,
+        'rrIntervalsMs': rrIntervalsMs,
         'duration': widget.recordingDuration,
         'respiratoryRate': _respiratoryRate, // Přidáno: RR
         'hrv': {
@@ -429,7 +642,25 @@ class _SummmaryState extends State<Summmary> {
           'hf': _hf,
           'lfhf': _lfhf,
           'stressIndex': _stressIndex,
-        }
+        },
+        'hrr': {
+          'hr0': _hr0,
+          'hr60': _hr60,
+          'hr120': _hr120,
+          'hrr60': _hrr60,
+          'hrr120': _hrr120,
+          'slope60_bpmPerMin': _slope60_bpmPerMin,
+          'tauSec': _tauSec,
+        },
+        'recoveryChart': {
+          'durationSec': widget.recordingDuration,
+          'points': _recoverySpots
+              .map((s) => {
+                    't': s.x,
+                    'bpm': s.y,
+                  })
+              .toList(),
+        },
       };
       List<dynamic> existingRecords = [];
       if (await summaryFile.exists()) {
@@ -516,6 +747,8 @@ class _SummmaryState extends State<Summmary> {
     final maxY = _getDynamicMaxY();
     final double minX = 0.0;
     final double maxX = totalTime;
+    // Section toggle: 0=Signal, 1=HRV, 2=HRR
+    _summarySectionIndex = _summarySectionIndex.clamp(0, 2);
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -692,157 +925,29 @@ class _SummmaryState extends State<Summmary> {
                 maxLines: null,
               ),
             ),
-            SizedBox(
-              height: 200,
-              child: Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: chartWidth,
-                      // Increased padding to accommodate label overhang
-                      child: RepaintBoundary(
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            LineChart(
-                              LineChartData(
-                                clipData: const FlClipData(
-                                  left: false,
-                                  right: true, // Allow overflow on right
-                                  top: true,
-                                  bottom: true,
-                                ),
-                                gridData: const FlGridData(show: false),
-                                titlesData: const FlTitlesData(show: false),
-                                borderData: FlBorderData(
-                                  show: true,
-                                  border: Border.all(
-                                      color: Colors.grey.withOpacity(0.3)),
-                                ),
-                                minX: minX,
-                                maxX: maxX,
-                                minY: minY,
-                                maxY: maxY,
-                                lineBarsData: [
-                                  LineChartBarData(
-                                    spots: _smoothedData,
-                                    isCurved: false,
-                                    color:
-                                        const Color.fromARGB(255, 246, 41, 0),
-                                    barWidth: 2.0,
-                                    isStrokeCapRound: true,
-                                    dotData: const FlDotData(show: false),
-                                    belowBarData: BarAreaData(
-                                      show: false,
-                                    ),
-                                  ),
-                                  LineChartBarData(
-                                    spots: _peakSpots,
-                                    isCurved: false,
-                                    color: Colors.transparent,
-                                    barWidth: 0,
-                                    dotData: FlDotData(
-                                      show: true,
-                                      getDotPainter:
-                                          (spot, percent, barData, index) =>
-                                              FlDotCirclePainter(
-                                        radius: 3,
-                                        color: Colors.blue,
-                                        strokeWidth: 0,
-                                      ),
-                                    ),
-                                    belowBarData: BarAreaData(show: false),
-                                  ),
-                                ],
-                              ),
-                              duration: Duration.zero,
-                            ),
-                            ..._labels.map((label) {
-                              final posX =
-                                  ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                      chartWidth;
-                              return Positioned(
-                                left: posX,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 1.0,
-                                  color: Colors.grey.withOpacity(0.5),
-                                ),
-                              );
-                            }).toList(),
-                            ..._labels.map((label) {
-                              final posX =
-                                  ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                      chartWidth;
-                              return Positioned(
-                                left: posX,
-                                bottom: 0,
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    label.time,
-                                    style: const TextStyle(
-                                        fontSize: 10, color: Colors.black),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // HRV Analysis Section
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'HRV Analýza',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
+            // Section toggle buttons
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                childAspectRatio: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
                 children: [
-                  _buildHRVCard(
-                      'RR', '${_respiratoryRate.toStringAsFixed(1)} bpm'),
-                  _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
-                  _buildHRVCard('Mean RR', '${_meanRR.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('SD2/SD1', '${_sd2sd1.toStringAsFixed(2)}'),
-                  _buildHRVCard('LF', '${_lf.toStringAsFixed(2)} %'),
-                  _buildHRVCard('HF', '${_hf.toStringAsFixed(2)} %'),
-                  _buildHRVCard('LF/HF', '${_lfhf.toStringAsFixed(2)}'),
-                  _buildHRVCard(
-                    'Stress Index',
-                    '${_stressIndex.toStringAsFixed(2)}',
-                    valueColor: _getStressColor(_stressIndex),
-                  ),
+                  _buildSectionChip('Signál', 0),
+                  const SizedBox(width: 8),
+                  _buildSectionChip('HRV', 1),
+                  const SizedBox(width: 8),
+                  _buildSectionChip('Zotavení', 2),
                 ],
               ),
             ),
+            const SizedBox(height: 8),
+            // Conditional sections
+            if (_summarySectionIndex == 0)
+              _buildSignalSection(chartWidth, minX, maxX, minY, maxY)
+            else if (_summarySectionIndex == 1)
+              _buildHrvSection()
+            else
+              _buildHrrSection(),
+            const SizedBox(height: 16),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -960,6 +1065,243 @@ class _SummmaryState extends State<Summmary> {
     );
   }
 
+  // Section toggle state
+  int _summarySectionIndex = 0;
+
+  Widget _buildSectionChip(String label, int index) {
+    final bool selected = _summarySectionIndex == index;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) {
+        setState(() => _summarySectionIndex = index);
+      },
+      selectedColor: Colors.blue.shade100,
+      backgroundColor: Colors.white,
+      labelStyle: TextStyle(
+        color: selected ? Colors.blue.shade900 : Colors.black,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  Widget _buildSignalSection(
+      double chartWidth, double minX, double maxX, double minY, double maxY) {
+    return SizedBox(
+      height: 170,
+      child: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: chartWidth,
+              child: RepaintBoundary(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    LineChart(
+                      LineChartData(
+                        clipData: const FlClipData(
+                          left: false,
+                          right: true,
+                          top: true,
+                          bottom: true,
+                        ),
+                        gridData: const FlGridData(show: false),
+                        titlesData: const FlTitlesData(show: false),
+                        borderData: FlBorderData(
+                          show: true,
+                          border:
+                              Border.all(color: Colors.grey.withOpacity(0.3)),
+                        ),
+                        minX: minX,
+                        maxX: maxX,
+                        minY: minY,
+                        maxY: maxY,
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: _smoothedData,
+                            isCurved: false,
+                            color: const Color.fromARGB(255, 246, 41, 0),
+                            barWidth: 2.0,
+                            isStrokeCapRound: true,
+                            dotData: const FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: false,
+                            ),
+                          ),
+                          LineChartBarData(
+                            spots: _peakSpots,
+                            isCurved: false,
+                            color: Colors.transparent,
+                            barWidth: 0,
+                            dotData: FlDotData(
+                              show: true,
+                              getDotPainter: (spot, percent, barData, index) =>
+                                  FlDotCirclePainter(
+                                radius: 3,
+                                color: Colors.blue,
+                                strokeWidth: 0,
+                              ),
+                            ),
+                            belowBarData: BarAreaData(show: false),
+                          ),
+                        ],
+                      ),
+                      duration: Duration.zero,
+                    ),
+                    ..._labels.map((label) {
+                      final posX = ((label.x - minX) / (maxX - minX + 1e-6)) *
+                          chartWidth;
+                      return Positioned(
+                        left: posX,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 1.0,
+                          color: Colors.grey.withOpacity(0.5),
+                        ),
+                      );
+                    }).toList(),
+                    ..._labels.map((label) {
+                      final posX = ((label.x - minX) / (maxX - minX + 1e-6)) *
+                          chartWidth;
+                      return Positioned(
+                        left: posX,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            label.time,
+                            style: const TextStyle(
+                                fontSize: 9, color: Colors.black),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHrvSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'HRV Analýza',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            children: [
+              _buildHRVCard('Dechová frekvence',
+                  '${_respiratoryRate.toStringAsFixed(1)} dechů/min'),
+              _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
+              _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
+              _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
+              _buildHRVCard('Průměrný RR', '${_meanRR.toStringAsFixed(2)} ms'),
+              _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
+              _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
+              _buildHRVCard('SD2/SD1', '${_sd2sd1.toStringAsFixed(2)}'),
+              _buildHRVCard('LF', '${_lf.toStringAsFixed(2)} %'),
+              _buildHRVCard('HF', '${_hf.toStringAsFixed(2)} %'),
+              _buildHRVCard('LF/HF', '${_lfhf.toStringAsFixed(2)}'),
+              _buildHRVCard(
+                'Index stresu',
+                '${_stressIndex.toStringAsFixed(2)}',
+                valueColor: _getStressColor(_stressIndex),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHrrSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Zotavení srdeční frekvence',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Měří pokles tepové frekvence po zátěži. Vyšší pokles za 60–120 s obvykle značí lepší kardiovaskulární kondici a rychlejší zotavení.',
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _buildHrrChart(),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            children: [
+              _buildHRVCard('HR (0–10 s)',
+                  _hr0 > 0 ? '${_hr0.toStringAsFixed(1)} bpm' : '—'),
+              _buildHRVCard('HR v 60. s',
+                  _hr60 > 0 ? '${_hr60.toStringAsFixed(1)} bpm' : '—'),
+              _buildHRVCard('Pokles 0–60 s',
+                  _hrr60 > 0 ? '${_hrr60.toStringAsFixed(1)} bpm' : '—'),
+              _buildHRVCard('Sklon (0–60 s)',
+                  '${_slope60_bpmPerMin.toStringAsFixed(1)} bpm/min'),
+              _buildHRVCard('HR v 120. s',
+                  _hr120 > 0 ? '${_hr120.toStringAsFixed(1)} bpm' : '—'),
+              _buildHRVCard('Pokles 0–120 s',
+                  _hrr120 > 0 ? '${_hrr120.toStringAsFixed(1)} bpm' : '—'),
+              _buildHRVCard('Tau (odhad)',
+                  _tauSec > 0 ? '${_tauSec.toStringAsFixed(1)} s' : '—'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showMetricInfo(String title, String value) {
     final desc = _getMetricInfoText(title);
     showModalBottomSheet(
@@ -1015,6 +1357,44 @@ class _SummmaryState extends State<Summmary> {
 
   String _getMetricInfoText(String title) {
     switch (title) {
+      // Czech labels used in UI
+      case 'Dechová frekvence':
+        return 'Dechová frekvence (dechů/min). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.';
+      case 'Průměrný RR':
+        return 'Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou TF (delší RR = nižší BPM).';
+      case 'Index stresu':
+        return 'Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí, interpretuj s ohledem na podmínky měření.';
+      // HR Recovery metrics (current titles)
+      case 'HR₀':
+        return 'Průměrná tepová frekvence v prvních 10 sekundách po ukončení zátěže. Slouží jako výchozí úroveň pro posouzení poklesu (HRR).';
+      case 'HR@60s':
+        return 'Tepová frekvence kolem 60. sekundy zotavení (průměr z 50–60 s). Používá se k výpočtu HRR60.';
+      case 'HRR60':
+        return 'Pokles TF za 60 s: rozdíl mezi HR₀ (0–10 s) a HR@60s (50–60 s). Vyšší hodnota obvykle značí lepší kondici a rychlejší zotavení.';
+      case 'Slope(0–60s)':
+        return 'Lineární sklon poklesu TF v prvních 60 s, vyjádřený v bpm/min. Více záporný sklon (rychlejší pokles) typicky znamená lepší zotavení.';
+      case 'HR@120s':
+        return 'Tepová frekvence kolem 120. sekundy zotavení (průměr z 110–120 s). Vhodné pro delší protokoly (HRR120).';
+      case 'HRR120':
+        return 'Pokles TF za 120 s: rozdíl mezi HR₀ a HR@120s (110–120 s). Vyšší hodnota obvykle značí lepší kardiovaskulární kondici.';
+      case 'Tau':
+        return 'Odhad časové konstanty (τ) exponenciálního poklesu TF směrem k bazální hodnotě. Nižší τ znamená rychlejší zotavení.';
+
+      // HR Recovery metrics (alternative Czech titles)
+      case 'HR (0–10 s)':
+        return 'Průměrná tepová frekvence v prvních 10 sekundách zotavení. Slouží jako výchozí hodnota pro porovnání poklesu.';
+      case 'HR v 60. s':
+        return 'Tepová frekvence kolem 60. sekundy po ukončení zátěže. Porovnává se s počáteční HR pro HRR60.';
+      case 'Pokles 0–60 s':
+        return 'Heart Rate Recovery za 60 s: rozdíl HR mezi 0–10 s a 50–60 s. Vyšší = rychlejší zotavení.';
+      case 'Sklon (0–60 s)':
+        return 'Lineární sklon poklesu HR v prvních 60 s, vyjádřený v bpm/min. Více záporný = rychlejší pokles.';
+      case 'HR v 120. s':
+        return 'Tepová frekvence kolem 120. sekundy. Vhodné pro delší zotavení a výpočet HRR120.';
+      case 'Pokles 0–120 s':
+        return 'Heart Rate Recovery za 120 s: rozdíl HR mezi 0–10 s a 110–120 s. Vyšší = lepší kondice.';
+      case 'Tau (odhad)':
+        return 'Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).';
       case 'RMSSD':
         return 'Root Mean Square of Successive Differences – citlivé na krátkodobou, parasympatickou aktivitu. Vyšší hodnoty obvykle znamenají lepší regeneraci a nižší stres.';
       case 'SDNN':

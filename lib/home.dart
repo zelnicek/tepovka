@@ -65,6 +65,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   String _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
   double _liveBPM = 70.0; // New: Live BPM from UI peaks
   double _lastBpmUpdateTime = 0.0; // New: Time of last BPM update
+
   @override
   void initState() {
     super.initState();
@@ -506,6 +507,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           pnn50: _ppgAlgorithm?.getPnn50() ?? 0.0,
           sd1: _ppgAlgorithm?.getSd1() ?? 0.0,
           sd2: _ppgAlgorithm?.getSd2() ?? 0.0,
+          bpmHistory: _ppgAlgorithm?.getBpmHistory() ?? const [],
         ),
       ),
     );
