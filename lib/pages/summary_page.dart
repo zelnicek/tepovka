@@ -1,6 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:tepovka/home.dart';
@@ -8,7 +7,6 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/pages/about.dart';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:convert';
 import 'package:health/health.dart';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
@@ -592,8 +590,7 @@ class _SummmaryState extends State<Summmary> {
     _isSaving = true;
     try {
       print('Začátek ukládání měření');
-      final directory = await getApplicationDocumentsDirectory();
-      final summaryFile = File('${directory.path}/measurement_summary.json');
+      final storage = StorageService();
       final now = DateTime.now();
       final formattedDate =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -662,14 +659,7 @@ class _SummmaryState extends State<Summmary> {
               .toList(),
         },
       };
-      List<dynamic> existingRecords = [];
-      if (await summaryFile.exists()) {
-        final content = await summaryFile.readAsString();
-        existingRecords = json.decode(content);
-      }
-      existingRecords.add(record);
-      await summaryFile.writeAsString(json.encode(existingRecords),
-          mode: FileMode.write);
+      await storage.appendRecord(record);
       print('Ukládání úspěšně dokončeno');
     } catch (e) {
       print('Chyba při ukládání: $e');

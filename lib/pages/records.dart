@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:tepovka/home.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/pages/info_app.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
@@ -112,6 +112,7 @@ class _RecordsPageState extends State<RecordsPage> {
   static const double pixelsPerSecond = 20.0; // Used for chart width
   List<Record> _records = [];
   int _selectedIndex = -1;
+  final StorageService _storage = StorageService();
 
   @override
   void initState() {
@@ -121,14 +122,9 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Future<void> _loadRecords() async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final summaryFile = File('${directory.path}/measurement_summary.json');
-
-      if (await summaryFile.exists()) {
-        final contents = await summaryFile.readAsString();
-        final List<dynamic> jsonList = jsonDecode(contents);
-
-        List<Record> loadedRecords =
+      final List<Map<String, dynamic>> jsonList = await _storage.readSummary();
+      if (jsonList.isNotEmpty) {
+        final List<Record> loadedRecords =
             jsonList.map((json) => Record.fromJson(json)).toList();
 
         // Recalculate averageBPM for each record to match details view
@@ -168,11 +164,9 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Future<void> _saveRecords() async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final summaryFile = File('${directory.path}/measurement_summary.json');
-
-      final jsonList = _records.map((record) => record.toJson()).toList();
-      await summaryFile.writeAsString(jsonEncode(jsonList));
+      final List<Map<String, dynamic>> jsonList =
+          _records.map((record) => record.toJson()).toList();
+      await _storage.writeSummary(jsonList);
 
       print('Záznamy uloženy!');
     } catch (e) {
