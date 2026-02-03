@@ -25,6 +25,12 @@ class Summmary extends StatefulWidget {
   final List<int> bpm_list;
   final List<double> frames;
   final int recordingDuration; // Přidáno: Délka měření
+  final double respiratoryRate; // Přidáno: Dechová frekvence
+  final double sdnn; // HRV: SDNN
+  final double rmssd; // HRV: RMSSD
+  final double pnn50; // HRV: pNN50
+  final double sd1; // HRV: SD1
+  final double sd2; // HRV: SD2
   const Summmary({
     Key? key,
     required this.averageBPM,
@@ -32,6 +38,12 @@ class Summmary extends StatefulWidget {
     required this.bpm_list,
     required this.frames,
     required this.recordingDuration,
+    required this.respiratoryRate, // Přidáno: RR
+    required this.sdnn,
+    required this.rmssd,
+    required this.pnn50,
+    required this.sd1,
+    required this.sd2,
   }) : super(key: key);
   @override
   State<Summmary> createState() => _SummmaryState();
@@ -62,6 +74,7 @@ class _SummmaryState extends State<Summmary> {
   double _hf = 0.0;
   double _lfhf = 0.0;
   double _stressIndex = 0.0;
+  double _respiratoryRate = 0.0; // Dechová frekvence
   @override
   void initState() {
     print('bpm_list: ${widget.bpm_list}');
@@ -69,8 +82,18 @@ class _SummmaryState extends State<Summmary> {
     print('Délka dat: ${widget.data.length}');
     super.initState();
     _authorizeHealth();
+    _respiratoryRate = widget.respiratoryRate; // Uložení RR
+
+    // Use HRV metrics from PPGAlgorithm (more accurate)
+    _sdnn = widget.sdnn;
+    _rmssd = widget.rmssd;
+    _pnn50 = widget.pnn50;
+    _sd1 = widget.sd1;
+    _sd2 = widget.sd2;
+    _sd2sd1 = _sd1 > 0 ? _sd2 / _sd1 : 0.0;
+
     _computeSmoothedPeaksAndLabels();
-    _computeHRV();
+    _computeHRV(); // Compute remaining metrics (LF, HF, stress index)
   }
 
   void _computeSmoothedPeaksAndLabels() {
@@ -105,6 +128,7 @@ class _SummmaryState extends State<Summmary> {
     List<double> yValues = _smoothedData.map((s) => s.y).toList();
     List<int> peaks = _findPeaks(yValues, sampleRate: sampleRate);
     _peakSpots = peaks.map((i) => _smoothedData[i]).toList();
+
     // Calculate average BPM from peaks
     if (_peakSpots.length > 1) {
       double sumIntervals = 0.0;
@@ -137,52 +161,13 @@ class _SummmaryState extends State<Summmary> {
       rrIntervals.add(interval);
     }
     if (rrIntervals.isEmpty) return;
-    // Mean RR
+
+    // Mean RR (for LF/HF calculation and stress index)
     _meanRR = rrIntervals.reduce((a, b) => a + b) / rrIntervals.length;
-    // SDNN
-    double sumSquares = 0.0;
-    for (double rr in rrIntervals) {
-      sumSquares += pow(rr - _meanRR, 2);
-    }
-    _sdnn = sqrt(sumSquares / rrIntervals.length);
-    // RMSSD and pNN50 require at least 2 RR intervals
-    if (rrIntervals.length < 2) {
-      _rmssd = 0.0;
-      _pnn50 = 0.0;
-    } else {
-      // RMSSD
-      sumSquares = 0.0;
-      for (int i = 1; i < rrIntervals.length; i++) {
-        sumSquares += pow(rrIntervals[i] - rrIntervals[i - 1], 2);
-      }
-      _rmssd = sqrt(sumSquares / (rrIntervals.length - 1));
-      // pNN50
-      int nn50Count = 0;
-      for (int i = 1; i < rrIntervals.length; i++) {
-        if ((rrIntervals[i] - rrIntervals[i - 1]).abs() > 50) {
-          nn50Count++;
-        }
-      }
-      _pnn50 = (nn50Count / (rrIntervals.length - 1)) * 100;
-    }
-    // Poincare plot (SD1, SD2, SD2/SD1) - requires at least 2 RR
-    if (rrIntervals.length < 2) {
-      _sd1 = 0.0;
-      _sd2 = 0.0;
-      _sd2sd1 = 0.0;
-    } else {
-      List<double> rrDiff = [];
-      for (int i = 1; i < rrIntervals.length; i++) {
-        rrDiff.add(rrIntervals[i] - rrIntervals[i - 1]);
-      }
-      double sdDiff = sqrt(
-          rrDiff.map((d) => pow(d, 2)).reduce((a, b) => a + b) / rrDiff.length);
-      _sd1 = sdDiff / sqrt(2);
-      _sd2 = sqrt(2 * pow(_sdnn, 2) - pow(_sd1, 2));
-      _sd2sd1 = _sd2 / _sd1;
-    }
-    // Stress Index (Baevsky approximation)
+
+    // Stress Index (Baevsky approximation) - using SDNN from PPGAlgorithm
     _stressIndex = _sdnn == 0 ? 0.0 : pow(_meanRR / (2 * _sdnn), 2).toDouble();
+
     // Frequency domain using FFT - requires more data, but proceed if possible
     if (rrIntervals.length < 3) {
       _lf = 0.0;
@@ -284,25 +269,67 @@ class _SummmaryState extends State<Summmary> {
     List<int> peaks = [];
     if (signal.length < 3) return peaks;
 
-    // Compute adaptive threshold: mean + 0.5 * std to avoid tiny fluctuations.
-    double mean = signal.reduce((a, b) => a + b) / signal.length;
-    double sumSqDiff =
-        signal.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b);
-    double std = sqrt(sumSqDiff / signal.length);
-    double adaptiveThreshold = mean + 0.3 * std;
+    // Robust detection: local threshold + prominence + refractory
+    final globalMean = signal.reduce((a, b) => a + b) / signal.length;
+    final globalSumSq = signal
+        .map((v) => (v - globalMean) * (v - globalMean))
+        .reduce((a, b) => a + b);
+    final globalStd = sqrt(globalSumSq / signal.length);
 
-    // Min distance in samples (for max HR 200 BPM).
-    double minDistance = sampleRate / (200 / 60); // ~0.3s interval.
+    final int minDistance =
+        (sampleRate * 60 / 200).round().clamp(3, signal.length); // max HR 200
+    final int localWindow = (sampleRate * 1.0).round().clamp(5, 120);
 
-    double lastIndex = -double.infinity;
+    int lastIndex = -minDistance;
     for (int i = 1; i < signal.length - 1; i++) {
-      bool isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-      bool aboveThreshold = signal[i] > adaptiveThreshold;
-      bool farEnough = (i - lastIndex) >= minDistance;
+      final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
+      if (!isPeak) continue;
 
-      if (isPeak && aboveThreshold && farEnough) {
-        peaks.add(i);
-        lastIndex = i.toDouble();
+      final start = (i - localWindow).clamp(0, signal.length - 1);
+      final end = (i + localWindow).clamp(0, signal.length - 1);
+      double localSum = 0.0;
+      double localSumSq = 0.0;
+      int count = 0;
+      for (int j = start; j <= end; j++) {
+        localSum += signal[j];
+        localSumSq += signal[j] * signal[j];
+        count++;
+      }
+      final localMean = localSum / count;
+      final localVar = (localSumSq / count) - (localMean * localMean);
+      final localStd = sqrt(localVar.abs());
+
+      final threshold = localMean + 0.25 * localStd;
+      final prominence = signal[i] - localMean;
+      final aboveThreshold = signal[i] > threshold;
+      final strongEnough = prominence > (0.35 * localStd).clamp(0.01, 999.0);
+      final farEnough = (i - lastIndex) >= minDistance;
+
+      if (!aboveThreshold || !strongEnough) continue;
+
+      if (!farEnough) {
+        if (peaks.isNotEmpty && signal[i] > signal[peaks.last]) {
+          peaks[peaks.length - 1] = i;
+          lastIndex = i;
+        }
+        continue;
+      }
+
+      peaks.add(i);
+      lastIndex = i;
+    }
+
+    if (peaks.isEmpty && globalStd > 0) {
+      final fallbackThreshold = globalMean + 0.15 * globalStd;
+      lastIndex = -minDistance;
+      for (int i = 1; i < signal.length - 1; i++) {
+        final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
+        final aboveThreshold = signal[i] > fallbackThreshold;
+        final farEnough = (i - lastIndex) >= minDistance;
+        if (isPeak && aboveThreshold && farEnough) {
+          peaks.add(i);
+          lastIndex = i;
+        }
       }
     }
     return peaks;
@@ -389,6 +416,7 @@ class _SummmaryState extends State<Summmary> {
         'bpmList': bpmList,
         'frames': frames,
         'duration': widget.recordingDuration,
+        'respiratoryRate': _respiratoryRate, // Přidáno: RR
         'hrv': {
           'sdnn': _sdnn,
           'rmssd': _rmssd,
@@ -795,6 +823,8 @@ class _SummmaryState extends State<Summmary> {
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
                 children: [
+                  _buildHRVCard(
+                      'RR', '${_respiratoryRate.toStringAsFixed(1)} bpm'),
                   _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
                   _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
                   _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
@@ -930,42 +960,232 @@ class _SummmaryState extends State<Summmary> {
     );
   }
 
-  Widget _buildHRVCard(String title, String value, {Color? valueColor}) {
-    return Card(
-      elevation: 2,
-      color: Colors.white, // White background
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(
-          color: Color.fromARGB(120, 158, 158, 158), // Slick black border
-          width: 1,
-        ),
+  void _showMetricInfo(String title, String value) {
+    final desc = _getMetricInfoText(title);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: Colors.white,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 16, color: Colors.black54),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                desc,
+                style: const TextStyle(fontSize: 15),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Zavřít'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _getMetricInfoText(String title) {
+    switch (title) {
+      case 'RMSSD':
+        return 'Root Mean Square of Successive Differences – citlivé na krátkodobou, parasympatickou aktivitu. Vyšší hodnoty obvykle znamenají lepší regeneraci a nižší stres.';
+      case 'SDNN':
+        return 'Standardní odchylka NN intervalů – celková variabilita srdeční frekvence za celé měření. Odráží kombinaci krátkodobých i dlouhodobých vlivů.';
+      case 'pNN50':
+        return 'Podíl po sobě jdoucích NN intervalů, které se liší o více než 50 ms. Vyšší procento obvykle ukazuje na silnější parasympatickou aktivitu.';
+      case 'Mean RR':
+        return 'Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou tepovou frekvencí (delší RR = nižší BPM).';
+      case 'SD1':
+        return 'SD1 (Poincaré) – krátkodobá HRV (beat‑to‑beat variabilita). Blízce souvisí s RMSSD a parasympatikem.';
+      case 'SD2':
+        return 'SD2 (Poincaré) – dlouhodobá HRV. Zachycuje pomalejší kolísání a trend variability.';
+      case 'SD2/SD1':
+        return 'Poměr dlouhodobé/krátkodobé variability. Vyšší poměr může ukazovat na převahu dlouhodobých oscilací nebo zvýšený stres.';
+      case 'LF':
+        return 'Low Frequency složka (0.04–0.15 Hz) – směs sympatické i parasympatické aktivity. Uvádíme jako procento z (LF+HF).';
+      case 'HF':
+        return 'High Frequency složka (0.15–0.40 Hz) – převážně parasympatická aktivita (dýchací sinusová arytmie). Uvádíme jako procento z (LF+HF).';
+      case 'LF/HF':
+        return 'Poměr LF/HF – orientační ukazatel rovnováhy sympatikus/parasympatikus. Interpretace musí brát v úvahu kontext a délku záznamu.';
+      case 'RR':
+        return 'Dechová frekvence (breaths per minute). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.';
+      case 'Stress Index':
+        return 'Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí. Vnímej s ohledem na podmínky měření.';
+      default:
+        return 'Metrika HRV. Hodnoť v kontextu délky záznamu, artefaktů a podmínek měření.';
+    }
+  }
+
+  Widget _buildHRVCard(String title, String value, {Color? valueColor}) {
+    final iconKey = GlobalKey();
+    final hint = _getMetricInfoText(title);
+    return InkWell(
+      onTap: () => _showAnchoredMetricInfo(title, value, iconKey),
+      borderRadius: BorderRadius.circular(10),
+      child: Card(
+        elevation: 2,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(
+            color: Color.fromARGB(120, 158, 158, 158),
+            width: 1,
+          ),
+        ),
+        child: Stack(
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black, // Ensure text is black for contrast
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Tooltip(
+                    message: hint,
+                    waitDuration: const Duration(milliseconds: 500),
+                    showDuration: const Duration(seconds: 4),
+                    preferBelow: false,
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: valueColor ?? Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                color:
-                    valueColor ?? Colors.black, // Use provided color or default
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Tooltip(
+                message: 'Tip: klepni pro vysvětlení',
+                waitDuration: const Duration(milliseconds: 300),
+                child: InkResponse(
+                  key: iconKey,
+                  radius: 16,
+                  onTap: () => _showAnchoredMetricInfo(title, value, iconKey),
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: Colors.black.withOpacity(0.45),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showAnchoredMetricInfo(
+      String title, String value, GlobalKey anchorKey) async {
+    final ctx = anchorKey.currentContext;
+    if (ctx == null) {
+      _showMetricInfo(title, value);
+      return;
+    }
+    final renderBox = ctx.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      _showMetricInfo(title, value);
+      return;
+    }
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    final rect = RelativeRect.fromLTRB(
+      offset.dx,
+      offset.dy + size.height,
+      offset.dx + size.width,
+      offset.dy,
+    );
+    final desc = _getMetricInfoText(title);
+    await showMenu(
+      context: context,
+      position: rect,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      items: [
+        PopupMenuItem(
+          enabled: false,
+          padding: const EdgeInsets.all(0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        value,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(desc),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

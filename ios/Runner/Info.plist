@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -22,13 +24,17 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<!-- Kamera (fotoaparát) -->
-    <key>NSCameraUsageDescription</key>
-    <string>Tato aplikace potřebuje přístup k fotoaparátu pro měření vaší srdeční frekvence.</string>
-    <!-- Blesk (pokud používáte blesk) -->
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Tato aplikace potřebuje přístup k mikrofonu pro použití blesku při měření.</string>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Tato aplikace potřebuje přístup k fotoaparátu pro měření vaší srdeční frekvence.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Aplikace potřebuje přístup k HealthKit pro čtení dat tepové frekvence.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Aplikace potřebuje přístup k HealthKit pro ukládání tepové frekvence.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Tato aplikace potřebuje přístup k mikrofonu pro použití blesku při měření.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -47,14 +53,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Aplikace potřebuje přístup k HealthKit pro ukládání tepové frekvence.</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Aplikace potřebuje přístup k HealthKit pro čtení dat tepové frekvence.</string>
-
 </dict>
 </plist>

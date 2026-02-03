@@ -1020,25 +1020,71 @@ class _RecordsPageState extends State<RecordsPage> {
   List<int> _findPeaks(List<double> signal) {
     List<int> peaks = [];
     if (signal.length < 3) return peaks;
-    double minV = signal.reduce(min);
-    double maxV = signal.reduce(max);
-    double threshold = minV + 0.2 * (maxV - minV);
+
+    final globalMean = signal.reduce((a, b) => a + b) / signal.length;
+    final globalSumSq = signal
+        .map((v) => (v - globalMean) * (v - globalMean))
+        .reduce((a, b) => a + b);
+    final globalStd = sqrt(globalSumSq / signal.length);
+
+    final int minDistance =
+        (sampleRate * 60 / 200).round().clamp(3, signal.length); // max HR 200
+    final int localWindow = (sampleRate * 1.0).round().clamp(5, 120);
+
+    int lastIndex = -minDistance;
     for (int i = 1; i < signal.length - 1; i++) {
-      if (signal[i] > threshold &&
-          signal[i - 1] < signal[i] &&
-          signal[i] > signal[i + 1]) {
-        peaks.add(i);
+      final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
+      if (!isPeak) continue;
+
+      final start = (i - localWindow).clamp(0, signal.length - 1);
+      final end = (i + localWindow).clamp(0, signal.length - 1);
+      double localSum = 0.0;
+      double localSumSq = 0.0;
+      int count = 0;
+      for (int j = start; j <= end; j++) {
+        localSum += signal[j];
+        localSumSq += signal[j] * signal[j];
+        count++;
+      }
+      final localMean = localSum / count;
+      final localVar = (localSumSq / count) - (localMean * localMean);
+      final localStd = sqrt(localVar.abs());
+
+      final threshold = localMean + 0.25 * localStd;
+      final prominence = signal[i] - localMean;
+      final aboveThreshold = signal[i] > threshold;
+      final strongEnough = prominence > (0.35 * localStd).clamp(0.01, 999.0);
+      final farEnough = (i - lastIndex) >= minDistance;
+
+      if (!aboveThreshold || !strongEnough) continue;
+
+      if (!farEnough) {
+        if (peaks.isNotEmpty && signal[i] > signal[peaks.last]) {
+          peaks[peaks.length - 1] = i;
+          lastIndex = i;
+        }
+        continue;
+      }
+
+      peaks.add(i);
+      lastIndex = i;
+    }
+
+    if (peaks.isEmpty && globalStd > 0) {
+      final fallbackThreshold = globalMean + 0.15 * globalStd;
+      lastIndex = -minDistance;
+      for (int i = 1; i < signal.length - 1; i++) {
+        final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
+        final aboveThreshold = signal[i] > fallbackThreshold;
+        final farEnough = (i - lastIndex) >= minDistance;
+        if (isPeak && aboveThreshold && farEnough) {
+          peaks.add(i);
+          lastIndex = i;
+        }
       }
     }
-    const int minPeakDistance = 15;
-    peaks.sort();
-    List<int> filtered = [];
-    for (int p in peaks) {
-      if (filtered.isEmpty || p - filtered.last >= minPeakDistance) {
-        filtered.add(p);
-      }
-    }
-    return filtered;
+
+    return peaks;
   }
 
   List<double> _interpolate(

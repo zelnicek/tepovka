@@ -186,7 +186,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     // IMPROVED: Use synchronized peak detection with adaptive threshold and minDistance.
     List<int> potential = _findPeaks(yValues, sampleRate: _sampleRate);
     double rightThresh = minX + (_currentTime - minX) * 0.7;
-    double minDistTime = 2.0 / _sampleRate; // Equivalent to minDist = 2 points
+    double minDistTime = 60.0 / 200.0; // 0.3s min spacing for max HR 200
     for (int idx in potential) {
       FlSpot newPeak = _smoothedData[idx];
       if (newPeak.x > rightThresh &&
@@ -222,7 +222,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _lastLabelSecond = currentSecond;
     }
     // Aktualizuj kvalitu signálu pomocí samostatné třídy
-    _signalQuality = _signalQualityChecker.calculateQuality(_data);
+    final rgbMeans = _ppgAlgorithm?.getLastRgbMeans();
+    _signalQuality =
+        _signalQualityChecker.calculateQuality(_data, rgbMeans: rgbMeans);
     // Aktualizuj kumulativní čas
     _currentTime += 1.0 / _sampleRate;
     if (_data.length >= 500 && !_isPlottingStarted) {
@@ -231,30 +233,71 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     setState(() {}); // Aktualizuj UI
   }
 
-  // IMPROVED: Synchronized with PPGAlgorithm's _findPeaks: Adaptive threshold (mean + 0.5 * std) and minDistance based on sample rate (for max HR ~200 BPM).
+  // IMPROVED: Robust live peak detection with local threshold, prominence, and refractory.
   List<int> _findPeaks(List<double> signal, {double sampleRate = 30.0}) {
     List<int> peaks = [];
     if (signal.length < 3) return peaks;
 
-    // Compute adaptive threshold: mean + 0.5 * std to avoid tiny fluctuations.
-    double mean = signal.reduce((a, b) => a + b) / signal.length;
-    double sumSqDiff =
-        signal.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b);
-    double std = sqrt(sumSqDiff / signal.length);
-    double adaptiveThreshold = mean + 0.5 * std;
+    final globalMean = signal.reduce((a, b) => a + b) / signal.length;
+    final globalSumSq = signal
+        .map((v) => (v - globalMean) * (v - globalMean))
+        .reduce((a, b) => a + b);
+    final globalStd = sqrt(globalSumSq / signal.length);
 
-    // Min distance in samples (for max HR 200 BPM).
-    double minDistance = sampleRate / (200 / 60); // ~0.3s interval.
+    final int minDistance =
+        (sampleRate * 60 / 200).round().clamp(3, signal.length); // max HR 200
+    final int localWindow = (sampleRate * 1.0).round().clamp(5, 120);
 
-    double lastIndex = -double.infinity;
+    int lastIndex = -minDistance;
     for (int i = 1; i < signal.length - 1; i++) {
-      bool isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-      bool aboveThreshold = signal[i] > adaptiveThreshold;
-      bool farEnough = (i - lastIndex) >= minDistance;
+      final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
+      if (!isPeak) continue;
 
-      if (isPeak && aboveThreshold && farEnough) {
-        peaks.add(i);
-        lastIndex = i.toDouble();
+      final start = (i - localWindow).clamp(0, signal.length - 1);
+      final end = (i + localWindow).clamp(0, signal.length - 1);
+      double localSum = 0.0;
+      double localSumSq = 0.0;
+      int count = 0;
+      for (int j = start; j <= end; j++) {
+        localSum += signal[j];
+        localSumSq += signal[j] * signal[j];
+        count++;
+      }
+      final localMean = localSum / count;
+      final localVar = (localSumSq / count) - (localMean * localMean);
+      final localStd = sqrt(localVar.abs());
+
+      final threshold = localMean + 0.25 * localStd;
+      final prominence = signal[i] - localMean;
+      final aboveThreshold = signal[i] > threshold;
+      final strongEnough = prominence > (0.35 * localStd).clamp(0.01, 999.0);
+      final farEnough = (i - lastIndex) >= minDistance;
+
+      if (!aboveThreshold || !strongEnough) continue;
+
+      if (!farEnough) {
+        if (peaks.isNotEmpty && signal[i] > signal[peaks.last]) {
+          peaks[peaks.length - 1] = i;
+          lastIndex = i;
+        }
+        continue;
+      }
+
+      peaks.add(i);
+      lastIndex = i;
+    }
+
+    if (peaks.isEmpty && globalStd > 0) {
+      final fallbackThreshold = globalMean + 0.15 * globalStd;
+      lastIndex = -minDistance;
+      for (int i = 1; i < signal.length - 1; i++) {
+        final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
+        final aboveThreshold = signal[i] > fallbackThreshold;
+        final farEnough = (i - lastIndex) >= minDistance;
+        if (isPeak && aboveThreshold && farEnough) {
+          peaks.add(i);
+          lastIndex = i;
+        }
       }
     }
     return peaks;
@@ -354,6 +397,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     if (_isRecording) return; // Prevent multiple recordings
     // Reset kvality na začátku měření pro čistý start
     _signalQualityChecker.reset();
+    // Reset PPG algorithm for new measurement
+    _ppgAlgorithm?.reset();
     // Validate recording duration
     if (_recordingDuration < 10 || _recordingDuration > 300) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -412,6 +457,31 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     double averageBPM = _ppgAlgorithm?.getSummary() ?? 0;
     bpm_list.add(averageBPM.toInt());
     List<double> frames_list = _ppgAlgorithm?.getFrames() ?? [];
+    List<double> respiratoryRates = _ppgAlgorithm?.getRespiratoryRates() ?? [];
+
+    print(
+        'DEBUG: respiratoryRates = $respiratoryRates, isEmpty=${respiratoryRates.isEmpty}, length=${respiratoryRates.length}');
+
+    double averageRR = 0.0;
+    if (respiratoryRates.isNotEmpty) {
+      // Filter out zero values and calculate average of valid measurements
+      final validRates = respiratoryRates.where((r) => r > 0).toList();
+      print(
+          'DEBUG: validRates = $validRates (from ${respiratoryRates.length} total)');
+      if (validRates.isNotEmpty) {
+        averageRR = validRates.reduce((a, b) => a + b) / validRates.length;
+        print('DEBUG: calculated averageRR = $averageRR');
+      } else {
+        // Fallback: estimate from average BPM (rough: RR ≈ HR/4 to HR/5)
+        averageRR = (averageBPM / 4.5).clamp(6.0, 30.0);
+        print('DEBUG: fallback1 averageRR = $averageRR (from BPM=$averageBPM)');
+      }
+    } else {
+      // Fallback: estimate from average BPM
+      averageRR = (averageBPM / 4.5).clamp(6.0, 30.0);
+      print('DEBUG: fallback2 averageRR = $averageRR (from BPM=$averageBPM)');
+    }
+    print('DEBUG: Final RR = $averageRR');
     await _cameraController.setFlashMode(FlashMode.off);
     setState(() {
       _isFlashOn = false;
@@ -430,6 +500,12 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           frames: frames_list,
           recordingDuration:
               _recordingDuration, // Přidáno: Předání délky měření
+          respiratoryRate: averageRR, // Přidáno: Předání RR
+          sdnn: _ppgAlgorithm?.getSdnn() ?? 0.0,
+          rmssd: _ppgAlgorithm?.getRmssd() ?? 0.0,
+          pnn50: _ppgAlgorithm?.getPnn50() ?? 0.0,
+          sd1: _ppgAlgorithm?.getSd1() ?? 0.0,
+          sd2: _ppgAlgorithm?.getSd2() ?? 0.0,
         ),
       ),
     );

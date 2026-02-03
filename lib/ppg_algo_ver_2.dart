@@ -25,6 +25,8 @@ class PPGAlgorithm {
   int _stackSize = defaultStackSize;
   Stopwatch _stopwatch = Stopwatch(); // New: Precise timing
   List<double> _plotData = []; // New: For filtered plot
+  List<double> _respiratoryRates = []; // Respiratory rate estimates
+  double _currentRespiratoryRate = 0.0; // Current RR estimate
 
   // Calculate standard deviation
   double calculateStandardDeviation(List<double> values) {
@@ -210,6 +212,12 @@ class PPGAlgorithm {
         ? _currentHeartRate
         : (_smoothedHR * 0.7 + _currentHeartRate * 0.3);
     _bpmTotal.add(_smoothedHR);
+
+    // RR: Calculate respiratory rate from low-frequency component
+    _currentRespiratoryRate = _calculateRespiratoryRate(smoothed, _frameRate);
+    if (_currentRespiratoryRate > 0) {
+      _respiratoryRates.add(_currentRespiratoryRate);
+    }
   }
 
   // Linear detrend (least squares)
@@ -300,6 +308,24 @@ class PPGAlgorithm {
     return result;
   }
 
+  // Moving average (for envelope smoothing)
+  List<double> _movingAverage(List<double> signal, int windowSize) {
+    if (signal.isEmpty) return [];
+    if (windowSize <= 1) return List<double>.from(signal);
+    final result = <double>[];
+    double sum = 0.0;
+    final queue = <double>[];
+    for (int i = 0; i < signal.length; i++) {
+      sum += signal[i];
+      queue.add(signal[i]);
+      if (queue.length > windowSize) {
+        sum -= queue.removeAt(0);
+      }
+      result.add(sum / queue.length);
+    }
+    return result;
+  }
+
   // Time-domain HR (improved peaks)
   double _calculateTimeDomainHR(List<double> signal, double fs) {
     final avg = calculateAverage(signal);
@@ -386,6 +412,91 @@ class PPGAlgorithm {
     return result;
   }
 
+  // Calculate respiratory rate from amplitude envelope
+  // Method: extract pulse band -> envelope -> low-pass -> peak detection
+  double _calculateRespiratoryRate(List<double> signal, double fs) {
+    if (signal.length < (fs * 8).round()) {
+      print('RR: Signal too short: ${signal.length}');
+      return 0.0;
+    }
+
+    // 1) Isolate pulse component (heart band)
+    final pulse =
+        _applyButterworthBandpass(signal, bandPassLow, bandPassHigh, fs);
+    if (pulse.length < 8) {
+      print('RR: Pulse band too short: ${pulse.length}');
+      return 0.0;
+    }
+
+    // 2) Envelope via absolute value + moving average (~1s)
+    final envelope = pulse.map((v) => v.abs()).toList();
+    final envSmooth =
+        _movingAverage(envelope, (fs * 1.0).round().clamp(5, 120));
+
+    final envMin = envelope.isEmpty ? 0.0 : envelope.reduce(min);
+    final envMax = envelope.isEmpty ? 0.0 : envelope.reduce(max);
+    final envAvg = calculateAverage(envelope);
+    print('RR: Envelope - min: $envMin, max: $envMax, avg: $envAvg');
+
+    // 3) Respiratory modulation band (0.05-0.5 Hz)
+    final resp = _applyButterworthBandpass(envSmooth, 0.05, 0.5, fs);
+    if (resp.length < 8) {
+      print('RR: Resp band too short: ${resp.length}');
+      return 0.0;
+    }
+
+    final avg = calculateAverage(resp);
+    final std = calculateStandardDeviation(resp);
+    print('RR: Resp signal - avg: $avg, std: $std');
+    if (std < 0.0005) {
+      print('RR: Std too low: $std');
+      return 0.0;
+    }
+
+    final threshold = avg + 0.2 * std;
+    print('RR: Threshold: $threshold');
+    final peaks = <int>[];
+    int lastIndex = -(fs * 2).round(); // refractory ~2s
+
+    for (int i = 1; i < resp.length - 1; i++) {
+      final isPeak = resp[i - 1] < resp[i] && resp[i] > resp[i + 1];
+      final aboveThreshold = resp[i] > threshold;
+      final farEnough = (i - lastIndex) >= (fs * 1.5).round();
+      if (isPeak && aboveThreshold && farEnough) {
+        peaks.add(i);
+        lastIndex = i;
+      }
+    }
+
+    print('RR: Peaks detected: ${peaks.length}');
+    if (peaks.length < 2) {
+      print('RR: Too few peaks: ${peaks.length}');
+      return 0.0;
+    }
+
+    double totalInterval = 0.0;
+    int validIntervals = 0;
+    for (int i = 1; i < peaks.length; i++) {
+      final intervalSeconds = (peaks[i] - peaks[i - 1]) / fs;
+      if (intervalSeconds >= 1.5 && intervalSeconds <= 12.0) {
+        totalInterval += intervalSeconds;
+        validIntervals++;
+      }
+    }
+
+    print('RR: Valid intervals: $validIntervals / ${peaks.length - 1}');
+    if (validIntervals == 0) {
+      print('RR: No valid intervals');
+      return 0.0;
+    }
+
+    final avgInterval = totalInterval / validIntervals;
+    final respiratoryRate = 60.0 / avgInterval;
+    print(
+        'RR: Calculated rate: $respiratoryRate (clamped: ${respiratoryRate.clamp(6.0, 30.0)})');
+    return respiratoryRate.clamp(6.0, 30.0);
+  }
+
   double calculateAverage(List<double> values) {
     if (values.isEmpty) return 0.0;
     return values.reduce((a, b) => a + b) / values.length;
@@ -402,6 +513,9 @@ class PPGAlgorithm {
 
   // Getters (improved)
   double getCurrentHeartRate() => _smoothedHR; // Use smoothed
+  double getCurrentRespiratoryRate() => _currentRespiratoryRate;
+  List<double> getRespiratoryRates() =>
+      List.from(_respiratoryRates); // For summary stats
   List<double> getIntensityValues() => List.from(_intensityValues);
   List<double> getPPGplot() => List.from(_plotData.isNotEmpty
       ? _plotData
