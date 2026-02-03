@@ -112,8 +112,6 @@ class _RecordsPageState extends State<RecordsPage> {
   static const double pixelsPerSecond = 20.0; // Used for chart width
   List<Record> _records = [];
   int _selectedIndex = -1;
-  int _overviewRangeIndex = 2; // 0: Den, 1: Týden, 2: Měsíc
-  int _overviewMetricIndex = 0; // 0: TF, 1: HRR60, 2: RMSSD
 
   @override
   void initState() {
@@ -1554,13 +1552,11 @@ class _RecordsPageState extends State<RecordsPage> {
               : ListView.builder(
                   padding: const EdgeInsets.all(10),
                   physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: _records.length + 1,
+                  itemCount: _records.length,
                   itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return _buildOverviewSection();
-                    }
-                    int actualIndex =
-                        _records.length - index; // shift by header
+                    int actualIndex = _records.length -
+                        1 -
+                        index; // reverse order without header
                     var record = _records[actualIndex];
                     return Column(
                       children: [
@@ -1671,217 +1667,6 @@ class _RecordsPageState extends State<RecordsPage> {
         ],
       ),
     );
-  }
-
-  Widget _buildOverviewSection() {
-    final ranges = ['Den', 'Týden', 'Měsíc'];
-    final selectedRanges = [
-      _overviewRangeIndex == 0,
-      _overviewRangeIndex == 1,
-      _overviewRangeIndex == 2,
-    ];
-    final metrics = ['TF', 'HRR60', 'RMSSD'];
-    final selectedMetrics = [
-      _overviewMetricIndex == 0,
-      _overviewMetricIndex == 1,
-      _overviewMetricIndex == 2,
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              const Text(
-                'Přehled z měření',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              ToggleButtons(
-                isSelected: selectedMetrics,
-                onPressed: (i) {
-                  setState(() => _overviewMetricIndex = i);
-                },
-                borderRadius: BorderRadius.circular(8),
-                constraints: const BoxConstraints(minHeight: 32, minWidth: 64),
-                children: metrics.map((m) => Text(m)).toList(),
-              ),
-              const SizedBox(width: 8),
-              ToggleButtons(
-                isSelected: selectedRanges,
-                onPressed: (i) {
-                  setState(() => _overviewRangeIndex = i);
-                },
-                borderRadius: BorderRadius.circular(8),
-                constraints: const BoxConstraints(minHeight: 32, minWidth: 64),
-                children: ranges.map((r) => Text(r)).toList(),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: _buildOverviewChart(),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  Widget _buildOverviewChart() {
-    if (_records.isEmpty) return const SizedBox.shrink();
-    final now = DateTime.now();
-    DateTime cutoff;
-    if (_overviewRangeIndex == 0) {
-      cutoff = now.subtract(const Duration(days: 1));
-    } else if (_overviewRangeIndex == 1) {
-      cutoff = now.subtract(const Duration(days: 7));
-    } else {
-      cutoff = now.subtract(const Duration(days: 30));
-    }
-
-    // Build events with DateTime
-    final events = <Map<String, dynamic>>[];
-    for (final r in _records) {
-      final dtString = '${r.date} ${r.time}';
-      DateTime? t;
-      try {
-        t = DateTime.parse(dtString);
-      } catch (_) {
-        continue;
-      }
-      if (t.isBefore(cutoff)) continue;
-      final val = _getOverviewMetricValue(r);
-      if (val == null) continue;
-      events.add({'t': t, 'val': val});
-    }
-    if (events.isEmpty) return const SizedBox.shrink();
-    events.sort((a, b) => (a['t'] as DateTime).compareTo(b['t'] as DateTime));
-
-    List<FlSpot> spots = [];
-    double minX = 0, maxX = 0, minY = 9999, maxY = -9999;
-
-    if (_overviewRangeIndex == 0) {
-      // Day: x in hours since cutoff
-      for (final e in events) {
-        final t = e['t'] as DateTime;
-        final diff = t.difference(cutoff).inMinutes / 60.0;
-        final y = (e['val'] as double);
-        spots.add(FlSpot(diff, y));
-      }
-      minX = 0;
-      maxX = 24;
-    } else {
-      // Week/Month: aggregate per day
-      final byDay = <String, List<double>>{};
-      for (final e in events) {
-        final t = e['t'] as DateTime;
-        final key =
-            '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
-        (byDay[key] ??= []).add((e['val'] as double));
-      }
-      final keys = byDay.keys.toList()..sort();
-      for (int i = 0; i < keys.length; i++) {
-        final vals = byDay[keys[i]]!;
-        final avg = vals.reduce((a, b) => a + b) / vals.length;
-        spots.add(FlSpot(i.toDouble(), avg));
-      }
-      minX = 0;
-      maxX = spots.isEmpty ? 0 : (spots.length - 1).toDouble();
-    }
-
-    for (final s in spots) {
-      minY = min(minY, s.y);
-      maxY = max(maxY, s.y);
-    }
-    final padding = ((maxY - minY).abs() * 0.1).clamp(2.0, 15.0);
-    minY = (minY - padding).clamp(30.0, 300.0);
-    maxY = (maxY + padding).clamp(30.0, 300.0);
-
-    return SizedBox(
-      height: 140,
-      child: Card(
-        color: Colors.white,
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-          child: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: false),
-              titlesData: FlTitlesData(
-                leftTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 20,
-                    getTitlesWidget: (value, meta) {
-                      if (_overviewRangeIndex == 0) {
-                        final hours = value.toInt();
-                        if ([0, 6, 12, 18, 24].contains(hours)) {
-                          return Text('$hours h',
-                              style: const TextStyle(fontSize: 10));
-                        }
-                        return const SizedBox.shrink();
-                      } else {
-                        final idx = value.toInt();
-                        // Show every ~3rd tick to avoid clutter
-                        if (idx % 3 != 0) return const SizedBox.shrink();
-                        return Text('den ${idx + 1}',
-                            style: const TextStyle(fontSize: 10));
-                      }
-                    },
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
-              ),
-              minX: minX,
-              maxX: maxX,
-              minY: minY,
-              maxY: maxY,
-              lineBarsData: [
-                LineChartBarData(
-                  spots: spots,
-                  isCurved: true,
-                  color: const Color.fromARGB(255, 0, 0, 0),
-                  barWidth: 2.0,
-                  dotData: const FlDotData(show: false),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  double? _getOverviewMetricValue(Record r) {
-    switch (_overviewMetricIndex) {
-      case 0:
-        return r.averageBPM.toDouble();
-      case 1:
-        final hrr60Num = (r.hrr['hrr60'] ?? 0.0);
-        final hrr60 = (hrr60Num is num) ? hrr60Num.toDouble() : 0.0;
-        return hrr60 > 0 ? hrr60 : null;
-      case 2:
-        final rmssdNum = (r.hrv['rmssd'] ?? 0.0);
-        final rmssd = (rmssdNum is num) ? rmssdNum.toDouble() : 0.0;
-        return rmssd > 0 ? rmssd : null;
-      default:
-        return r.averageBPM.toDouble();
-    }
   }
 }
 
