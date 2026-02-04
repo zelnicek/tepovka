@@ -21,7 +21,6 @@ class _IntroPageState extends State<IntroPage> {
   bool _isTapped3 = false;
   bool _isTapped4 = false;
   int _selectedIndex = 0;
-  bool _is_medical = false;
 
   void _onItemTapped(int index) {
     if (_selectedIndex == index) {
@@ -63,7 +62,6 @@ class _IntroPageState extends State<IntroPage> {
     final double cardWidthHalf = (screenWidth / 2) - (screenWidth * 0.05);
     final double paddingSmall = screenWidth * 0.02;
     final double paddingMedium = screenWidth * 0.04;
-    final double fontSizeLarge = screenWidth * 0.05;
     final double fontSizeMedium = screenWidth * 0.045;
     final double fontSizeSmall = screenWidth * 0.04;
     final double imageScaleFull = screenWidth * 0.0015;
@@ -71,22 +69,16 @@ class _IntroPageState extends State<IntroPage> {
     final double iconSize = screenWidth * 0.06;
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: const Color.fromARGB(255, 242, 242, 242),
         centerTitle: true,
         elevation: 0,
-        title: const Column(
+        title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'DOMOVSKÁ STRÁNKA',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
-            ),
+            Text('DOMOVSKÁ STRÁNKA',
+                style: Theme.of(context).textTheme.titleMedium),
           ],
         ),
       ),

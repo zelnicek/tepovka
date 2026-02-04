@@ -159,7 +159,6 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     final double rawValue = ppgPlot.last;
     final double newValue = -rawValue * 1.0; // Bez zesílení - reálné hodnoty
     final double minX = max(0.0, _currentTime - _windowTime);
-    final double maxX = _currentTime;
     // Append new data point with time as x
     final double newX = _currentTime;
     _data.add(FlSpot(newX, newValue));
@@ -491,6 +490,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _remainingTime = _recordingDuration;
       _signalQuality = 'Špatná'; // Reset kvality
     });
+    // Haptics for UX: signal completion
+    HapticFeedback.lightImpact();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

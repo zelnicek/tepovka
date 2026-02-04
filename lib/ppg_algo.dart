@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:fftea/fftea.dart'; // NEW: Frequency Domain - Import FFT library
-import 'package:collection/collection.dart'; // For List extensions if needed
 import 'package:flutter/services.dart'; // If needed for Float64List
 import 'package:camera/camera.dart'; // Provides CameraImage used by processImage
 
@@ -482,6 +481,7 @@ class PPGAlgorithm {
   }
 
   // (Unused now, but kept for reference) Minima finder.
+  // ignore: unused_element
   List<List<double>> _findMinima(final List<double> signal) {
     final double globalMin = signal.reduce(min);
     final double threshold = globalMin * 0.2; // Relaxed for mild signals.
@@ -543,7 +543,9 @@ class PPGAlgorithm {
     return averages;
   }
 
+  // ignore: unused_element
   List<double> _computeDerivative(final List<double> data) {
+    // ignore: unused_element
     if (data.length < 2) return data;
 
     final List<double> derivative = [];
@@ -656,6 +658,7 @@ class PPGAlgorithm {
     print('PPGAlgorithm: Reset for new measurement');
   }
 
+  // ignore: unused_element
   List<double> _applyLowPassFilter(
     final List<double> signal,
     final double cutoffFrequencyHz,
@@ -678,6 +681,7 @@ class PPGAlgorithm {
     return filtered;
   }
 
+  // ignore: unused_element
   List<double> _applyHighPassFilter(
     final List<double> signal,
     final double cutoffFrequencyHz,
