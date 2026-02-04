@@ -65,6 +65,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   String _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
   double _liveBPM = 70.0; // New: Live BPM from UI peaks
   double _lastBpmUpdateTime = 0.0; // New: Time of last BPM update
+  bool _isTeardown = false;
 
   @override
   void initState() {
@@ -328,13 +329,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     if (_isRecording) {
       _stopRecording();
     }
-    // Turn off flashlight
-    if (_cameraController.value.isInitialized) {
-      await _cameraController.setFlashMode(FlashMode.off);
-      setState(() {
-        _isFlashOn = false;
-      });
-    }
+    // Stop camera + timers before leaving measurement
+    await _stopAllActivity(disposeCamera: true);
     setState(() {
       _selectedIndex = index;
     });
@@ -358,6 +354,33 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           MaterialPageRoute(builder: (context) => const About()),
         );
         break;
+    }
+  }
+
+  Future<void> _stopAllActivity({bool disposeCamera = false}) async {
+    if (_isTeardown) return;
+    _isTeardown = true;
+    try {
+      _graphUpdateTimer?.cancel();
+      _navigationTimer?.cancel();
+      _countdownTimer?.cancel();
+      _progressController.stop();
+      _heartAnimationController.stop();
+      if (_cameraController.value.isInitialized) {
+        await _cameraController.setFlashMode(FlashMode.off);
+        _isFlashOn = false;
+      }
+      if (_cameraController.value.isStreamingImages) {
+        await _cameraController.stopImageStream();
+      }
+      if (disposeCamera) {
+        await _cameraController.dispose();
+      }
+      _isRecording = false;
+    } catch (e) {
+      debugPrint('StopAllActivity error: $e');
+    } finally {
+      _isTeardown = false;
     }
   }
 
@@ -541,6 +564,13 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   }
 
   @override
+  void deactivate() {
+    // When route changes, stop streaming/animations to avoid background activity
+    _stopAllActivity(disposeCamera: false);
+    super.deactivate();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.sizeOf(context).width;
     final double screenHeight = MediaQuery.sizeOf(context).height;
@@ -573,68 +603,165 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     final double maxX = _currentTime;
     final currentCamera =
         _backCameras.isNotEmpty ? _backCameras[_currentBackCameraIndex] : null;
-    return Scaffold(
-      resizeToAvoidBottomInset: false, // Prevent keyboard from resizing UI
-      backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
+    return WillPopScope(
+      onWillPop: () async {
+        await _stopAllActivity(disposeCamera: true);
+        return true;
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false, // Prevent keyboard from resizing UI
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-        centerTitle: true,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              appbar_text,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: fontSizeMedium,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+          centerTitle: true,
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                appbar_text,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: fontSizeMedium,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: paddingMedium * 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // BPM display vlevo od kamery
-                  if (_showBPM) ...[
+        body: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(top: paddingMedium * 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // BPM display vlevo od kamery
+                    if (_showBPM) ...[
+                      Container(
+                        width: sideWidth,
+                        padding: EdgeInsets.only(right: paddingSmall),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              currentBPM.round().toString(),
+                              style: TextStyle(
+                                fontSize: fontSizeLarge, // Dynamic large font
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ScaleTransition(
+                                  scale: _heartAnimationController.drive(
+                                    Tween<double>(begin: 0.9, end: 1.3),
+                                  ),
+                                  child: Icon(
+                                    Icons.favorite,
+                                    color: Colors.red,
+                                    size: iconSizeMedium * 0.6, // Smaller heart
+                                  ),
+                                ),
+                                SizedBox(width: paddingSmall),
+                                Text(
+                                  'bpm',
+                                  style: TextStyle(fontSize: fontSizeSmall),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // Camera preview v kruhu
+                    if (currentCamera != null)
+                      Container(
+                        width: cameraSize,
+                        height: cameraSize,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black, // Background pro kruh
+                        ),
+                        child: ClipOval(
+                          child: SizedBox(
+                            width: cameraSize,
+                            height: cameraSize,
+                            child: CameraBody(
+                              key: ValueKey(
+                                  _currentBackCameraIndex), // Force rebuild on switch
+                              cameraDescription: currentCamera,
+                              onCameraReady: (controller) {
+                                setState(() {
+                                  _cameraController = controller;
+                                });
+                                _startImageStream();
+                                _startGraphUpdateTimer();
+                              },
+                              onImageAvailable: (image) {
+                                // Nepoužíváme, protože stream je v _startImageStream
+                              },
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        width: cameraSize,
+                        height: cameraSize,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey,
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                    // Quality control vpravo od kamery
                     Container(
                       width: sideWidth,
-                      padding: EdgeInsets.only(right: paddingSmall),
+                      padding: EdgeInsets.only(left: paddingSmall),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            currentBPM.round().toString(),
+                            'Kvalita',
                             style: TextStyle(
-                              fontSize: fontSizeLarge, // Dynamic large font
-                              fontWeight: FontWeight.bold,
+                              fontSize: fontSizeSmall,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
+                          SizedBox(height: paddingSmall),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              ScaleTransition(
-                                scale: _heartAnimationController.drive(
-                                  Tween<double>(begin: 0.9, end: 1.3),
-                                ),
-                                child: Icon(
-                                  Icons.favorite,
-                                  color: Colors.red,
-                                  size: iconSizeMedium * 0.6, // Smaller heart
-                                ),
+                              Icon(
+                                _signalQuality == 'Dobrá'
+                                    ? Icons.check_circle
+                                    : Icons.error,
+                                color: _signalQuality == 'Dobrá'
+                                    ? Colors.green
+                                    : Colors.red,
+                                size: iconSizeMedium * 0.5,
                               ),
-                              SizedBox(width: paddingSmall),
-                              Text(
-                                'bpm',
-                                style: TextStyle(fontSize: fontSizeSmall),
+                              SizedBox(width: paddingSmall * 0.5),
+                              Flexible(
+                                child: Text(
+                                  _signalQuality,
+                                  style: TextStyle(
+                                    fontSize: fontSizeSmall,
+                                    fontWeight: FontWeight.w500,
+                                    color: _signalQuality == 'Dobrá'
+                                        ? Colors.green
+                                        : Colors.red,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -642,417 +769,330 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       ),
                     ),
                   ],
-                  // Camera preview v kruhu
-                  if (currentCamera != null)
-                    Container(
-                      width: cameraSize,
-                      height: cameraSize,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black, // Background pro kruh
-                      ),
-                      child: ClipOval(
-                        child: SizedBox(
-                          width: cameraSize,
-                          height: cameraSize,
-                          child: CameraBody(
-                            key: ValueKey(
-                                _currentBackCameraIndex), // Force rebuild on switch
-                            cameraDescription: currentCamera,
-                            onCameraReady: (controller) {
-                              setState(() {
-                                _cameraController = controller;
-                              });
-                              _startImageStream();
-                              _startGraphUpdateTimer();
-                            },
-                            onImageAvailable: (image) {
-                              // Nepoužíváme, protože stream je v _startImageStream
-                            },
+                ),
+              ),
+              SizedBox(height: paddingMedium),
+              Container(
+                padding: EdgeInsets.only(top: paddingSmall),
+                width: double.infinity,
+                height: graphHeight,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final chartWidth = constraints.maxWidth;
+                    return RepaintBoundary(
+                      // Added this for performance optimization
+                      child: Stack(
+                        clipBehavior:
+                            Clip.none, // Allow overflow (e.g., beyond left)
+                        children: [
+                          LineChart(
+                            LineChartData(
+                              clipData: const FlClipData(
+                                // Allow beyond left, clip others
+                                left: false,
+                                right: true,
+                                top: true,
+                                bottom: true,
+                              ),
+                              gridData: const FlGridData(
+                                show: false, // Mřížka je vypnutá
+                              ),
+                              titlesData: const FlTitlesData(
+                                show: false, // Skryté pro čistý vzhled
+                              ),
+                              borderData: FlBorderData(
+                                show: true,
+                                border: Border.all(
+                                    color: Colors.grey.withOpacity(0.3)),
+                              ),
+                              minX: minX,
+                              maxX: maxX,
+                              minY: minY,
+                              maxY: maxY,
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: _smoothedData,
+                                  isCurved: false, // Přímá čára pro signál
+                                  color: const Color.fromARGB(255, 246, 41, 0),
+                                  barWidth: 2.0,
+                                  isStrokeCapRound: true,
+                                  dotData: const FlDotData(show: false),
+                                  belowBarData: BarAreaData(
+                                    show: false,
+                                  ),
+                                ),
+                                // Peak markers as a separate series (dots only)
+                                LineChartBarData(
+                                  spots: _peakSpots,
+                                  isCurved: false,
+                                  color: Colors.transparent,
+                                  barWidth: 0,
+                                  dotData: FlDotData(
+                                    show: true,
+                                    getDotPainter:
+                                        (spot, percent, barData, index) =>
+                                            FlDotCirclePainter(
+                                      radius: 3,
+                                      color: Colors.blue,
+                                      strokeWidth: 0,
+                                    ),
+                                  ),
+                                  belowBarData: BarAreaData(show: false),
+                                ),
+                              ],
+                            ),
+                            duration: Duration
+                                .zero, // No animation to avoid "sucked" transform
+                            // Removed curve since no duration
                           ),
-                        ),
+                          // Vertikální čáry pro časové značky
+                          ..._labels.map((label) {
+                            final posX =
+                                ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                    chartWidth;
+                            return Positioned(
+                              left: posX,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 1.0,
+                                color: Colors.grey.withOpacity(0.5),
+                              ),
+                            );
+                          }).toList(),
+                          // Texty pro časové značky (pod čarami)
+                          ..._labels.map((label) {
+                            final posX =
+                                ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                    chartWidth;
+                            return Positioned(
+                              left: posX,
+                              bottom: 0,
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  label.time,
+                                  style: const TextStyle(
+                                      fontSize: 10, color: Colors.black),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ],
                       ),
-                    )
-                  else
-                    Container(
-                      width: cameraSize,
-                      height: cameraSize,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey,
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                    horizontal: paddingMedium, vertical: 0),
+                child: AnimatedBuilder(
+                  animation: _progressController,
+                  builder: (context, child) {
+                    return LinearProgressIndicator(
+                      value: _progressController.value,
+                      backgroundColor: Colors.grey[300],
+                      valueColor:
+                          const AlwaysStoppedAnimation<Color>(Colors.red),
+                    );
+                  },
+                ),
+              ),
+              // Countdown timer display
+              if (_isRecording)
+                Padding(
+                  padding: EdgeInsets.only(top: paddingSmall),
+                  child: Text(
+                    '$_remainingTime s',
+                    style: TextStyle(
+                      fontSize: fontSizeMedium,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              SizedBox(height: paddingMedium),
+              // NumberPicker uprostřed a torch na pravo s paddingem
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: iconSizeMedium),
+                child: Row(
+                  children: [
+                    // Camera switch button zleva
+                    SizedBox(
+                      width: sideWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _backCameras.length < 2
+                                ? null
+                                : _switchBackCamera,
+                            icon: Icon(
+                              Icons.cameraswitch,
+                              color: Colors.grey,
+                              size: iconSizeMedium,
+                            ),
+                            tooltip: 'Přepnout zadní kameru',
+                          ),
+                          Text(
+                            'Změnit objektiv',
+                            style: TextStyle(
+                              fontSize: fontSizeSmall,
+                              color: Colors.grey,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
-                  // Quality control vpravo od kamery
-                  Container(
-                    width: sideWidth,
-                    padding: EdgeInsets.only(left: paddingSmall),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    const Spacer(),
+                    // Time picker vycentrovaný uprostřed
+                    Column(
                       children: [
                         Text(
-                          'Kvalita',
+                          'Doba měření (sekundy)',
                           style: TextStyle(
                             fontSize: fontSizeSmall,
                             fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: paddingSmall),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _signalQuality == 'Dobrá'
-                                  ? Icons.check_circle
-                                  : Icons.error,
-                              color: _signalQuality == 'Dobrá'
-                                  ? Colors.green
-                                  : Colors.red,
-                              size: iconSizeMedium * 0.5,
-                            ),
-                            SizedBox(width: paddingSmall * 0.5),
-                            Flexible(
-                              child: Text(
-                                _signalQuality,
-                                style: TextStyle(
-                                  fontSize: fontSizeSmall,
-                                  fontWeight: FontWeight.w500,
-                                  color: _signalQuality == 'Dobrá'
-                                      ? Colors.green
-                                      : Colors.red,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: paddingMedium),
-            Container(
-              padding: EdgeInsets.only(top: paddingSmall),
-              width: double.infinity,
-              height: graphHeight,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final chartWidth = constraints.maxWidth;
-                  return RepaintBoundary(
-                    // Added this for performance optimization
-                    child: Stack(
-                      clipBehavior:
-                          Clip.none, // Allow overflow (e.g., beyond left)
-                      children: [
-                        LineChart(
-                          LineChartData(
-                            clipData: const FlClipData(
-                              // Allow beyond left, clip others
-                              left: false,
-                              right: true,
-                              top: true,
-                              bottom: true,
-                            ),
-                            gridData: const FlGridData(
-                              show: false, // Mřížka je vypnutá
-                            ),
-                            titlesData: const FlTitlesData(
-                              show: false, // Skryté pro čistý vzhled
-                            ),
-                            borderData: FlBorderData(
-                              show: true,
-                              border: Border.all(
-                                  color: Colors.grey.withOpacity(0.3)),
-                            ),
-                            minX: minX,
-                            maxX: maxX,
-                            minY: minY,
-                            maxY: maxY,
-                            lineBarsData: [
-                              LineChartBarData(
-                                spots: _smoothedData,
-                                isCurved: false, // Přímá čára pro signál
-                                color: const Color.fromARGB(255, 246, 41, 0),
-                                barWidth: 2.0,
-                                isStrokeCapRound: true,
-                                dotData: const FlDotData(show: false),
-                                belowBarData: BarAreaData(
-                                  show: false,
-                                ),
-                              ),
-                              // Peak markers as a separate series (dots only)
-                              LineChartBarData(
-                                spots: _peakSpots,
-                                isCurved: false,
-                                color: Colors.transparent,
-                                barWidth: 0,
-                                dotData: FlDotData(
-                                  show: true,
-                                  getDotPainter:
-                                      (spot, percent, barData, index) =>
-                                          FlDotCirclePainter(
-                                    radius: 3,
-                                    color: Colors.blue,
-                                    strokeWidth: 0,
-                                  ),
-                                ),
-                                belowBarData: BarAreaData(show: false),
-                              ),
-                            ],
-                          ),
-                          duration: Duration
-                              .zero, // No animation to avoid "sucked" transform
-                          // Removed curve since no duration
-                        ),
-                        // Vertikální čáry pro časové značky
-                        ..._labels.map((label) {
-                          final posX =
-                              ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                  chartWidth;
-                          return Positioned(
-                            left: posX,
-                            top: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 1.0,
-                              color: Colors.grey.withOpacity(0.5),
-                            ),
-                          );
-                        }).toList(),
-                        // Texty pro časové značky (pod čarami)
-                        ..._labels.map((label) {
-                          final posX =
-                              ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                  chartWidth;
-                          return Positioned(
-                            left: posX,
-                            bottom: 0,
-                            child: Container(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(
-                                label.time,
-                                style: const TextStyle(
-                                    fontSize: 10, color: Colors.black),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: paddingMedium, vertical: 0),
-              child: AnimatedBuilder(
-                animation: _progressController,
-                builder: (context, child) {
-                  return LinearProgressIndicator(
-                    value: _progressController.value,
-                    backgroundColor: Colors.grey[300],
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
-                  );
-                },
-              ),
-            ),
-            // Countdown timer display
-            if (_isRecording)
-              Padding(
-                padding: EdgeInsets.only(top: paddingSmall),
-                child: Text(
-                  '$_remainingTime s',
-                  style: TextStyle(
-                    fontSize: fontSizeMedium,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-            SizedBox(height: paddingMedium),
-            // NumberPicker uprostřed a torch na pravo s paddingem
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: iconSizeMedium),
-              child: Row(
-                children: [
-                  // Camera switch button zleva
-                  SizedBox(
-                    width: sideWidth,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          onPressed: _backCameras.length < 2
-                              ? null
-                              : _switchBackCamera,
-                          icon: Icon(
-                            Icons.cameraswitch,
-                            color: Colors.grey,
-                            size: iconSizeMedium,
-                          ),
-                          tooltip: 'Přepnout zadní kameru',
-                        ),
-                        Text(
-                          'Změnit objektiv',
-                          style: TextStyle(
-                            fontSize: fontSizeSmall,
                             color: Colors.grey,
                           ),
                           textAlign: TextAlign.center,
                         ),
+                        Opacity(
+                          opacity: _isRecording ? 0.5 : 1.0,
+                          child: IgnorePointer(
+                            ignoring: _isRecording,
+                            child: NumberPicker(
+                              value: _recordingDuration,
+                              minValue: 10,
+                              maxValue: 300,
+                              step: 10, // Increment by 10 seconds
+                              itemWidth:
+                                  screenWidth * 0.15, // Dynamic item width
+                              onChanged: (value) {
+                                setState(() {
+                                  _recordingDuration = value;
+                                  _remainingTime = value; // Sync remaining time
+                                });
+                              },
+                              textStyle: TextStyle(
+                                fontSize: fontSizeSmall,
+                                color: Colors.grey,
+                              ),
+                              selectedTextStyle: TextStyle(
+                                fontSize: fontSizeMedium,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                              decoration: BoxDecoration(
+                                border:
+                                    Border.all(color: Colors.grey, width: 1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  const Spacer(),
-                  // Time picker vycentrovaný uprostřed
-                  Column(
-                    children: [
-                      Text(
-                        'Doba měření (sekundy)',
-                        style: TextStyle(
-                          fontSize: fontSizeSmall,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      Opacity(
-                        opacity: _isRecording ? 0.5 : 1.0,
-                        child: IgnorePointer(
-                          ignoring: _isRecording,
-                          child: NumberPicker(
-                            value: _recordingDuration,
-                            minValue: 10,
-                            maxValue: 300,
-                            step: 10, // Increment by 10 seconds
-                            itemWidth: screenWidth * 0.15, // Dynamic item width
-                            onChanged: (value) {
-                              setState(() {
-                                _recordingDuration = value;
-                                _remainingTime = value; // Sync remaining time
-                              });
-                            },
-                            textStyle: TextStyle(
-                              fontSize: fontSizeSmall,
-                              color: Colors.grey,
-                            ),
-                            selectedTextStyle: TextStyle(
-                              fontSize: fontSizeMedium,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey, width: 1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                    const Spacer(),
+                    // Torch button napravo
+                    SizedBox(
+                      width: sideWidth,
+                      child: Center(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.3),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  // Torch button napravo
-                  SizedBox(
-                    width: sideWidth,
-                    child: Center(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.3),
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, 2),
+                          child: IconButton(
+                            onPressed: _toggleFlashlight,
+                            icon: Icon(
+                              _isFlashOn
+                                  ? CupertinoIcons.bolt_fill
+                                  : CupertinoIcons.bolt_slash_fill,
+                              color: _isFlashOn
+                                  ? const Color.fromARGB(255, 0, 0, 0)
+                                  : Colors.grey,
+                              size: iconSizeMedium,
                             ),
-                          ],
-                        ),
-                        child: IconButton(
-                          onPressed: _toggleFlashlight,
-                          icon: Icon(
-                            _isFlashOn
-                                ? CupertinoIcons.bolt_fill
-                                : CupertinoIcons.bolt_slash_fill,
-                            color: _isFlashOn
-                                ? const Color.fromARGB(255, 0, 0, 0)
-                                : Colors.grey,
-                            size: iconSizeMedium,
+                            tooltip:
+                                _isFlashOn ? 'Vypnout blesk' : 'Zapnout blesk',
                           ),
-                          tooltip:
-                              _isFlashOn ? 'Vypnout blesk' : 'Zapnout blesk',
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: paddingMedium),
-            ElevatedButton(
-              onPressed: _isCountdownRunning
-                  ? null
-                  : (_isRecording ? _stopRecording : _startCountdown),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.05, vertical: paddingSmall),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 2,
-              ),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 500),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return ScaleTransition(scale: animation, child: child);
-                },
-                child: Text(
-                  _buttonLabel,
-                  key: ValueKey<String>(_buttonLabel),
-                  style: TextStyle(
-                    fontSize: fontSizeSmall,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  ],
                 ),
               ),
+              SizedBox(height: paddingMedium),
+              ElevatedButton(
+                onPressed: _isCountdownRunning
+                    ? null
+                    : (_isRecording ? _stopRecording : _startCountdown),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.05, vertical: paddingSmall),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 2,
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                    return ScaleTransition(scale: animation, child: child);
+                  },
+                  child: Text(
+                    _buttonLabel,
+                    key: ValueKey<String>(_buttonLabel),
+                    style: TextStyle(
+                      fontSize: fontSizeSmall,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: paddingMedium), // Extra padding
+            ],
+          ),
+        ),
+        bottomNavigationBar: GNav(
+          tabMargin: EdgeInsets.symmetric(horizontal: paddingSmall),
+          gap: 0,
+          activeColor: Colors.black,
+          iconSize: iconSizeMedium * 0.8,
+          backgroundColor: Colors.white,
+          color: Colors.grey,
+          selectedIndex: _selectedIndex,
+          onTabChange: _onItemTapped,
+          tabs: const [
+            GButton(
+              icon: Symbols.family_home,
+              text: 'MENU',
             ),
-            SizedBox(height: paddingMedium), // Extra padding
+            GButton(
+              icon: Symbols.ecg_heart,
+              text: 'MĚŘENÍ',
+            ),
+            GButton(
+              icon: Symbols.help,
+              text: 'INFO',
+            ),
           ],
         ),
-      ),
-      bottomNavigationBar: GNav(
-        tabMargin: EdgeInsets.symmetric(horizontal: paddingSmall),
-        gap: 0,
-        activeColor: Colors.black,
-        iconSize: iconSizeMedium * 0.8,
-        backgroundColor: Colors.white,
-        color: Colors.grey,
-        selectedIndex: _selectedIndex,
-        onTabChange: _onItemTapped,
-        tabs: const [
-          GButton(
-            icon: Symbols.family_home,
-            text: 'MENU',
-          ),
-          GButton(
-            icon: Symbols.ecg_heart,
-            text: 'MĚŘENÍ',
-          ),
-          GButton(
-            icon: Symbols.help,
-            text: 'INFO',
-          ),
-        ],
       ),
     );
   }
