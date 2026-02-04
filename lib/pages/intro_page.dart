@@ -69,7 +69,7 @@ class _IntroPageState extends State<IntroPage> {
     final double iconSize = screenWidth * 0.06;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         centerTitle: true,

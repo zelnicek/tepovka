@@ -5,11 +5,11 @@ class AppTheme {
     colorScheme: const ColorScheme.light(
       primary: Color(0xFF006C4F),
       secondary: Color(0xFF1E88E5),
-      surface: Color(0xFFF2F2F2),
+      surface: Colors.white,
       background: Colors.white,
       error: Color(0xFFB00020),
     ),
-    scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+    scaffoldBackgroundColor: Colors.white,
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.white,
       foregroundColor: Colors.black,

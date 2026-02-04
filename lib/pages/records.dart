@@ -113,6 +113,17 @@ class _RecordsPageState extends State<RecordsPage> {
   List<Record> _records = [];
   int _selectedIndex = -1;
   final StorageService _storage = StorageService();
+  // UX filters state
+  List<Record> _visible = [];
+  String _searchQuery = '';
+  int _minBpm = 40;
+  int _maxBpm = 200;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String _qualityFilter = 'all'; // all|good|medium|poor
+  String _sortMode = 'date_desc'; // date_desc|date_asc|bpm_desc|bpm_asc
+  bool _selectionMode = false;
+  final Set<String> _selectedKeys = <String>{}; // key: "date_time"
 
   @override
   void initState() {
@@ -151,6 +162,7 @@ class _RecordsPageState extends State<RecordsPage> {
         setState(() {
           _records = updatedRecords;
         });
+        _applyFilters();
 
         // Save updated records
         await _saveRecords();
@@ -160,6 +172,118 @@ class _RecordsPageState extends State<RecordsPage> {
     } catch (e) {
       print('Chyba při načítání záznamů: $e');
     }
+  }
+
+  DateTime _parseRecordDateTime(Record r) {
+    try {
+      final partsDate = r.date.split('-');
+      final partsTime = r.time.split(':');
+      return DateTime(
+        int.parse(partsDate[0]),
+        int.parse(partsDate[1]),
+        int.parse(partsDate[2]),
+        int.parse(partsTime[0]),
+        int.parse(partsTime[1]),
+        int.parse(partsTime[2]),
+      );
+    } catch (_) {
+      return DateTime(1970);
+    }
+  }
+
+  String _qualityFor(Record r) {
+    final sdnn = (r.hrv['sdnn'] ?? 0.0).toDouble();
+    final rmssd = (r.hrv['rmssd'] ?? 0.0).toDouble();
+    final stress = (r.hrv['stressIndex'] ?? 999.0).toDouble();
+    final frameAvg = r.frames.isNotEmpty ? r.frames.last : 0.0;
+    int score = 0;
+    if (sdnn >= 40) score++;
+    if (rmssd >= 25) score++;
+    if (stress <= 100) score++;
+    if (frameAvg >= 25) score++;
+    if (r.duration >= 25) score++;
+    if (score >= 4) return 'good';
+    if (score >= 2) return 'medium';
+    return 'poor';
+  }
+
+  void _applyFilters() {
+    List<Record> out = List<Record>.from(_records);
+    // Search
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      out = out.where((r) {
+        return r.notesContent.toLowerCase().contains(q) ||
+            r.date.contains(q) ||
+            r.time.contains(q) ||
+            r.averageBPM.toString().contains(q);
+      }).toList();
+    }
+    // BPM range
+    out = out
+        .where((r) => r.averageBPM >= _minBpm && r.averageBPM <= _maxBpm)
+        .toList();
+    // Date range
+    if (_startDate != null || _endDate != null) {
+      out = out.where((r) {
+        final dt = _parseRecordDateTime(r);
+        final after = _startDate == null || !dt.isBefore(_startDate!);
+        final before = _endDate == null || !dt.isAfter(_endDate!);
+        return after && before;
+      }).toList();
+    }
+    // Quality
+    if (_qualityFilter != 'all') {
+      out = out.where((r) => _qualityFor(r) == _qualityFilter).toList();
+    }
+    // Sort
+    out.sort((a, b) {
+      switch (_sortMode) {
+        case 'date_asc':
+          return _parseRecordDateTime(a).compareTo(_parseRecordDateTime(b));
+        case 'bpm_desc':
+          return b.averageBPM.compareTo(a.averageBPM);
+        case 'bpm_asc':
+          return a.averageBPM.compareTo(b.averageBPM);
+        case 'date_desc':
+        default:
+          return _parseRecordDateTime(b).compareTo(_parseRecordDateTime(a));
+      }
+    });
+    setState(() {
+      _visible = out;
+    });
+  }
+
+  void _toggleSelection(String key) {
+    setState(() {
+      if (_selectedKeys.contains(key)) {
+        _selectedKeys.remove(key);
+      } else {
+        _selectedKeys.add(key);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final toDelete = _records
+        .where((r) => _selectedKeys.contains('${r.date}_${r.time}'))
+        .toList();
+    setState(() {
+      _records
+          .removeWhere((r) => _selectedKeys.contains('${r.date}_${r.time}'));
+      _selectedKeys.clear();
+      _selectionMode = false;
+    });
+    await _saveRecords();
+    _applyFilters();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 1),
+        content: Text('Smazáno ${toDelete.length} záznamů'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _saveRecords() async {
@@ -232,13 +356,13 @@ class _RecordsPageState extends State<RecordsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: const Text('Potvrdit smazání'),
           content: const Text('Opravdu chcete tento záznam smazat?'),
           actions: <Widget>[
             TextButton(
               style: TextButton.styleFrom(
-                foregroundColor: const Color.fromARGB(255, 255, 5, 5),
+                foregroundColor: Theme.of(context).colorScheme.error,
               ),
               onPressed: () {
                 Navigator.of(context).pop(); // Zavře dialog
@@ -248,7 +372,7 @@ class _RecordsPageState extends State<RecordsPage> {
             ),
             TextButton(
               style: TextButton.styleFrom(
-                foregroundColor: const Color.fromARGB(255, 0, 0, 0),
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
               ),
               onPressed: () {
                 Navigator.of(context).pop();
@@ -259,6 +383,152 @@ class _RecordsPageState extends State<RecordsPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildFilterBar(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search
+        TextField(
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Hledat poznámku, datum, čas, BPM',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (v) {
+            _searchQuery = v.trim();
+            _applyFilters();
+          },
+        ),
+        const SizedBox(height: 8),
+        // Quality chips
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            ChoiceChip(
+              label: const Text('Vše'),
+              selected: _qualityFilter == 'all',
+              onSelected: (_) {
+                setState(() => _qualityFilter = 'all');
+                _applyFilters();
+              },
+            ),
+            ChoiceChip(
+              label: const Text('Dobrá'),
+              selected: _qualityFilter == 'good',
+              onSelected: (_) {
+                setState(() => _qualityFilter = 'good');
+                _applyFilters();
+              },
+            ),
+            ChoiceChip(
+              label: const Text('Střední'),
+              selected: _qualityFilter == 'medium',
+              onSelected: (_) {
+                setState(() => _qualityFilter = 'medium');
+                _applyFilters();
+              },
+            ),
+            ChoiceChip(
+              label: const Text('Špatná'),
+              selected: _qualityFilter == 'poor',
+              onSelected: (_) {
+                setState(() => _qualityFilter = 'poor');
+                _applyFilters();
+              },
+            ),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.lightBlue,
+                side: const BorderSide(color: Colors.lightBlue),
+              ),
+              icon: const Icon(Icons.date_range),
+              label: Text(_startDate == null && _endDate == null
+                  ? 'Datum'
+                  : '${_startDate?.toIso8601String().substring(0, 10) ?? '...'} — ${_endDate?.toIso8601String().substring(0, 10) ?? '...'}'),
+              onPressed: () async {
+                final picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2024),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _startDate = picked.start;
+                    _endDate = picked.end;
+                  });
+                  _applyFilters();
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // BPM range
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Rozsah BPM: $_minBpm–$_maxBpm'),
+            SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: Colors.lightBlue,
+                inactiveTrackColor: Colors.lightBlue.withOpacity(0.25),
+                thumbColor: Colors.lightBlue,
+                overlayColor: Colors.lightBlue.withOpacity(0.12),
+              ),
+              child: RangeSlider(
+                values: RangeValues(_minBpm.toDouble(), _maxBpm.toDouble()),
+                min: 30,
+                max: 220,
+                divisions: 190,
+                labels: RangeLabels('$_minBpm', '$_maxBpm'),
+                onChanged: (v) {
+                  setState(() {
+                    _minBpm = v.start.round();
+                    _maxBpm = v.end.round();
+                  });
+                  _applyFilters();
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQualityChip(Record record) {
+    final q = _qualityFor(record);
+    Color color;
+    String label;
+    switch (q) {
+      case 'good':
+        color = Colors.green;
+        label = 'dobrá';
+        break;
+      case 'medium':
+        color = Colors.orange;
+        label = 'střední';
+        break;
+      default:
+        color = Colors.red;
+        label = 'špatná';
+    }
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.6)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+      ),
     );
   }
 
@@ -1515,7 +1785,7 @@ class _RecordsPageState extends State<RecordsPage> {
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+        backgroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
         title: const Column(
@@ -1530,6 +1800,37 @@ class _RecordsPageState extends State<RecordsPage> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Výběr více záznamů',
+            icon: Icon(_selectionMode
+                ? Icons.check_box
+                : Icons.check_box_outline_blank),
+            onPressed: () {
+              setState(() {
+                _selectionMode = !_selectionMode;
+                _selectedKeys.clear();
+              });
+            },
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Třídit',
+            onSelected: (value) {
+              setState(() {
+                _sortMode = value;
+              });
+              _applyFilters();
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                  value: 'date_desc', child: Text('Datum: nejnovější')),
+              PopupMenuItem(value: 'date_asc', child: Text('Datum: nejstarší')),
+              PopupMenuItem(value: 'bpm_desc', child: Text('Tep: nejvyšší')),
+              PopupMenuItem(value: 'bpm_asc', child: Text('Tep: nejnižší')),
+            ],
+            icon: const Icon(Icons.sort),
+          ),
+        ],
       ),
       body: RefreshIndicator.adaptive(
           onRefresh: () async {
@@ -1543,98 +1844,121 @@ class _RecordsPageState extends State<RecordsPage> {
           strokeWidth: 3.0, // Tloušťka indikátoru
           child: _records.isEmpty
               ? const Center(child: Text('Nebyly nalezeny žádné záznamy.'))
-              : ListView.builder(
+              : ListView(
                   padding: const EdgeInsets.all(10),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: _records.length,
-                  itemBuilder: (context, index) {
-                    int actualIndex = _records.length -
-                        1 -
-                        index; // reverse order without header
-                    var record = _records[actualIndex];
-                    return Column(
-                      children: [
-                        Dismissible(
-                          key: ValueKey('${record.date}_${record.time}'),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            color: Colors.red.withOpacity(0.7),
-                            padding: const EdgeInsets.only(right: 20),
-                            child: const Align(
-                              alignment: Alignment.centerRight,
-                              child: Icon(
-                                Icons.delete,
-                                color: Colors.white,
+                  children: [
+                    _buildFilterBar(context),
+                    const SizedBox(height: 8),
+                    ...List.generate(_visible.length, (index) {
+                      final record = _visible[index];
+                      final recordKey = '${record.date}_${record.time}';
+                      final selected = _selectedKeys.contains(recordKey);
+                      return Column(
+                        children: [
+                          Dismissible(
+                            key: ValueKey(recordKey),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              color: Colors.red.withOpacity(0.7),
+                              padding: const EdgeInsets.only(right: 20),
+                              child: const Align(
+                                alignment: Alignment.centerRight,
+                                child: Icon(
+                                  Icons.delete,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                          onDismissed: (direction) {
-                            _showDeleteConfirmation(actualIndex);
-                          },
-                          child: GestureDetector(
-                            onTap: () => _showRecordDetail(record),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(15),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 5,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.history,
-                                    color: Colors.black.withOpacity(0.7),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      '${record.date} ve ${record.time}',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
+                            onDismissed: (direction) {
+                              final idx = _records.indexOf(record);
+                              _showDeleteConfirmation(idx);
+                            },
+                            child: GestureDetector(
+                              onTap: () => _showRecordDetail(record),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(15),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 5,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (_selectionMode)
+                                      Checkbox(
+                                        value: selected,
+                                        onChanged: (_) =>
+                                            _toggleSelection(recordKey),
+                                      ),
+                                    Icon(
+                                      Icons.history,
+                                      color: Colors.black.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        '${record.date} ve ${record.time}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  SizedBox(
-                                    width: 65,
-                                    child: Text(
-                                      'tep:${record.averageBPM}',
-                                      textAlign: TextAlign.left,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                    const SizedBox(width: 10),
+                                    SizedBox(
+                                      width: 65,
+                                      child: Text(
+                                        'tep:${record.averageBPM}',
+                                        textAlign: TextAlign.left,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                    ),
+                                    _buildQualityChip(record),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.arrow_forward_ios,
                                         color: Colors.black,
+                                        size: 20,
                                       ),
+                                      onPressed: () {
+                                        _showRecordDetail(record);
+                                      },
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: Colors.black,
-                                      size: 20,
-                                    ),
-                                    onPressed: () {
-                                      _showRecordDetail(record);
-                                    },
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
+                          const Divider(),
+                        ],
+                      );
+                    }),
+                    if (_selectionMode && _selectedKeys.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _deleteSelected,
+                              icon: const Icon(Icons.delete_forever),
+                              label: Text(
+                                  'Smazat vybrané (${_selectedKeys.length})'),
+                            ),
+                          ],
                         ),
-                        const Divider(),
-                      ],
-                    );
-                  },
+                      ),
+                  ],
                 )),
       bottomNavigationBar: GNav(
         tabMargin: const EdgeInsets.symmetric(horizontal: 10),
