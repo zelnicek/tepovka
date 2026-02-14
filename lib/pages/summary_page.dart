@@ -10,6 +10,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:health/health.dart';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
+import 'package:tepovka/services/app_settings.dart';
+
+enum PatientStatus { normal, rest }
 
 class TimeLabel {
   double x;
@@ -731,6 +734,7 @@ class _SummmaryState extends State<Summmary> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = AppSettings.value;
     double totalTime = _smoothedData.length / sampleRate;
     double chartWidth = totalTime * pixelsPerSecond;
     final minY = _getDynamicMinY();
@@ -762,271 +766,106 @@ class _SummmaryState extends State<Summmary> {
             ],
           ),
         ),
-        body: SingleChildScrollView(
-            child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 20),
-              child: Column(
+        body: settings.userMode == UserMode.patient
+            ? _buildPatientBody(context)
+            : SingleChildScrollView(
+                child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Průměrná tepová frekvence:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 20,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '${_calculatedAverageBPM.toInt()} bpm',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 40,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-              child: Container(
-                height: 40,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.red.withOpacity(1),
-                              Colors.orange.withOpacity(1),
-                              Colors.green.withOpacity(1),
-                              Colors.orange.withOpacity(1),
-                              Colors.red.withOpacity(1),
-                            ],
-                            stops: const [
-                              0.0,
-                              0.11,
-                              0.20,
-                              0.55,
-                              0.75,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
+                  Container(
+                    margin: const EdgeInsets.only(top: 20),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Průměrná tepová frekvence:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 20,
                           ),
-                          borderRadius: BorderRadius.circular(10),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      left: ((_calculatedAverageBPM.clamp(30, 220) - 30) /
-                              (220 - 30)) *
-                          (MediaQuery.of(context).size.width - 40),
-                      child: Container(
-                        width: 10,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
+                        const SizedBox(height: 10),
+                        Text(
+                          '${_calculatedAverageBPM.toInt()} bpm',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 40,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    ),
-                    Center(
-                      child: Text(
-                        '${_calculatedAverageBPM.toInt()} bpm',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const Positioned(
-                      left: 10,
-                      top: 10,
-                      child: Text(
-                        '30',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Text(
-                        '220',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: TextField(
-                controller: _notesController,
-                style: const TextStyle(
-                  color: Colors.black,
-                ),
-                cursorColor: Colors.grey,
-                decoration: InputDecoration(
-                  labelText: 'Poznámka',
-                  labelStyle: const TextStyle(
-                    color: Color.fromARGB(255, 110, 109, 109),
-                  ),
-                  hintText: 'Zadejte své poznámky k měření...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: const BorderSide(
-                      color: Colors.grey,
+                      ],
                     ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: const BorderSide(
-                      color: Colors.grey,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 20, horizontal: 20),
+                    child: _buildBpmGradientBar(context),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextField(
+                      controller: _notesController,
+                      style: const TextStyle(
+                        color: Colors.black,
+                      ),
+                      cursorColor: Colors.grey,
+                      decoration: InputDecoration(
+                        labelText: 'Poznámka',
+                        labelStyle: const TextStyle(
+                          color: Color.fromARGB(255, 110, 109, 109),
+                        ),
+                        hintText: 'Zadejte své poznámky k měření...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                          borderSide: const BorderSide(
+                            color: Colors.grey,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                          borderSide: const BorderSide(
+                            color: Colors.grey,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                          borderSide: const BorderSide(
+                            color: Color.fromARGB(255, 110, 109, 109),
+                            width: 1.5,
+                          ),
+                        ),
+                        fillColor: Colors.white,
+                      ),
+                      maxLines: null,
                     ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: const BorderSide(
-                      color: Color.fromARGB(255, 110, 109, 109),
-                      width: 1.5,
+                  const SizedBox(height: 12),
+                  // Section toggle buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        _buildSectionChip('Signál', 0),
+                        const SizedBox(width: 8),
+                        _buildSectionChip('HRV', 1),
+                        const SizedBox(width: 8),
+                        _buildSectionChip('Zotavení', 2),
+                      ],
                     ),
                   ),
-                  fillColor: Colors.white,
-                ),
-                maxLines: null,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Section toggle buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  _buildSectionChip('Signál', 0),
-                  const SizedBox(width: 8),
-                  _buildSectionChip('HRV', 1),
-                  const SizedBox(width: 8),
-                  _buildSectionChip('Zotavení', 2),
+                  const SizedBox(height: 8),
+                  // Conditional sections
+                  if (_summarySectionIndex == 0)
+                    _buildSignalSection(chartWidth, minX, maxX, minY, maxY)
+                  else if (_summarySectionIndex == 1)
+                    _buildHrvSection()
+                  else
+                    _buildHrrSection(),
+                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+                  _buildSaveCancelRow(context),
                 ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Conditional sections
-            if (_summarySectionIndex == 0)
-              _buildSignalSection(chartWidth, minX, maxX, minY, maxY)
-            else if (_summarySectionIndex == 1)
-              _buildHrvSection()
-            else
-              _buildHrrSection(),
-            const SizedBox(height: 16),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Symbols.heart_broken,
-                    size: 30,
-                  ),
-                  color: const Color.fromARGB(255, 222, 16, 1),
-                  onPressed: () async {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const IntroPage()),
-                    );
-                  },
-                ),
-                InkWell(
-                  onTap: () async {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const IntroPage()),
-                    );
-                  },
-                  child: AnimatedScale(
-                    duration: const Duration(milliseconds: 100),
-                    scale: _isSaving ? 1.0 : 1.1,
-                    child: const Text(
-                      'Zrušit',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: const Color.fromARGB(255, 222, 16, 1),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 50,
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Symbols.heart_plus,
-                    size: 45,
-                  ),
-                  color: Colors.blue,
-                  onPressed: _isSaving
-                      ? null
-                      : () async {
-                          await _saveMeasurement();
-                          await _saveToAppleHealth(widget.averageBPM);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const IntroPage()),
-                          );
-                        },
-                ),
-                InkWell(
-                  onTap: _isSaving
-                      ? null
-                      : () async {
-                          await _saveMeasurement();
-                          await _saveToAppleHealth(widget.averageBPM);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const IntroPage()),
-                          );
-                        },
-                  child: AnimatedScale(
-                    duration: const Duration(milliseconds: 100),
-                    scale: _isSaving ? 1.0 : 1.1,
-                    child: const Text(
-                      'Uložit',
-                      style: TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          ],
-        )),
+              )),
         bottomNavigationBar: GNav(
           tabMargin: const EdgeInsets.symmetric(horizontal: 10),
           gap: 0,
@@ -1053,6 +892,276 @@ class _SummmaryState extends State<Summmary> {
         ),
       ),
     );
+  }
+
+  Widget _buildBpmGradientBar(BuildContext context) {
+    return Container(
+      height: 40,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.red.withOpacity(1),
+                    Colors.orange.withOpacity(1),
+                    Colors.green.withOpacity(1),
+                    Colors.orange.withOpacity(1),
+                    Colors.red.withOpacity(1),
+                  ],
+                  stops: const [
+                    0.0,
+                    0.11,
+                    0.20,
+                    0.55,
+                    0.75,
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          Positioned(
+            left: ((_calculatedAverageBPM.clamp(30, 220) - 30) / (220 - 30)) *
+                (MediaQuery.of(context).size.width - 40),
+            child: Container(
+              width: 10,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          Center(
+            child: Text(
+              '${_calculatedAverageBPM.toInt()} bpm',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 10,
+            top: 10,
+            child: Text(
+              '30',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const Positioned(
+            right: 10,
+            top: 10,
+            child: Text(
+              '220',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveCancelRow(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(
+            Symbols.heart_broken,
+            size: 30,
+          ),
+          color: const Color.fromARGB(255, 222, 16, 1),
+          onPressed: () async {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const IntroPage()),
+            );
+          },
+        ),
+        InkWell(
+          onTap: () async {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const IntroPage()),
+            );
+          },
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 100),
+            scale: _isSaving ? 1.0 : 1.1,
+            child: const Text(
+              'Zrušit',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Color.fromARGB(255, 222, 16, 1),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 50),
+        IconButton(
+          icon: const Icon(
+            Symbols.heart_plus,
+            size: 45,
+          ),
+          color: Colors.blue,
+          onPressed: _isSaving
+              ? null
+              : () async {
+                  await _saveMeasurement();
+                  await _saveToAppleHealth(widget.averageBPM);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const IntroPage()),
+                  );
+                },
+        ),
+        InkWell(
+          onTap: _isSaving
+              ? null
+              : () async {
+                  await _saveMeasurement();
+                  await _saveToAppleHealth(widget.averageBPM);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const IntroPage()),
+                  );
+                },
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 100),
+            scale: _isSaving ? 1.0 : 1.1,
+            child: const Text(
+              'Uložit',
+              style: TextStyle(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPatientBody(BuildContext context) {
+    final status = _patientStatus();
+    final Color bg = status == PatientStatus.normal
+        ? const Color(0xFF2ECC71)
+        : const Color(0xFFF39C12);
+    final String title =
+        status == PatientStatus.normal ? 'Jste v normě' : 'Odpočívejte';
+    final String subtitle = status == PatientStatus.normal
+        ? 'Pokračujte v běžné aktivitě'
+        : 'Doporučujeme krátký odpočinek';
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 24),
+            child: Column(
+              children: [
+                const Text(
+                  'Průměrná tepová frekvence:',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${_calculatedAverageBPM.toInt()} bpm',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 42,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+            child: _buildBpmGradientBar(context),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Card(
+              color: bg,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          status == PatientStatus.normal
+                              ? Icons.check_circle
+                              : Icons.pause_circle_filled,
+                          color: Colors.white,
+                          size: 36,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildSaveCancelRow(context),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  PatientStatus _patientStatus() {
+    final bpm = _calculatedAverageBPM;
+    final rr = _respiratoryRate;
+    // Jednoduché pravidlo: klidová zona
+    final isBpmOk = bpm >= 55 && bpm <= 95;
+    final isRrOk = rr == 0.0 || (rr >= 8 && rr <= 20);
+    return (isBpmOk && isRrOk) ? PatientStatus.normal : PatientStatus.rest;
   }
 
   // Section toggle state

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
+import 'package:tepovka/services/app_settings.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,6 +13,20 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _haptics = true;
   bool _saveRecords = true;
   bool _flashDuringMeasurement = true;
+  late bool _seniorMode;
+  late bool _highContrast;
+  late double _textScale;
+  late UserMode _userMode;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = AppSettings.value;
+    _seniorMode = s.seniorMode;
+    _highContrast = s.highContrast;
+    _textScale = s.textScale;
+    _userMode = s.userMode;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +46,87 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: ListView(
         children: [
+          const ListTile(
+            title: Text(
+              'Dostupnost a čitelnost',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const ListTile(
+            title: Text('Režim zobrazení'),
+            subtitle:
+                Text('Zvolte: Pacient (zjednodušené) nebo Lékař (detailní)'),
+          ),
+          RadioListTile<UserMode>(
+            value: UserMode.patient,
+            groupValue: _userMode,
+            title: const Text('Režim pacienta'),
+            subtitle: const Text('Jednoduché zobrazení – semafor'),
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() => _userMode = v);
+              AppSettings.setUserMode(v);
+            },
+          ),
+          RadioListTile<UserMode>(
+            value: UserMode.doctor,
+            groupValue: _userMode,
+            title: const Text('Režim lékaře'),
+            subtitle: const Text('Detailní metriky HRV, zotavení'),
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() => _userMode = v);
+              AppSettings.setUserMode(v);
+            },
+          ),
+          const Divider(height: 24),
+          SwitchListTile(
+            secondary: const Icon(Symbols.settings_accessibility),
+            title: const Text('Senior mód'),
+            subtitle: const Text('Větší prvky a lepší čitelnost'),
+            value: _seniorMode,
+            onChanged: (v) {
+              setState(() => _seniorMode = v);
+              AppSettings.setSeniorMode(v);
+            },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Symbols.contrast),
+            title: const Text('Vysoký kontrast'),
+            subtitle: const Text('Černý text na bílém pozadí'),
+            value: _highContrast,
+            onChanged: (v) {
+              setState(() => _highContrast = v);
+              AppSettings.setHighContrast(v);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Symbols.format_size),
+            title: const Text('Velikost textu'),
+            subtitle: Text('${(_textScale * 100).round()}%'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Slider(
+              min: 1.0,
+              max: 1.4,
+              divisions: 4,
+              label: '${(_textScale * 100).round()}%',
+              value: _textScale,
+              onChanged: (v) {
+                setState(() => _textScale = v);
+                AppSettings.setTextScale(v);
+              },
+            ),
+          ),
+          const Divider(height: 24),
+          const ListTile(
+            title: Text(
+              'Obecné',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
           SwitchListTile(
             secondary: const Icon(Symbols.vibration),
             title: const Text('Haptická odezva'),

@@ -48,4 +48,30 @@ class AppTheme {
     ),
     useMaterial3: true,
   );
+
+  static ThemeData highContrastLight = ThemeData(
+    colorScheme: ColorScheme.light(
+      primary: Colors.black,
+      secondary: const Color(0xFF005BBB),
+      surface: Colors.white,
+      background: Colors.white,
+      error: Colors.red.shade700,
+    ),
+    scaffoldBackgroundColor: Colors.white,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
+      elevation: 0,
+      centerTitle: true,
+    ),
+    textTheme: const TextTheme(
+      titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+      titleMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      bodyLarge: TextStyle(fontSize: 16),
+      bodyMedium: TextStyle(fontSize: 14),
+    ),
+    useMaterial3: true,
+    // Ensure larger touch targets by default when combined with senior mode
+    materialTapTargetSize: MaterialTapTargetSize.padded,
+  );
 }
