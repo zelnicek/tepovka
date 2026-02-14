@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/services/app_settings.dart';
+import 'package:tepovka/pages/login_page.dart';
+import 'package:tepovka/pages/qr_code_page.dart';
+import 'package:tepovka/services/local_profile_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -133,6 +136,52 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: const Text('Vibrace při akcích v aplikaci'),
             value: _haptics,
             onChanged: (v) => setState(() => _haptics = v),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Symbols.login),
+            title: const Text('Přihlášení'),
+            subtitle: Text(
+              !LocalProfileService.isLoggedIn
+                  ? 'Nepřihlášen'
+                  : 'Profil: ${LocalProfileService.displayName ?? 'Uživatel'} (${(LocalProfileService.userId ?? '').substring(0, 6)}…) ',
+            ),
+            trailing: const Icon(Symbols.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+              );
+            },
+          ),
+          if (LocalProfileService.isLoggedIn)
+            ListTile(
+              leading: const Icon(Symbols.logout),
+              title: const Text('Odhlásit se'),
+              subtitle:
+                  const Text('Odstraní aktivní přihlášení na tomto zařízení'),
+              onTap: () async {
+                await LocalProfileService.signOutLocal();
+                if (!mounted) return;
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Odhlášeno'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Symbols.qr_code),
+            title: const Text('Můj QR kód pro lékaře'),
+            subtitle: const Text('Umožní rychlé vyhledání záznamů'),
+            trailing: const Icon(Symbols.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const QrCodePage()),
+              );
+            },
           ),
           const Divider(height: 1),
           SwitchListTile(

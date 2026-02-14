@@ -3,10 +3,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:tepovka/theme.dart';
 import 'package:tepovka/services/app_settings.dart';
+import 'package:tepovka/services/local_profile_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppSettings.init();
+  await LocalProfileService.init();
   runApp(const MyApp());
 }
 

@@ -11,6 +11,7 @@ import 'package:health/health.dart';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
 import 'package:tepovka/services/app_settings.dart';
+// Cloud sync disabled for local-only mode
 
 enum PatientStatus { normal, rest }
 
@@ -663,6 +664,7 @@ class _SummmaryState extends State<Summmary> {
         },
       };
       await storage.appendRecord(record);
+      // Cloud sync disabled in local-only mode.
       print('Ukládání úspěšně dokončeno');
     } catch (e) {
       print('Chyba při ukládání: $e');

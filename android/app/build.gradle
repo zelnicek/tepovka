@@ -42,3 +42,5 @@ android {
 flutter {
     source = "../.."
 }
+
+// Offline-only: no Google Services plugin applied
