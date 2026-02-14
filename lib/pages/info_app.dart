@@ -5,6 +5,7 @@ import 'package:tepovka/home.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:tepovka/pages/settings.dart';
 
 class InfoApp extends StatefulWidget {
   const InfoApp({super.key});
@@ -63,6 +64,17 @@ class _InfoAppState extends State<InfoApp> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Symbols.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
