@@ -4,6 +4,7 @@ import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/pages/login_page.dart';
 import 'package:tepovka/pages/qr_code_page.dart';
 import 'package:tepovka/services/local_profile_service.dart';
+import 'package:tepovka/services/tts_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -129,6 +130,17 @@ class _SettingsPageState extends State<SettingsPage> {
               'Obecné',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.volume_up),
+            title: const Text('Otestovat hlas (TTS)'),
+            subtitle: const Text('Přehraje krátkou hlášku pro ověření'),
+            onTap: () async {
+              await TtsService.instance.testSpeak();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Přehrávám testovací hlášku...')),
+              );
+            },
           ),
           SwitchListTile(
             secondary: const Icon(Symbols.vibration),

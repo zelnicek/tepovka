@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
 import 'package:flutter/cupertino.dart';
+import 'package:tepovka/services/tts_service.dart';
 
 class TimeLabel {
   double x;
@@ -226,6 +227,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     final rgbMeans = _ppgAlgorithm?.getLastRgbMeans();
     _signalQuality =
         _signalQualityChecker.calculateQuality(_data, rgbMeans: rgbMeans);
+    // Announce quality changes in senior mode (Czech TTS)
+    TtsService.instance.announceQuality(_signalQuality);
     // Aktualizuj kumulativní čas
     _currentTime += 1.0 / _sampleRate;
     if (_data.length >= 500 && !_isPlottingStarted) {
@@ -451,6 +454,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       appbar_text = 'PŘIPRAVTE SE...';
       _buttonLabel = '3';
     });
+    // Voice announcement for seniors
+    TtsService.instance.announceCountdown();
     int count = 3;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       count--;
@@ -515,6 +520,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     });
     // Haptics for UX: signal completion
     HapticFeedback.lightImpact();
+    // Voice announcement for seniors (do not block navigation)
+    // Fire-and-forget to avoid getting stuck on awaitSpeakCompletion
+    // ignore: unawaited_futures
+    TtsService.instance.announceMeasurementEnd();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
