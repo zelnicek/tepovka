@@ -674,9 +674,21 @@ class _SummmaryState extends State<Summmary> {
   }
 
   Future<void> _saveToAppleHealth(double bpm) async {
+    // Guard against invalid BPM values (Health Connect requires >= 1)
+    if (bpm.isNaN || !bpm.isFinite || bpm <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Neplatná tepová frekvence (≤ 0). Záznam nebyl uložen.'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     final now = DateTime.now();
     final start = now.subtract(Duration(seconds: widget.recordingDuration));
-    final bpmValue = bpm.toInt();
+    final bpmValue = bpm.round().clamp(1, 300); // clamp to a sensible range
     bool success = await _health.writeHealthData(
       value: bpmValue.toDouble(),
       type: HealthDataType.HEART_RATE,
