@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zásady ochrany osobních údajů - Tepovka</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #0066cc;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #0066cc;
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table th,
+        table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .last-updated {
+            background: #f0f8ff;
+            padding: 15px;
+            border-left: 4px solid #0066cc;
+            margin: 20px 0;
+        }
+
+        .warning {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            padding: 15px;
+            border-left: 4px solid #28a745;
+            margin: 20px 0;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .contact-box {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>💓 Zásady ochrany osobních údajů – Tepovka</h1>
+
+        <div class="last-updated">
+            <strong>Verze:</strong> 1.0<br>
+            <strong>Aktualizace:</strong> Březen 2026<br>
+            <strong>Poskytovatel:</strong> VUT Brno<br>
+            <strong>Webové stránky:</strong> <a href="https://mojetepovka.cz">https://mojetepovka.cz</a>
+        </div>
+
+        <h2>1. Úvod</h2>
+        <p>Aplikace <strong>Tepovka</strong> je wellness aplikace určena ke <strong>měření a sledování srdeční frekvence
+                a variability srdeční frekvence (HRV)</strong> pomocí fotografického snímače telefonu.</p>
+        <p>Vaše zdraví a soukromí jsou pro nás prioritou. Tato zásada vysvětluje, jaké údaje sbíráme, jak je používáme a
+            jaká práva máte.</p>
+
+        <h2>2. Jaké údaje sbíráme?</h2>
+
+        <h3>2.1 Zdravotní Data</h3>
+        <ul>
+            <li><strong>Srdeční frekvence (BPM)</strong> - měření v reálném čase</li>
+            <li><strong>Variabilita srdeční frekvence (HRV)</strong> - SDNN, RMSSD, pNN50, SD1, SD2</li>
+            <li><strong>Dechová frekvence (RR)</strong> - počet dechu za minutu</li>
+            <li><strong>Doba měření</strong> - délka jednotlivého měření</li>
+            <li><strong>Historie měření</strong> - časové razítko a údaje časových řad</li>
+        </ul>
+
+        <h3>2.2 Technická Data</h3>
+        <ul>
+            <li><strong>Údaje z fotoaparátu</strong> - pouze záznamy intenzity signálu (zpracovány lokálně, nejsou
+                uloženy)</li>
+            <li><strong>Údaje iOS HealthKit</strong> - pokud povolíte integraci s Apple Health</li>
+            <li><strong>Údaje Android Health Connect</strong> - pokud povolíte integraci</li>
+            <li><strong>Metadata aplikace</strong> - verze, jazyk, operační systém</li>
+            <li><strong>Nastavení uživatele</strong> - senior režim, haptika, ukládání záznamů</li>
+        </ul>
+
+        <h3>2.3 Údaje, které NESBÍRÁME</h3>
+        <div class="success">
+            <ul>
+                <li>❌ Video či fotografie z fotoaparátu</li>
+                <li>❌ Polohu</li>
+                <li>❌ Kontakty nebo sociální profily</li>
+                <li>❌ Data mimo Tepovku nebo HealthKit</li>
+                <li>❌ Údaje bez vašeho souhlasu</li>
+            </ul>
+        </div>
+
+        <h2>3. Jak dlouho data uchováváme?</h2>
+        <table>
+            <tr>
+                <th>Typ data</th>
+                <th>Uchování</th>
+                <th>Místo</th>
+            </tr>
+            <tr>
+                <td>Měření</td>
+                <td>Podle vaší volby</td>
+                <td>Telefon (lokální)</td>
+            </tr>
+            <tr>
+                <td>HealthKit data</td>
+                <td>Stejně dlouho jako HealthKit</td>
+                <td>Apple Health / Health Connect</td>
+            </tr>
+            <tr>
+                <td>Metadata aplikace</td>
+                <td>Trvale nebo dokud app neodstraníte</td>
+                <td>Telefon</td>
+            </tr>
+            <tr>
+                <td>Backupy</td>
+                <td>Dokud je zálohování povoleno</td>
+                <td>Phone backup / iCloud / Google Drive</td>
+            </tr>
+        </table>
+
+        <h2>4. Princip Zpracování Dat</h2>
+
+        <h3>4.1 Lokální Zpracování (VÝCHOZÍ)</h3>
+        <ul>
+            <li>✅ <strong>Veškerá měření probíhají OFF-LINE na vašem telefonu</strong></li>
+            <li>✅ Žádná data se neposílají na servery</li>
+            <li>✅ Všechny výpočty (FFT, HRV, RR) probíhají lokálně</li>
+            <li>✅ Máte plnou kontrolu a vlastnictví svých dat</li>
+        </ul>
+
+        <h3>4.2 Volitelná Integrace</h3>
+        <div class="success">
+            <p><strong>Pokud si zvolíte:</strong></p>
+            <ul>
+                <li>✅ <strong>Uložení do aplikace</strong> (výchozí) - data zůstávají v Tepovce</li>
+                <li>✅ <strong>Apple Health / Health Connect</strong> - data se sdílí s HealthKit (dle vašeho souhlasu)
+                </li>
+            </ul>
+        </div>
+
+        <h3>4.3 Žádné Cloudové Synchronizace</h3>
+        <div class="success">
+            <ul>
+                <li>❌ Tepovka <strong>NEPŘEDÁVÁ</strong> data na žádné servery třetích stran</li>
+                <li>❌ Nejsou registrovány žádné účty na serverech</li>
+                <li>❌ Žádný e-mail, přihlášení nebo cloudový backup Tepovky</li>
+            </ul>
+        </div>
+
+        <h2>5. Bezpečnost</h2>
+        <div class="success">
+            <ul>
+                <li>✅ <strong>Šifrování přenosu</strong> - veškerá komunikace (HealthKit) přes HTTPS</li>
+                <li>✅ <strong>Lokální úložiště</strong> - data chráněna tvým PIN/Face ID</li>
+                <li>✅ <strong>Open-Source</strong> - kód je veřejný; chyby lze hlásit komunite</li>
+                <li>✅ <strong>Bezpečnostní audity</strong> - pravidelné přezkoumání</li>
+            </ul>
+        </div>
+
+        <h2>6. Vaše Práva (GDPR, CCPA, apod.)</h2>
+        <p>Máte právo na:</p>
+        <table>
+            <tr>
+                <th>Právo</th>
+                <th>Popis</th>
+                <th>Jak exercovat</th>
+            </tr>
+            <tr>
+                <td><strong>Přístup</strong></td>
+                <td>Vidět svá data</td>
+                <td>Exportovat ze Settings</td>
+            </tr>
+            <tr>
+                <td><strong>Oprava</strong></td>
+                <td>Změnit/smazat data</td>
+                <td>Smazat měření přímo v app</td>
+            </tr>
+            <tr>
+                <td><strong>Zapomenutí</strong></td>
+                <td>Trvale smazat veškerá data</td>
+                <td>Uninstall + Odstranit storage</td>
+            </tr>
+            <tr>
+                <td><strong>Přenositelnost</strong></td>
+                <td>Stáhnout v CSV</td>
+                <td>Export funkce v Settings</td>
+            </tr>
+            <tr>
+                <td><strong>Odvolat souhlas</strong></td>
+                <td>Vypnout HealthKit sdílení</td>
+                <td>Settings > Health Sync</td>
+            </tr>
+        </table>
+
+        <h2>7. Kontakt & Podpora</h2>
+        <div class="contact-box">
+            <p><strong>📧 Email:</strong> <a href="mailto:privacy@mojetepovka.cz">privacy@mojetepovka.cz</a></p>
+            <p><strong>📞 Telefon:</strong> +420 541 146 111 (VUT Brno)</p>
+            <p><strong>🏢 Adresa:</strong> Vysoké učení technické v Brně, Technická 3058/10, 616 00 Brno</p>
+            <p><strong>🌐 Web:</strong> <a href="https://mojetepovka.cz">https://mojetepovka.cz</a></p>
+            <p><strong>📧 DPO Email:</strong> <a href="mailto:dpo@vut.cz">dpo@vut.cz</a></p>
+        </div>
+
+        <div class="last-updated" style="background: #f0f0f0; margin-top: 40px; margin-bottom: 0;">
+            <strong>Poslední aktualizace:</strong> 9. března 2026<br>
+            <strong>Verze:</strong> 1.0
+        </div>
+
+    </div>
+</body>
+
+</html>

@@ -1,5 +1,5 @@
 name: tepovka
-description: "An app to measure heart beat"
+description: "Tepovka: Heart Rate & HRV Monitoring Wellness App. Measure your heart rate, HRV (heart rate variability), and respiratory rate using your smartphone camera. Track your cardiovascular health and stress levels in real-time with clinically-inspired algorithms."
 publish_to: 'none'
 
 version: 3.0.0+1
