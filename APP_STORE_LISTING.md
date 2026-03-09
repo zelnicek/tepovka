@@ -209,7 +209,7 @@ Contact a healthcare provider for any medical concerns.
 2. Keep finger still for 60 seconds
 3. View results and trends
 
-Contact: support@mojetepovka.cz
+Contact: info@mojetepovka.cz
 ```
 
 ### 2.3 Short Description
@@ -367,7 +367,7 @@ flutter build ios --release
 - Major updates: Every quarter
 
 ### Communication
-- Support email: support@mojetepovka.cz
+- Support email: info@mojetepovka.cz
 - Twitter: @tepovka_app
 - Website: mojetepovka.cz
 
@@ -408,4 +408,4 @@ flutter build ios --release
 
 **Last Updated: March 9, 2026**
 
-For questions, contact: support@mojetepovka.cz
+For questions, contact: info@mojetepovka.cz

@@ -125,9 +125,9 @@ Android:
 - [ ] Domain mojetepovka.cz active
 - [ ] Privacy policy accessible: /privacy
 - [ ] Terms of service accessible: /terms
-- [ ] Support email: support@mojetepovka.cz
-- [ ] Security email: security@mojetepovka.cz
-- [ ] DPO email: dpo@vut.cz
+- [ ] Support email: info@mojetepovka.cz
+- [ ] Security email: info@mojetepovka.cz
+- [ ] DPO email: info@mojetepovka.cz
 ```
 
 ### 3. Create Android Signing Key (First Time Only)
@@ -366,9 +366,9 @@ If App Too Large (>100MB):
 |-------|---------|
 | App Store review rejected | App Store Review Guidelines @ Apple |
 | Google Play rejected | Google Play Policy Support |
-| Technical support | support@mojetepovka.cz |
-| Security issues | security@mojetepovka.cz |
-| Privacy questions | privacy@mojetepovka.cz |
+| Technical support | info@mojetepovka.cz |
+| Security issues | info@mojetepovka.cz |
+| Privacy questions | info@mojetepovka.cz |
 | Press/Media | press@mojetepovka.cz |
 
 ---

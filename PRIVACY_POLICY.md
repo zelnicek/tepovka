@@ -158,13 +158,13 @@ Pokud se změny vám nelíbí, můžete si aplikaci odinstalovat bez penalizace.
 
 Máte dotazy o ochraně údajů?
 
-📧 **Email:** privacy@mojetepovka.cz  
+📧 **Email:** info@mojetepovka.cz  
 📞 **Telefon:** +420 541 146 111 (VUT Brno)  
 🏢 **Adresa:** Vysoké učení technické v Brně, Technická 3058/10, 616 00 Brno  
 🌐 **Web:** https://mojetepovka.cz  
 
 Můžete také kontaktovat našeho **Data Protection Officer (DPO):**  
-📧 **DPO Email:** dpo@vut.cz
+📧 **DPO Email:** info@mojetepovka.cz
 
 ---
 
