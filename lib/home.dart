@@ -67,6 +67,23 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   double _liveBPM = 70.0; // New: Live BPM from UI peaks
   double _lastBpmUpdateTime = 0.0; // New: Time of last BPM update
   bool _isTeardown = false;
+  bool _isSwitchingCamera = false;
+
+  bool get _hasInitializedCameraController {
+    try {
+      return _cameraController.value.isInitialized;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _isStreamingImages {
+    try {
+      return _cameraController.value.isStreamingImages;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
@@ -93,12 +110,26 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   Future<void> _initializeBackCameras() async {
     try {
       final allCameras = await availableCameras();
-      _backCameras = allCameras
+      final backCameras = allCameras
           .where((camera) => camera.lensDirection == CameraLensDirection.back)
           .toList();
+
+      // Some Android devices expose only one rear camera. In that case,
+      // allow cycling through all available cameras as a fallback.
+      _backCameras = backCameras.length >= 2 ? backCameras : allCameras;
+
+      print(
+          'Camera debug: total=${allCameras.length}, back=${backCameras.length}, switchable=${_backCameras.length}');
+      for (final cam in allCameras) {
+        print(
+            'Camera debug: name=${cam.name}, dir=${cam.lensDirection}, sensorOrientation=${cam.sensorOrientation}');
+      }
+
       if (_backCameras.isNotEmpty) {
-        // Default to first back camera
-        _currentBackCameraIndex = 0;
+        // Prefer rear camera as default if present.
+        final firstBackIndex = _backCameras
+            .indexWhere((c) => c.lensDirection == CameraLensDirection.back);
+        _currentBackCameraIndex = firstBackIndex >= 0 ? firstBackIndex : 0;
         setState(() {});
       }
     } catch (e) {
@@ -107,28 +138,40 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   }
 
   Future<void> _switchBackCamera() async {
-    if (_backCameras.length < 2) return; // No switch if only one back camera
-    // Stop current stream if running
-    if (_cameraController.value.isStreamingImages) {
-      await _cameraController.stopImageStream();
+    if (_backCameras.length < 2 || _isSwitchingCamera) return;
+    _isSwitchingCamera = true;
+    try {
+      if (_isStreamingImages) {
+        await _cameraController.stopImageStream();
+      }
+      _graphUpdateTimer?.cancel();
+      if (_hasInitializedCameraController) {
+        await _cameraController.dispose();
+      }
+      if (_isFlashOn) {
+        _isFlashOn = false;
+      }
+      _currentBackCameraIndex =
+          (_currentBackCameraIndex + 1) % _backCameras.length;
+      if (!mounted) return;
+      setState(() {});
+    } catch (e) {
+      print('Error switching camera: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nepodařilo se přepnout kameru. Zkuste to znovu.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      _isSwitchingCamera = false;
     }
-    // Cancel graph timer to prevent speeding up
-    _graphUpdateTimer?.cancel();
-    // Dispose old controller
-    await _cameraController.dispose();
-    // Turn off flash before switching
-    if (_isFlashOn) {
-      _isFlashOn = false;
-    }
-    // Update index
-    _currentBackCameraIndex =
-        (_currentBackCameraIndex + 1) % _backCameras.length;
-    // Rebuild with new index; let CameraBody initialize
-    setState(() {});
   }
 
   Future<void> _toggleFlashlight() async {
-    if (_cameraController.value.isInitialized) {
+    if (_hasInitializedCameraController) {
       if (_isFlashOn) {
         await _cameraController.setFlashMode(FlashMode.off);
         setState(() {
@@ -144,7 +187,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   }
 
   void _startImageStream() {
-    if (!_cameraController.value.isStreamingImages) {
+    if (_hasInitializedCameraController && !_isStreamingImages) {
       _cameraController.startImageStream((image) {
         if (_ppgAlgorithm != null) {
           _ppgAlgorithm!.processImage(image);
@@ -369,14 +412,14 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _countdownTimer?.cancel();
       _progressController.stop();
       _heartAnimationController.stop();
-      if (_cameraController.value.isInitialized) {
+      if (_hasInitializedCameraController) {
         await _cameraController.setFlashMode(FlashMode.off);
         _isFlashOn = false;
       }
-      if (_cameraController.value.isStreamingImages) {
+      if (_isStreamingImages) {
         await _cameraController.stopImageStream();
       }
-      if (disposeCamera) {
+      if (disposeCamera && _hasInitializedCameraController) {
         await _cameraController.dispose();
       }
       _isRecording = false;
@@ -510,7 +553,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       print('DEBUG: fallback2 averageRR = $averageRR (from BPM=$averageBPM)');
     }
     print('DEBUG: Final RR = $averageRR');
-    await _cameraController.setFlashMode(FlashMode.off);
+    if (_hasInitializedCameraController) {
+      await _cameraController.setFlashMode(FlashMode.off);
+    }
     setState(() {
       _isFlashOn = false;
       _isRecording = false; // Ensure recording state is reset
@@ -559,14 +604,16 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    if (_cameraController.value.isStreamingImages) {
+    if (_isStreamingImages) {
       _cameraController.stopImageStream();
     }
-    _cameraController.dispose();
+    if (_hasInitializedCameraController) {
+      _cameraController.dispose();
+      _cameraController.setFlashMode(FlashMode.off);
+    }
     _graphUpdateTimer?.cancel();
     _navigationTimer?.cancel();
     _countdownTimer?.cancel();
-    _cameraController.setFlashMode(FlashMode.off);
     _heartAnimationController.dispose();
     _progressController.dispose();
     super.dispose();
@@ -935,18 +982,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           IconButton(
-                            onPressed: _backCameras.length < 2
-                                ? null
-                                : _switchBackCamera,
+                            onPressed:
+                                (_backCameras.length < 2 || _isSwitchingCamera)
+                                    ? null
+                                    : _switchBackCamera,
                             icon: Icon(
                               Icons.cameraswitch,
                               color: Colors.grey,
                               size: iconSizeMedium,
                             ),
-                            tooltip: 'Přepnout zadní kameru',
+                            tooltip: 'Přepnout kameru',
                           ),
                           Text(
-                            'Změnit objektiv',
+                            'Změnit kameru',
                             style: TextStyle(
                               fontSize: fontSizeSmall,
                               color: Colors.grey,

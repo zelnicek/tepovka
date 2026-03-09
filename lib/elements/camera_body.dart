@@ -40,13 +40,6 @@ class _CameraBodyState extends State<CameraBody> {
       if (mounted) {
         setState(() {});
         widget.onCameraReady(_cameraController!);
-
-        // Start image stream only if the controller is initialized
-        if (_cameraController!.value.isInitialized) {
-          _cameraController!.startImageStream((image) {
-            widget.onImageAvailable(image);
-          });
-        }
       }
     } catch (e) {
       debugPrint('Error initializing camera: $e');
@@ -56,8 +49,14 @@ class _CameraBodyState extends State<CameraBody> {
   @override
   void dispose() {
     if (_cameraController != null) {
-      _cameraController!.stopImageStream(); // Stop the image stream safely
-      _cameraController!.dispose(); // Dispose of the controller
+      try {
+        if (_cameraController!.value.isStreamingImages) {
+          _cameraController!.stopImageStream();
+        }
+      } catch (_) {}
+      try {
+        _cameraController!.dispose();
+      } catch (_) {}
     }
     super.dispose();
   }

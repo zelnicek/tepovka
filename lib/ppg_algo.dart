@@ -39,11 +39,23 @@ class PPGAlgorithm {
   double? _lastAverageBlue;
 
   /// Maximum number of frames to buffer before processing.
-  // IMPROVED: Increased for more data per HR estimate (~10s at 30 FPS).
-  static const int _maxFrameBufferSize = 300;
+  // CHANGED: Now used for sliding window, not fixed block size.
+  static const int _maxFrameBufferSize = 300; // 10s window at 30 FPS
 
-  /// Estimated frame rate in FPS.
+  /// Window size for sliding window processing (~2s at 30 FPS).
+  static const int _slidingWindowSize = 60; // 2 seconds for frequent updates
+
+  /// Slide interval - process every N frames (~50% overlap).
+  static const int _slideInterval = 30; // 1 second = 50% overlap
+
+  /// Frames processed since last processing (for sliding window).
+  int _framesProcessedSinceLastUpdate = 0;
+
+  /// Estimated frame rate in FPS (global for reference).
   double _frameRate = 0.0;
+
+  /// Local frame rate for current batch.
+  double _localFrameRate = 0.0;
 
   /// PPG signal (green) for plotting.
   final List<double> _ppgSignal = [];
@@ -94,12 +106,15 @@ class PPGAlgorithm {
   }
 
   /// Processes a camera image: extracts RGB means, updates green buffer, applies
-  /// filtering after buffer full, computes heart rate. Provides RGB for quality
-  /// checks (e.g., high red/green ratio indicates poor contact).
+  /// filtering using SLIDING WINDOW (every 30 frames), computes heart rate continuously.
+  /// Provides RGB for quality checks (e.g., high red/green ratio indicates poor contact).
+  ///
+  /// CHANGE: Sliding window instead of fixed 300-frame block processing.
+  /// Now processes every ~1 second (30 frames) with 60-frame window = 50% overlap.
   void processImage(final CameraImage image) {
     final int currentTime = DateTime.now().millisecondsSinceEpoch;
 
-    // Update frame rate estimate.
+    // Update GLOBAL frame rate estimate (for reference only, not used in calculations).
     if (_timestamps.isNotEmpty) {
       final int intervalMs = currentTime - _timestamps.last;
       if (intervalMs > 0) {
@@ -127,25 +142,64 @@ class PPGAlgorithm {
     _filteredIntensities.add(primarySignal);
     _ppgSignal.add(primarySignal);
 
-    if (_intensityValues.length > _maxFrameBufferSize) {
-      print('Estimated frame rate: $_frameRate FPS');
-      _frameRates.add(_frameRate);
+    // SLIDING WINDOW: Process every _slideInterval frames (1 second)
+    _framesProcessedSinceLastUpdate++;
+
+    if (_framesProcessedSinceLastUpdate >= _slideInterval &&
+        _intensityValues.length >= _slidingWindowSize) {
+      print(
+          'Sliding window processing: buffer size=${_intensityValues.length}, interval=$_framesProcessedSinceLastUpdate');
+      _framesProcessedSinceLastUpdate = 0;
+
+      // Use last _slidingWindowSize frames for processing (2 second window).
+      final List<double> windowData =
+          _intensityValues.length >= _slidingWindowSize
+              ? _intensityValues
+                  .sublist(_intensityValues.length - _slidingWindowSize)
+              : _intensityValues;
+
+      // Calculate LOCAL framerate from this batch (NOT global running average).
+      _localFrameRate = _calculateLocalFrameRate();
+      print('Local frame rate for this batch: $_localFrameRate FPS');
+
+      if (_localFrameRate > 20.0) {
+        _frameRates.add(_localFrameRate);
+      }
 
       // Compute heart rate with quality checks.
-      _currentHeartRate = _calculateHeartRate();
+      _currentHeartRate = _calculateHeartRate(windowData, _localFrameRate);
 
-      // Compute respiratory rate from PPG amplitude envelope
+      // Compute respiratory rate from PPG amplitude envelope.
       _currentRespiratoryRate =
-          _calculateRespiratoryRate(_intensityValues, _frameRate);
+          _calculateRespiratoryRate(windowData, _localFrameRate);
       if (_currentRespiratoryRate > 0) {
         _respiratoryRates.add(_currentRespiratoryRate);
       }
 
-      // Clear after compute to avoid data loss.
-      _intensityValues.clear();
-      _timestamps.clear();
-      _derivativeValues.clear();
+      // CONTINUOUS HRV CALCULATION: Update HRV metrics from current IBIs.
+      _updateContinuousHrv();
+
+      // Keep only data needed for sliding window (remove oldest frames).
+      // This maintains overlapping windows for continuity.
+      if (_intensityValues.length > _maxFrameBufferSize) {
+        _intensityValues.removeRange(
+            0, _intensityValues.length - _slidingWindowSize);
+        _timestamps.removeRange(0, _timestamps.length - _slidingWindowSize);
+        _ppgSignal.removeRange(0, _ppgSignal.length - _slidingWindowSize);
+      }
     }
+  }
+
+  /// Calculate LOCAL frame rate for current batch (not running average).
+  /// Uses timestamps from current batch only.
+  double _calculateLocalFrameRate() {
+    if (_timestamps.length < 2) return 0.0;
+
+    final int timeDiff = _timestamps.last - _timestamps.first;
+    if (timeDiff <= 0) return 0.0;
+
+    final int frameCount = _timestamps.length - 1;
+    return (frameCount * 1000.0) / timeDiff;
   }
 
   /// Calculates mean intensities for R, G, B channels. Handles BGRA (iOS) and YUV (Android).
@@ -229,21 +283,23 @@ class PPGAlgorithm {
   }
 
   /// Calculates heart rate with enhanced quality: moving average smoothing,
-  /// bandpass filtering, adaptive peak detection. Uses actual FPS for normalization.
-  double _calculateHeartRate() {
-    if (_intensityValues.isEmpty || _frameRate <= 0) return 0.0;
-    if (_frameRate < 20.0) return 0.0; // Too low FPS for reliable HR
+  /// bandpass filtering, adaptive peak detection. Uses actual LOCAL FPS for normalization.
+  ///
+  /// CHANGED: Now takes window data and local framerate as parameters instead of using
+  /// global buffers. This enables sliding window processing without data loss.
+  double _calculateHeartRate(List<double> signal, double localFrameRate) {
+    if (signal.isEmpty || localFrameRate <= 0) return 0.0;
+    if (localFrameRate < 20.0) return 0.0; // Too low FPS for reliable HR
 
     // Adaptive smoothing - longer window to eliminate dicrotic notch (~250 ms)
-    final int smoothWindow = (_frameRate * 0.25).round().clamp(5, 25);
-    final List<double> smoothed =
-        _computeMovingAverage(_intensityValues, smoothWindow);
+    final int smoothWindow = (localFrameRate * 0.25).round().clamp(5, 25);
+    final List<double> smoothed = _computeMovingAverage(signal, smoothWindow);
     // Extra pass to further smooth out dicrotic notch
     final List<double> extraSmoothed = _computeMovingAverage(
-        smoothed, (_frameRate * 0.12).round().clamp(3, 10));
+        smoothed, (localFrameRate * 0.12).round().clamp(3, 10));
 
     // Detrending – subtract long-term average (~1.5 s window)
-    final int dcWindow = (_frameRate * 1.5).round().clamp(20, 150);
+    final int dcWindow = (localFrameRate * 1.5).round().clamp(20, 150);
     final List<double> dcSmoothed =
         _computeMovingAverage(extraSmoothed, dcWindow);
     final List<double> detrended = [];
@@ -255,7 +311,7 @@ class PPGAlgorithm {
 
     // Bandpass filter for HR range (0.7–3.5 Hz = 42–210 BPM)
     final List<double> bandPassed =
-        _applyButterworthBandpass(detrended, 0.7, 3.5, _frameRate);
+        _applyButterworthBandpass(detrended, 0.7, 3.5, localFrameRate);
 
     // Normalize & invert so pulses are positive peaks
     final List<double> normalized = _zScore(bandPassed);
@@ -286,8 +342,8 @@ class PPGAlgorithm {
     }
 
     // Run both methods.
-    final double fftBpm = _estimateHrFrequencyDomain(inverted);
-    final double peakBpm = _estimateHrTimeDomain(inverted);
+    final double fftBpm = _estimateHrFrequencyDomain(inverted, localFrameRate);
+    final double peakBpm = _estimateHrTimeDomain(inverted, localFrameRate);
 
     double bpm = 0.0;
     if (fftBpm > 0 && peakBpm > 0) {
@@ -327,7 +383,8 @@ class PPGAlgorithm {
   }
 
   // NEW: Frequency Domain - Estimate HR via FFT peak in 0.7-3.5 Hz range.
-  double _estimateHrFrequencyDomain(List<double> signal) {
+  double _estimateHrFrequencyDomain(
+      List<double> signal, double localFrameRate) {
     final int N = signal.length;
     if (N < 64) return 0.0; // Too short for reliable FFT.
 
@@ -341,7 +398,7 @@ class PPGAlgorithm {
     // Frequencies from 0 to Nyquist (fs/2).
     final List<double> frequencies = List.generate(
       magnitudes.length,
-      (i) => i * _frameRate / N,
+      (i) => i * localFrameRate / N,
     );
 
     // Find indices in HR range (0.7-3.5 Hz).
@@ -362,20 +419,20 @@ class PPGAlgorithm {
     return peakFreq * 60.0;
   }
 
-  // IMPROVED: Time-domain peak detection.
-  double _estimateHrTimeDomain(List<double> signal) {
+  // IMPROVED: Time-domain peak detection with LOCAL framerate.
+  double _estimateHrTimeDomain(List<double> signal, double localFrameRate) {
     // Adaptive threshold for peaks (mean + 0.4 * std - more sensitive).
     final double mean = _calculateAverage(signal);
     final double std = calculateStandardDeviation(signal);
     final double adaptiveThreshold = mean + 0.4 * std;
 
     // Higher min distance to reject dicrotic notch (~0.4s to block second peak)
-    final double minDistance =
-        (_frameRate * 0.4).clamp(_frameRate * 0.3, _frameRate * 0.8);
+    final double minDistance = (localFrameRate * 0.4)
+        .clamp(localFrameRate * 0.3, localFrameRate * 0.8);
 
     // Higher prominence requirement (0.5 * std) to filter low-amplitude artifacts
     final double prominence = 0.5 * std;
-    final int promWindow = (_frameRate * 0.3).round().clamp(5, 40);
+    final int promWindow = (localFrameRate * 0.3).round().clamp(5, 40);
 
     // Find peaks with adaptive threshold and min distance.
     final List<List<double>> peaks = _findPeaks(signal,
@@ -404,7 +461,7 @@ class PPGAlgorithm {
     final List<double> ibis = [];
     for (int i = 0; i < peakIndices.length - 1; i++) {
       final double samplesDiff = peakIndices[i + 1] - peakIndices[i];
-      final double ibiSec = samplesDiff / _frameRate;
+      final double ibiSec = samplesDiff / localFrameRate;
       ibis.add(ibiSec);
     }
 
@@ -633,6 +690,53 @@ class PPGAlgorithm {
         '  Max successive diff: ${(successiveDiffs.map((d) => d.abs()).reduce(max) * 1000).toStringAsFixed(1)} ms');
   }
 
+  /// NEW: Update HRV metrics continuously from accumulated IBIs.
+  /// This allows real-time monitoring of HRV during measurement without waiting for summary.
+  /// Called after each sliding window processing.
+  void _updateContinuousHrv() {
+    if (_allIbiIntervals.length < 2) {
+      return; // Not enough data yet
+    }
+
+    // Use only recent IBIs (keep max 300 for HRV = ~5 min of data at 60 BPM)
+    final List<double> recentIbis = _allIbiIntervals.length > 300
+        ? _allIbiIntervals.sublist(_allIbiIntervals.length - 300)
+        : _allIbiIntervals;
+
+    // SDNN: Standard Deviation of NN intervals
+    _currentSdnn =
+        calculateStandardDeviation(recentIbis) * 1000.0; // Convert to ms
+
+    // RMSSD: Root Mean Square of Successive Differences
+    if (recentIbis.length >= 2) {
+      double sumSquaredDiff = 0.0;
+      List<double> successiveDiffs = [];
+      for (int i = 0; i < recentIbis.length - 1; i++) {
+        final double diff = recentIbis[i + 1] - recentIbis[i];
+        successiveDiffs.add(diff);
+        sumSquaredDiff += diff * diff;
+      }
+      _currentRmssd = sqrt(sumSquaredDiff / (recentIbis.length - 1)) *
+          1000.0; // Convert to ms
+
+      // pNN50: Percentage of successive NN intervals that differ by more than 50ms
+      int nn50Count = successiveDiffs.where((diff) => diff.abs() > 0.05).length;
+      _currentPnn50 = successiveDiffs.isNotEmpty
+          ? (nn50Count / successiveDiffs.length) * 100.0
+          : 0.0;
+
+      // SD1 and SD2: Poincaré plot parameters
+      _currentSd1 =
+          sqrt(0.5 * sumSquaredDiff / (recentIbis.length - 1)) * 1000.0;
+      _currentSd2 = sqrt(2 * pow(_currentSdnn / 1000.0, 2) -
+              0.5 * sumSquaredDiff / (recentIbis.length - 1)) *
+          1000.0;
+
+      print(
+          'HRV (continuous): SDNN=${_currentSdnn.toStringAsFixed(1)} ms, RMSSD=${_currentRmssd.toStringAsFixed(1)} ms, pNN50=${_currentPnn50.toStringAsFixed(1)}%, SD1=${_currentSd1.toStringAsFixed(1)} ms, SD2=${_currentSd2.toStringAsFixed(1)} ms (from ${recentIbis.length} IBIs)');
+    }
+  }
+
   /// Reset algorithm state for new measurement
   void reset() {
     _intensityValues.clear();
@@ -645,6 +749,7 @@ class PPGAlgorithm {
     _respiratoryRates.clear();
     _hrvValues.clear();
     _allIbiIntervals.clear();
+    _framesProcessedSinceLastUpdate = 0;
     _currentHeartRate = 0.0;
     _smoothedHeartRate = 0.0;
     _currentRespiratoryRate = 0.0;
@@ -655,6 +760,7 @@ class PPGAlgorithm {
     _currentSd1 = 0.0;
     _currentSd2 = 0.0;
     _frameRate = 0.0;
+    _localFrameRate = 0.0;
     print('PPGAlgorithm: Reset for new measurement');
   }
 
@@ -741,6 +847,8 @@ class PPGAlgorithm {
 
   /// Calculate respiratory rate from amplitude envelope
   /// Method: extract pulse band -> envelope -> respiratory band filter -> peak detection
+  ///
+  /// CHANGED: Now accepts signal and local frame rate as parameters.
   double _calculateRespiratoryRate(List<double> signal, double fs) {
     if (signal.length < (fs * 8).round()) {
       print('RR: Signal too short: ${signal.length}');
