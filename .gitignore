@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Development artifacts & backups
+*_backup.dart
+*_ver_*.dart
+
+# Internal documents & drafts
+*.pdf
+!README.pdf

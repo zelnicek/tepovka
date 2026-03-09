@@ -10,6 +10,7 @@ class AppSettingsData {
   final UserMode userMode;
   final bool haptics; // NEW: Haptická odezva
   final bool saveRecords; // NEW: Ukládání záznamů
+  final bool seniorModeOnboardingShown; // NEW: Onboarding flag
 
   const AppSettingsData({
     this.seniorMode = false,
@@ -18,6 +19,7 @@ class AppSettingsData {
     this.userMode = UserMode.doctor,
     this.haptics = true,
     this.saveRecords = true,
+    this.seniorModeOnboardingShown = false,
   });
 
   AppSettingsData copyWith({
@@ -27,6 +29,7 @@ class AppSettingsData {
     UserMode? userMode,
     bool? haptics,
     bool? saveRecords,
+    bool? seniorModeOnboardingShown,
   }) =>
       AppSettingsData(
         seniorMode: seniorMode ?? this.seniorMode,
@@ -35,6 +38,8 @@ class AppSettingsData {
         userMode: userMode ?? this.userMode,
         haptics: haptics ?? this.haptics,
         saveRecords: saveRecords ?? this.saveRecords,
+        seniorModeOnboardingShown:
+            seniorModeOnboardingShown ?? this.seniorModeOnboardingShown,
       );
 }
 
@@ -50,6 +55,7 @@ class AppSettings {
   static const _kUserMode = 'settings_userMode'; // 0=patient, 1=doctor
   static const _kHaptics = 'settings_haptics'; // NEW
   static const _kSaveRecords = 'settings_saveRecords'; // NEW
+  static const _kSeniorModeOnboardingShown = 'settings_seniorOnboarding'; // NEW
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -60,6 +66,8 @@ class AppSettings {
     final mode = modeIndex == 0 ? UserMode.patient : UserMode.doctor;
     final haptics = prefs.getBool(_kHaptics) ?? true; // NEW
     final saveRecords = prefs.getBool(_kSaveRecords) ?? true; // NEW
+    final onboardingShown =
+        prefs.getBool(_kSeniorModeOnboardingShown) ?? false; // NEW
     notifier.value = AppSettingsData(
       seniorMode: senior,
       highContrast: contrast,
@@ -67,6 +75,7 @@ class AppSettings {
       userMode: mode,
       haptics: haptics,
       saveRecords: saveRecords,
+      seniorModeOnboardingShown: onboardingShown,
     );
   }
 
@@ -110,6 +119,13 @@ class AppSettings {
     notifier.value = notifier.value.copyWith(saveRecords: enabled);
     SharedPreferences.getInstance().then(
       (p) => p.setBool(_kSaveRecords, enabled),
+    );
+  }
+
+  static void setOnboardingShown(bool shown) {
+    notifier.value = notifier.value.copyWith(seniorModeOnboardingShown: shown);
+    SharedPreferences.getInstance().then(
+      (p) => p.setBool(_kSeniorModeOnboardingShown, shown),
     );
   }
 }

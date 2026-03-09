@@ -7,6 +7,7 @@ import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:tepovka/home.dart';
+import 'package:tepovka/services/app_settings.dart';
 
 class IntroPage extends StatefulWidget {
   const IntroPage({super.key});
@@ -21,6 +22,72 @@ class _IntroPageState extends State<IntroPage> {
   bool _isTapped3 = false;
   bool _isTapped4 = false;
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show senior mode onboarding on first app launch
+    Future.delayed(Duration.zero, _showSeniorModeOnboardingIfNeeded);
+  }
+
+  void _showSeniorModeOnboardingIfNeeded() {
+    final settings = AppSettings.value;
+    if (!settings.seniorModeOnboardingShown) {
+      _showSeniorModeOnboarding();
+    }
+  }
+
+  void _showSeniorModeOnboarding() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Senior režim',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                const Icon(Icons.accessibility_new,
+                    size: 48, color: Colors.blue),
+                const SizedBox(height: 16),
+                const Text(
+                  'Preferujete větší písmo a hlasové instrukce?',
+                  style: TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Senior režim vám usnadní práci s aplikací na vašem zařízení.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                AppSettings.setOnboardingShown(true);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Nikoli'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                AppSettings.setSeniorMode(true);
+                AppSettings.setOnboardingShown(true);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Ano, zapnout režim'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _onItemTapped(int index) {
     if (_selectedIndex == index) {

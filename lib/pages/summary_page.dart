@@ -21,7 +21,7 @@ class TimeLabel {
   TimeLabel(this.x, this.time);
 }
 
-class Summmary extends StatefulWidget {
+class Summary extends StatefulWidget {
   final double averageBPM;
   final List<double> data;
   final List<int> bpm_list;
@@ -34,7 +34,7 @@ class Summmary extends StatefulWidget {
   final double pnn50; // HRV: pNN50
   final double sd1; // HRV: SD1
   final double sd2; // HRV: SD2
-  const Summmary({
+  const Summary({
     Key? key,
     required this.averageBPM,
     required this.data,
@@ -50,10 +50,10 @@ class Summmary extends StatefulWidget {
     required this.sd2,
   }) : super(key: key);
   @override
-  State<Summmary> createState() => _SummmaryState();
+  State<Summary> createState() => _SummaryState();
 }
 
-class _SummmaryState extends State<Summmary> {
+class _SummaryState extends State<Summary> {
   int _selectedIndex = 0;
   final Health _health = Health();
   // ignore: unused_field

@@ -572,7 +572,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => Summmary(
+        builder: (context) => Summary(
           averageBPM: averageBPM,
           data: _ppgAlgorithm?.dataToPlot() ?? [],
           bpm_list: bpm_list,
