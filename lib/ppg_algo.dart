@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:math';
 import 'package:fftea/fftea.dart'; // NEW: Frequency Domain - Import FFT library
 import 'package:flutter/services.dart'; // If needed for Float64List
+import 'package:flutter/foundation.dart'; // NEW: For kDebugMode to prevent debug prints in release
 import 'package:camera/camera.dart'; // Provides CameraImage used by processImage
 
 /// A class implementing a Photoplethysmography (PPG) algorithm for heart rate
@@ -135,8 +136,10 @@ class PPGAlgorithm {
     double primarySignal = rgbMeans.green;
     if (primarySignal < 1.0) {
       primarySignal = rgbMeans.red; // Red is stable if green is too low.
-      print(
-          'Debug: Switched to red channel (green too low: ${rgbMeans.green})');
+      if (kDebugMode) {
+        print(
+            'Debug: Switched to red channel (green too low: ${rgbMeans.green})');
+      }
     }
     _intensityValues.add(primarySignal);
     _filteredIntensities.add(primarySignal);
@@ -147,8 +150,10 @@ class PPGAlgorithm {
 
     if (_framesProcessedSinceLastUpdate >= _slideInterval &&
         _intensityValues.length >= _slidingWindowSize) {
-      print(
-          'Sliding window processing: buffer size=${_intensityValues.length}, interval=$_framesProcessedSinceLastUpdate');
+      if (kDebugMode) {
+        print(
+            'Sliding window processing: buffer size=${_intensityValues.length}, interval=$_framesProcessedSinceLastUpdate');
+      }
       _framesProcessedSinceLastUpdate = 0;
 
       // Use last _slidingWindowSize frames for processing (2 second window).
@@ -160,7 +165,9 @@ class PPGAlgorithm {
 
       // Calculate LOCAL framerate from this batch (NOT global running average).
       _localFrameRate = _calculateLocalFrameRate();
-      print('Local frame rate for this batch: $_localFrameRate FPS');
+      if (kDebugMode) {
+        print('Local frame rate for this batch: $_localFrameRate FPS');
+      }
 
       if (_localFrameRate > 20.0) {
         _frameRates.add(_localFrameRate);
@@ -214,8 +221,10 @@ class PPGAlgorithm {
         (min(width, height) * 0.5).round(); // 50% central square.
     final int startX = (width - cropSize) ~/ 2;
     final int startY = (height - cropSize) ~/ 2;
-    print(
-        'Debug: Cropping to center ${cropSize}x${cropSize} at (${startX}, ${startY})');
+    if (kDebugMode) {
+      print(
+          'Debug: Cropping to center ${cropSize}x${cropSize} at (${startX}, ${startY})');
+    }
 
     if (image.format.group == ImageFormatGroup.bgra8888) {
       // iOS: BGRA8888.
@@ -276,9 +285,10 @@ class PPGAlgorithm {
     final double avgGreen = pixelCount > 0 ? totalGreen / pixelCount : 0.0;
     final double avgBlue = pixelCount > 0 ? totalBlue / pixelCount : 0.0;
 
-    print(
-        'Debug: Avg RGB (cropped) = (${avgRed.toStringAsFixed(1)}, ${avgGreen.toStringAsFixed(1)}, ${avgBlue.toStringAsFixed(1)})');
-
+    if (kDebugMode) {
+      print(
+          'Debug: Avg RGB (cropped) = (${avgRed.toStringAsFixed(1)}, ${avgGreen.toStringAsFixed(1)}, ${avgBlue.toStringAsFixed(1)})');
+    }
     return RgbMeans(red: avgRed, green: avgGreen, blue: avgBlue);
   }
 
@@ -325,10 +335,14 @@ class PPGAlgorithm {
     final double signalStd = calculateStandardDeviation(bandPassed);
     final double snrEstimate =
         signalStd / (effectiveIntensity > 0 ? effectiveIntensity / 100.0 : 1.0);
-    print(
-        'Debug: SNR = ${snrEstimate.toStringAsFixed(2)}, Signal STD = ${signalStd.toStringAsFixed(3)}, Intensity = ${effectiveIntensity.toStringAsFixed(1)}');
+    if (kDebugMode) {
+      print(
+          'Debug: SNR = ${snrEstimate.toStringAsFixed(2)}, Signal STD = ${signalStd.toStringAsFixed(3)}, Intensity = ${effectiveIntensity.toStringAsFixed(1)}');
+    }
     if (snrEstimate < 0.01) {
-      print('Debug: Low SNR – skipping HR calculation.');
+      if (kDebugMode) {
+        print('Debug: Low SNR – skipping HR calculation.');
+      }
       return 0.0;
     }
 
@@ -350,12 +364,16 @@ class PPGAlgorithm {
       // Hybrid: Average if they agree within 10 BPM threshold; else prefer FFT for robustness.
       if ((fftBpm - peakBpm).abs() < 10.0) {
         bpm = (fftBpm + peakBpm) / 2.0;
-        print(
-            'Debug: Hybrid BPM average = ${bpm.toStringAsFixed(1)} (FFT: ${fftBpm.toStringAsFixed(1)}, Peak: ${peakBpm.toStringAsFixed(1)})');
+        if (kDebugMode) {
+          print(
+              'Debug: Hybrid BPM average = ${bpm.toStringAsFixed(1)} (FFT: ${fftBpm.toStringAsFixed(1)}, Peak: ${peakBpm.toStringAsFixed(1)})');
+        }
       } else {
         bpm = fftBpm; // Prefer FFT if discrepancy.
-        print(
-            'Debug: Using FFT BPM due to discrepancy = ${bpm.toStringAsFixed(1)} (Peak was ${peakBpm.toStringAsFixed(1)})');
+        if (kDebugMode) {
+          print(
+              'Debug: Using FFT BPM due to discrepancy = ${bpm.toStringAsFixed(1)} (Peak was ${peakBpm.toStringAsFixed(1)})');
+        }
       }
     } else if (fftBpm > 0) {
       bpm = fftBpm;
@@ -375,8 +393,10 @@ class PPGAlgorithm {
             (_smoothedHeartRate * (1 - _emaAlpha)) + (bpm * _emaAlpha);
       }
     }
-    print(
-        'Debug: Raw BPM = ${bpm.toStringAsFixed(1)}, EMA-smoothed = ${_smoothedHeartRate.toStringAsFixed(1)}');
+    if (kDebugMode) {
+      print(
+          'Debug: Raw BPM = ${bpm.toStringAsFixed(1)}, EMA-smoothed = ${_smoothedHeartRate.toStringAsFixed(1)}');
+    }
 
     _bpmHistory.add(_smoothedHeartRate);
     return _smoothedHeartRate;
@@ -414,7 +434,9 @@ class PPGAlgorithm {
     final int peakIdx = lowIdx + peakRelativeIdx;
 
     final double peakFreq = frequencies[peakIdx];
-    print('Debug: Peak frequency = ${peakFreq.toStringAsFixed(2)} Hz');
+    if (kDebugMode) {
+      print('Debug: Peak frequency = ${peakFreq.toStringAsFixed(2)} Hz');
+    }
 
     return peakFreq * 60.0;
   }
@@ -474,8 +496,10 @@ class PPGAlgorithm {
 
     // Store valid IBIs for full-measurement HRV calculation
     _allIbiIntervals.addAll(validIbis);
-    print(
-        'Debug: Added ${validIbis.length} IBIs, total now: ${_allIbiIntervals.length}');
+    if (kDebugMode) {
+      print(
+          'Debug: Added ${validIbis.length} IBIs, total now: ${_allIbiIntervals.length}');
+    }
 
     // Use median IBI for robustness.
     final double medianIbiSec = _calculateMedian(validIbis);
@@ -637,15 +661,18 @@ class PPGAlgorithm {
 
   void _calculateFinalHrv() {
     if (_allIbiIntervals.length < 2) {
-      print('HRV: Not enough IBIs (${_allIbiIntervals.length})');
+      if (kDebugMode) {
+        print('HRV: Not enough IBIs (${_allIbiIntervals.length})');
+      }
       return;
     }
 
-    print(
-        'Debug: Calculating HRV from ${_allIbiIntervals.length} IBI intervals');
-    print(
-        'Debug: IBI range: ${_allIbiIntervals.reduce(min).toStringAsFixed(3)}s - ${_allIbiIntervals.reduce(max).toStringAsFixed(3)}s');
-
+    if (kDebugMode) {
+      print(
+          'Debug: Calculating HRV from ${_allIbiIntervals.length} IBI intervals');
+      print(
+          'Debug: IBI range: ${_allIbiIntervals.reduce(min).toStringAsFixed(3)}s - ${_allIbiIntervals.reduce(max).toStringAsFixed(3)}s');
+    }
     // SDNN: Standard Deviation of NN intervals
     _currentSdnn =
         calculateStandardDeviation(_allIbiIntervals) * 1000.0; // Convert to ms
@@ -677,17 +704,19 @@ class PPGAlgorithm {
     final double meanIbi = _calculateAverage(_allIbiIntervals) * 1000.0;
     final double meanHr = 60.0 / _calculateAverage(_allIbiIntervals);
 
-    print('HRV Summary:');
-    print('  Total IBIs: ${_allIbiIntervals.length}');
-    print('  Mean IBI: ${meanIbi.toStringAsFixed(1)} ms');
-    print('  Mean HR: ${meanHr.toStringAsFixed(1)} bpm');
-    print('  SDNN: ${_currentSdnn.toStringAsFixed(2)} ms');
-    print('  RMSSD: ${_currentRmssd.toStringAsFixed(2)} ms');
-    print('  pNN50: ${_currentPnn50.toStringAsFixed(1)}%');
-    print('  SD1: ${_currentSd1.toStringAsFixed(2)} ms (short-term)');
-    print('  SD2: ${_currentSd2.toStringAsFixed(2)} ms (long-term)');
-    print(
-        '  Max successive diff: ${(successiveDiffs.map((d) => d.abs()).reduce(max) * 1000).toStringAsFixed(1)} ms');
+    if (kDebugMode) {
+      print('HRV Summary:');
+      print('  Total IBIs: ${_allIbiIntervals.length}');
+      print('  Mean IBI: ${meanIbi.toStringAsFixed(1)} ms');
+      print('  Mean HR: ${meanHr.toStringAsFixed(1)} bpm');
+      print('  SDNN: ${_currentSdnn.toStringAsFixed(2)} ms');
+      print('  RMSSD: ${_currentRmssd.toStringAsFixed(2)} ms');
+      print('  pNN50: ${_currentPnn50.toStringAsFixed(1)}%');
+      print('  SD1: ${_currentSd1.toStringAsFixed(2)} ms (short-term)');
+      print('  SD2: ${_currentSd2.toStringAsFixed(2)} ms (long-term)');
+      print(
+          '  Max successive diff: ${(successiveDiffs.map((d) => d.abs()).reduce(max) * 1000).toStringAsFixed(1)} ms');
+    }
   }
 
   /// NEW: Update HRV metrics continuously from accumulated IBIs.
@@ -732,8 +761,10 @@ class PPGAlgorithm {
               0.5 * sumSquaredDiff / (recentIbis.length - 1)) *
           1000.0;
 
-      print(
-          'HRV (continuous): SDNN=${_currentSdnn.toStringAsFixed(1)} ms, RMSSD=${_currentRmssd.toStringAsFixed(1)} ms, pNN50=${_currentPnn50.toStringAsFixed(1)}%, SD1=${_currentSd1.toStringAsFixed(1)} ms, SD2=${_currentSd2.toStringAsFixed(1)} ms (from ${recentIbis.length} IBIs)');
+      if (kDebugMode) {
+        print(
+            'HRV (continuous): SDNN=${_currentSdnn.toStringAsFixed(1)} ms, RMSSD=${_currentRmssd.toStringAsFixed(1)} ms, pNN50=${_currentPnn50.toStringAsFixed(1)}%, SD1=${_currentSd1.toStringAsFixed(1)} ms, SD2=${_currentSd2.toStringAsFixed(1)} ms (from ${recentIbis.length} IBIs)');
+      }
     }
   }
 
@@ -761,7 +792,9 @@ class PPGAlgorithm {
     _currentSd2 = 0.0;
     _frameRate = 0.0;
     _localFrameRate = 0.0;
-    print('PPGAlgorithm: Reset for new measurement');
+    if (kDebugMode) {
+      print('PPGAlgorithm: Reset for new measurement');
+    }
   }
 
   // ignore: unused_element
@@ -816,7 +849,9 @@ class PPGAlgorithm {
   }
 
   List<double> getFrames() {
-    print(_frameRates);
+    if (kDebugMode) {
+      print(_frameRates);
+    }
     if (_frameRates.isEmpty) return [];
 
     final double avgFrameRate = _calculateAverage(_frameRates);
@@ -851,14 +886,18 @@ class PPGAlgorithm {
   /// CHANGED: Now accepts signal and local frame rate as parameters.
   double _calculateRespiratoryRate(List<double> signal, double fs) {
     if (signal.length < (fs * 8).round()) {
-      print('RR: Signal too short: ${signal.length}');
+      if (kDebugMode) {
+        print('RR: Signal too short: ${signal.length}');
+      }
       return 0.0;
     }
 
     // 1) Isolate pulse component (0.7-3.0 Hz heart band)
     final pulse = _applyButterworthBandpass(signal, 0.7, 3.0, fs);
     if (pulse.length < 8) {
-      print('RR: Pulse band too short: ${pulse.length}');
+      if (kDebugMode) {
+        print('RR: Pulse band too short: ${pulse.length}');
+      }
       return 0.0;
     }
 
@@ -870,26 +909,36 @@ class PPGAlgorithm {
     final envMin = envelope.isEmpty ? 0.0 : envelope.reduce(min);
     final envMax = envelope.isEmpty ? 0.0 : envelope.reduce(max);
     final envAvg = _calculateAverage(envelope);
-    print('RR: Envelope - min: $envMin, max: $envMax, avg: $envAvg');
+    if (kDebugMode) {
+      print('RR: Envelope - min: $envMin, max: $envMax, avg: $envAvg');
+    }
 
     // 3) Respiratory modulation band (0.05-0.5 Hz = 3-30 breaths/min)
     final resp = _applyButterworthBandpass(envSmooth, 0.05, 0.5, fs);
     if (resp.length < 8) {
-      print('RR: Resp band too short: ${resp.length}');
+      if (kDebugMode) {
+        print('RR: Resp band too short: ${resp.length}');
+      }
       return 0.0;
     }
 
     final avg = _calculateAverage(resp);
     final std = calculateStandardDeviation(resp);
-    print('RR: Resp signal - avg: $avg, std: $std');
+    if (kDebugMode) {
+      print('RR: Resp signal - avg: $avg, std: $std');
+    }
     if (std < 0.0005) {
-      print('RR: Std too low: $std');
+      if (kDebugMode) {
+        print('RR: Std too low: $std');
+      }
       return 0.0;
     }
 
     // 4) Peak detection with threshold
     final threshold = avg + 0.2 * std;
-    print('RR: Threshold: $threshold');
+    if (kDebugMode) {
+      print('RR: Threshold: $threshold');
+    }
     final peaks = <int>[];
     int lastIndex = -(fs * 2).round(); // refractory ~2s
 
@@ -903,9 +952,13 @@ class PPGAlgorithm {
       }
     }
 
-    print('RR: Peaks detected: ${peaks.length}');
+    if (kDebugMode) {
+      print('RR: Peaks detected: ${peaks.length}');
+    }
     if (peaks.length < 2) {
-      print('RR: Too few peaks: ${peaks.length}');
+      if (kDebugMode) {
+        print('RR: Too few peaks: ${peaks.length}');
+      }
       return 0.0;
     }
 
@@ -920,16 +973,22 @@ class PPGAlgorithm {
       }
     }
 
-    print('RR: Valid intervals: $validIntervals / ${peaks.length - 1}');
+    if (kDebugMode) {
+      print('RR: Valid intervals: $validIntervals / ${peaks.length - 1}');
+    }
     if (validIntervals == 0) {
-      print('RR: No valid intervals');
+      if (kDebugMode) {
+        print('RR: No valid intervals');
+      }
       return 0.0;
     }
 
     final avgInterval = totalInterval / validIntervals;
     final respiratoryRate = 60.0 / avgInterval;
     final clampedRR = respiratoryRate.clamp(6.0, 30.0);
-    print('RR: Calculated rate: $respiratoryRate (clamped: $clampedRR)');
+    if (kDebugMode) {
+      print('RR: Calculated rate: $respiratoryRate (clamped: $clampedRR)');
+    }
 
     // Apply EMA smoothing to RR (same as HR)
     if (clampedRR > 0) {
@@ -941,8 +1000,10 @@ class PPGAlgorithm {
                 (clampedRR * _emaAlpha);
       }
     }
-    print(
-        'RR: Raw = ${clampedRR.toStringAsFixed(2)}, EMA-smoothed = ${_smoothedRespiratoryRate.toStringAsFixed(2)}');
+    if (kDebugMode) {
+      print(
+          'RR: Raw = ${clampedRR.toStringAsFixed(2)}, EMA-smoothed = ${_smoothedRespiratoryRate.toStringAsFixed(2)}');
+    }
 
     return _smoothedRespiratoryRate;
   }

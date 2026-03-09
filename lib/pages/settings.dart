@@ -30,6 +30,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _highContrast = s.highContrast;
     _textScale = s.textScale;
     _userMode = s.userMode;
+    _haptics = s.haptics;
+    _saveRecords = s.saveRecords;
   }
 
   @override
@@ -147,7 +149,10 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('Haptická odezva'),
             subtitle: const Text('Vibrace při akcích v aplikaci'),
             value: _haptics,
-            onChanged: (v) => setState(() => _haptics = v),
+            onChanged: (v) {
+              setState(() => _haptics = v);
+              AppSettings.setHaptics(v);
+            },
           ),
           const Divider(height: 1),
           ListTile(
@@ -201,7 +206,10 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('Ukládat záznamy lokálně'),
             subtitle: const Text('Uloží měření do zařízení'),
             value: _saveRecords,
-            onChanged: (v) => setState(() => _saveRecords = v),
+            onChanged: (v) {
+              setState(() => _saveRecords = v);
+              AppSettings.setSaveRecords(v);
+            },
           ),
           const Divider(height: 1),
           SwitchListTile(
