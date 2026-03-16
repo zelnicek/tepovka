@@ -11,6 +11,7 @@ import 'package:health/health.dart';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
 import 'package:tepovka/services/app_settings.dart';
+import 'package:tepovka/elements/peak_detector.dart';
 // Cloud sync disabled for local-only mode
 
 enum PatientStatus { normal, rest }
@@ -34,6 +35,7 @@ class Summary extends StatefulWidget {
   final double pnn50; // HRV: pNN50
   final double sd1; // HRV: SD1
   final double sd2; // HRV: SD2
+  final double spo2; // Estimated oxygen saturation
   const Summary({
     Key? key,
     required this.averageBPM,
@@ -48,6 +50,7 @@ class Summary extends StatefulWidget {
     required this.pnn50,
     required this.sd1,
     required this.sd2,
+    required this.spo2,
   }) : super(key: key);
   @override
   State<Summary> createState() => _SummaryState();
@@ -89,6 +92,11 @@ class _SummaryState extends State<Summary> {
   double _slope60_bpmPerMin = 0.0;
   double _tauSec = 0.0;
   List<FlSpot> _recoverySpots = [];
+  double _spo2 = 0.0;
+
+  double get _effectiveAverageBpm =>
+      _calculatedAverageBPM > 0 ? _calculatedAverageBPM : widget.averageBPM;
+
   @override
   void initState() {
     print('bpm_list: ${widget.bpm_list}');
@@ -107,6 +115,7 @@ class _SummaryState extends State<Summary> {
     _pnn50 = widget.pnn50;
     _sd1 = widget.sd1;
     _sd2 = widget.sd2;
+    _spo2 = (widget.spo2 >= 70.0 && widget.spo2 <= 100.0) ? widget.spo2 : 0.0;
     print(
         'DEBUG HRV from algo: sdnn=${widget.sdnn}, rmssd=${widget.rmssd}, pnn50=${widget.pnn50}, sd1=${widget.sd1}, sd2=${widget.sd2}');
     _sd2sd1 = _sd1 > 0 ? _sd2 / _sd1 : 0.0;
@@ -327,7 +336,7 @@ class _SummaryState extends State<Summary> {
     _smoothedData = smoothed;
     // Detect peaks on smoothed
     List<double> yValues = _smoothedData.map((s) => s.y).toList();
-    List<int> peaks = _findPeaks(yValues, sampleRate: sampleRate);
+    List<int> peaks = PeakDetector.findPeaks(yValues, sampleRate: sampleRate);
     _peakSpots = peaks.map((i) => _smoothedData[i]).toList();
 
     // Calculate average BPM from peaks
@@ -546,76 +555,6 @@ class _SummaryState extends State<Summary> {
     return Colors.red;
   }
 
-  List<int> _findPeaks(List<double> signal, {double sampleRate = 30.0}) {
-    List<int> peaks = [];
-    if (signal.length < 3) return peaks;
-
-    // Robust detection: local threshold + prominence + refractory
-    final globalMean = signal.reduce((a, b) => a + b) / signal.length;
-    final globalSumSq = signal
-        .map((v) => (v - globalMean) * (v - globalMean))
-        .reduce((a, b) => a + b);
-    final globalStd = sqrt(globalSumSq / signal.length);
-
-    final int minDistance =
-        (sampleRate * 60 / 200).round().clamp(3, signal.length); // max HR 200
-    final int localWindow = (sampleRate * 1.0).round().clamp(5, 120);
-
-    int lastIndex = -minDistance;
-    for (int i = 1; i < signal.length - 1; i++) {
-      final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-      if (!isPeak) continue;
-
-      final start = (i - localWindow).clamp(0, signal.length - 1);
-      final end = (i + localWindow).clamp(0, signal.length - 1);
-      double localSum = 0.0;
-      double localSumSq = 0.0;
-      int count = 0;
-      for (int j = start; j <= end; j++) {
-        localSum += signal[j];
-        localSumSq += signal[j] * signal[j];
-        count++;
-      }
-      final localMean = localSum / count;
-      final localVar = (localSumSq / count) - (localMean * localMean);
-      final localStd = sqrt(localVar.abs());
-
-      final threshold = localMean + 0.1 * localStd;
-      final prominence = signal[i] - localMean;
-      final aboveThreshold = signal[i] > threshold;
-      final strongEnough = prominence > (0.15 * localStd).clamp(0.001, 999.0);
-      final farEnough = (i - lastIndex) >= minDistance;
-
-      if (!aboveThreshold || !strongEnough) continue;
-
-      if (!farEnough) {
-        if (peaks.isNotEmpty && signal[i] > signal[peaks.last]) {
-          peaks[peaks.length - 1] = i;
-          lastIndex = i;
-        }
-        continue;
-      }
-
-      peaks.add(i);
-      lastIndex = i;
-    }
-
-    if (peaks.isEmpty && globalStd > 0) {
-      final fallbackThreshold = globalMean + 0.15 * globalStd;
-      lastIndex = -minDistance;
-      for (int i = 1; i < signal.length - 1; i++) {
-        final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-        final aboveThreshold = signal[i] > fallbackThreshold;
-        final farEnough = (i - lastIndex) >= minDistance;
-        if (isPeak && aboveThreshold && farEnough) {
-          peaks.add(i);
-          lastIndex = i;
-        }
-      }
-    }
-    return peaks;
-  }
-
   @override
   void dispose() {
     _notesController.dispose();
@@ -643,24 +582,25 @@ class _SummaryState extends State<Summary> {
   }
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
     setState(() {
       _selectedIndex = index;
     });
     switch (index) {
       case 0:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const IntroPage()),
         );
         break;
       case 1:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const Home()),
         );
         break;
       case 2:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const About()),
         );
@@ -682,7 +622,7 @@ class _SummaryState extends State<Summary> {
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final formattedTime =
           '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-      final averageBpm = widget.averageBPM.toInt();
+      final averageBpm = _effectiveAverageBpm.toInt();
       final dataForPlot = widget.data;
       final notesContent = _notesController.text;
       final bpmList = widget.bpm_list;
@@ -713,6 +653,7 @@ class _SummaryState extends State<Summary> {
         'rrIntervalsMs': rrIntervalsMs,
         'duration': widget.recordingDuration,
         'respiratoryRate': _respiratoryRate, // Přidáno: RR
+        'spo2': _spo2,
         'hrv': {
           'sdnn': _sdnn,
           'rmssd': _rmssd,
@@ -896,7 +837,7 @@ class _SummaryState extends State<Summary> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          '${_calculatedAverageBPM.toInt()} bpm',
+                          '${_effectiveAverageBpm.toInt()} bpm',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 40,
@@ -1040,7 +981,7 @@ class _SummaryState extends State<Summary> {
             ),
           ),
           Positioned(
-            left: ((_calculatedAverageBPM.clamp(30, 220) - 30) / (220 - 30)) *
+            left: ((_effectiveAverageBpm.clamp(30, 220) - 30) / (220 - 30)) *
                 (MediaQuery.of(context).size.width - 40),
             child: Container(
               width: 10,
@@ -1053,7 +994,7 @@ class _SummaryState extends State<Summary> {
           ),
           Center(
             child: Text(
-              '${_calculatedAverageBPM.toInt()} bpm',
+              '${_effectiveAverageBpm.toInt()} bpm',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -1101,7 +1042,7 @@ class _SummaryState extends State<Summary> {
           ),
           color: const Color.fromARGB(255, 222, 16, 1),
           onPressed: () async {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const IntroPage()),
             );
@@ -1109,7 +1050,7 @@ class _SummaryState extends State<Summary> {
         ),
         InkWell(
           onTap: () async {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const IntroPage()),
             );
@@ -1138,8 +1079,8 @@ class _SummaryState extends State<Summary> {
               ? null
               : () async {
                   await _saveMeasurement();
-                  await _saveToAppleHealth(widget.averageBPM);
-                  Navigator.push(
+                  await _saveToAppleHealth(_effectiveAverageBpm);
+                  Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (context) => const IntroPage()),
                   );
@@ -1150,8 +1091,8 @@ class _SummaryState extends State<Summary> {
               ? null
               : () async {
                   await _saveMeasurement();
-                  await _saveToAppleHealth(widget.averageBPM);
-                  Navigator.push(
+                  await _saveToAppleHealth(_effectiveAverageBpm);
+                  Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (context) => const IntroPage()),
                   );
@@ -1197,7 +1138,7 @@ class _SummaryState extends State<Summary> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${_calculatedAverageBPM.toInt()} bpm',
+                  '${_effectiveAverageBpm.toInt()} bpm',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 42,
@@ -1266,7 +1207,7 @@ class _SummaryState extends State<Summary> {
   }
 
   PatientStatus _patientStatus() {
-    final bpm = _calculatedAverageBPM;
+    final bpm = _effectiveAverageBpm;
     final rr = _respiratoryRate;
     // Jednoduché pravidlo: klidová zona
     final isBpmOk = bpm >= 55 && bpm <= 95;
@@ -1425,11 +1366,6 @@ class _SummaryState extends State<Summary> {
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
             children: [
-              _buildHRVCard(
-                  'Dechová frekvence',
-                  _respiratoryRate > 0
-                      ? '${_respiratoryRate.toStringAsFixed(1)} dechů/min'
-                      : '—'),
               _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
               _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
               _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
@@ -1446,6 +1382,68 @@ class _SummaryState extends State<Summary> {
                 valueColor: _getStressColor(_stressIndex),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRespAndSpo2Info() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            children: [
+              _buildHRVCard(
+                'Dechová frekvence',
+                _respiratoryRate > 0
+                    ? '${_respiratoryRate.toStringAsFixed(1)} dechů/min'
+                    : '—',
+              ),
+              _buildHRVCard(
+                'SpO2',
+                _spo2 > 0 ? '${_spo2.toStringAsFixed(1)} %' : '—',
+                valueColor: _spo2 >= 95
+                    ? Colors.green
+                    : _spo2 >= 90
+                        ? Colors.orange
+                        : Colors.red,
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Card(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline,
+                      size: 16, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'SpO2 je orientacni hodnota. Neni nahradou lekarskeho pristroje. Pri hodnotach pod 95 % vyhledejte lekare.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -1477,6 +1475,8 @@ class _SummaryState extends State<Summary> {
             style: const TextStyle(fontSize: 13, color: Colors.black54),
           ),
         ),
+        const SizedBox(height: 8),
+        _buildRespAndSpo2Info(),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),

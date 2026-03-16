@@ -4,6 +4,7 @@ import 'package:fftea/fftea.dart'; // FFT library for frequency domain analysis
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
+import 'package:tepovka/elements/spo2_algorithm.dart';
 
 /// Advanced Photoplethysmography (PPG) algorithm for heart rate estimation
 /// with robust motion artifact handling and high-quality signal processing.
@@ -107,6 +108,10 @@ class PPGAlgorithm {
   double _currentPnn50 = 0.0; // pNN50 (% of intervals differing by >50ms)
   double _currentSd1 = 0.0; // SD1 (short-term HRV - Poincaré plot)
   double _currentSd2 = 0.0; // SD2 (long-term HRV - Poincaré plot)
+
+  /// SpO2 estimator (smartphone approximation).
+  final SpO2Algorithm _spo2Algorithm = SpO2Algorithm();
+
   double calculateStandardDeviation(List<double> values) {
     if (values.isEmpty) return 0.0;
 
@@ -141,6 +146,7 @@ class PPGAlgorithm {
     _lastAverageGreen = rgbMeans.green;
     _lastAverageRed = rgbMeans.red;
     _lastAverageBlue = rgbMeans.blue;
+    _spo2Algorithm.addSample(rgbMeans.red, rgbMeans.green);
 
     // Select primary signal (prefer green for better perfusion detection)
     double primarySignal = rgbMeans.green;
@@ -985,6 +991,10 @@ class PPGAlgorithm {
 
   double getSd2() => _currentSd2;
 
+  double getSpO2() => _spo2Algorithm.currentSpO2;
+
+  double getSummarySpO2() => _spo2Algorithm.getSummarySpO2();
+
   double getAverageIntensity() => _lastAverageGreen ?? 0.0;
 
   RgbMeans getLastRgbMeans() => RgbMeans(
@@ -1175,6 +1185,7 @@ class PPGAlgorithm {
     _respiratoryRates.clear();
     _hrvValues.clear();
     _allIbiIntervals.clear();
+    _spo2Algorithm.reset();
     _motionArtifactScores.clear();
     _displayBuffer.clear();
     _framesProcessedSinceLastUpdate = 0;

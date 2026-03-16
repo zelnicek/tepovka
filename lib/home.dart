@@ -13,6 +13,7 @@ import 'package:tepovka/pages/about.dart';
 import 'package:flutter/services.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
+import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/services/tts_service.dart';
 
@@ -273,7 +274,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
     // Peak detection on detrended+smoothed signal
     List<double> smoothedYValues = _smoothedData.map((spot) => spot.y).toList();
-    List<int> allPeaks = _findPeaksSimple(smoothedYValues);
+    List<int> allPeaks =
+        PeakDetector.findPeaks(smoothedYValues, sampleRate: _sampleRate);
 
     double rightThresh = minX + (_currentTime - minX) * 0.7;
     double minDistTime = 60.0 / 150.0; // 0.4s min spacing for max HR 150
@@ -348,33 +350,6 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     setState(() {}); // Aktualizuj UI
   }
 
-  // Improved peak detection: 5-point local maxima with adaptive threshold
-  List<int> _findPeaksSimple(List<double> signal) {
-    List<int> peaks = [];
-    if (signal.length < 5) return peaks;
-
-    final double mean = signal.reduce((a, b) => a + b) / signal.length;
-    final double variance =
-        signal.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) /
-            signal.length;
-    final double std = sqrt(variance);
-
-    // Adaptive threshold: lower for detrended signal (which is zero-centered)
-    final double threshold = mean + 0.25 * std;
-
-    // 5-point local maxima: must be higher than 2 neighbors on each side
-    for (int i = 2; i < signal.length - 2; i++) {
-      if (signal[i] > signal[i - 1] &&
-          signal[i] > signal[i + 1] &&
-          signal[i] >= signal[i - 2] &&
-          signal[i] >= signal[i + 2] &&
-          signal[i] > threshold) {
-        peaks.add(i);
-      }
-    }
-    return peaks;
-  }
-
   void _stopRecording() {
     _navigationTimer?.cancel();
     _countdownTimer?.cancel();
@@ -412,19 +387,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     // Navigate to the selected page
     switch (index) {
       case 0:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const IntroPage()),
         );
         break;
       case 1:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const Home()),
         );
         break;
       case 2:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const About()),
         );
@@ -507,6 +482,30 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       );
       return;
     }
+
+    if (_recordingDuration < 60) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+
+    if (_hasInitializedCameraController && !_isFlashOn) {
+      try {
+        await _cameraController.setFlashMode(FlashMode.torch);
+        if (mounted) {
+          setState(() {
+            _isFlashOn = true;
+          });
+        }
+      } catch (e) {
+        debugPrint('Auto torch enable failed: $e');
+      }
+    }
+
     setState(() {
       _progressController.duration = Duration(seconds: _recordingDuration);
       _isRecording = true;
@@ -608,6 +607,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           pnn50: _ppgAlgorithm?.getPnn50() ?? 0.0,
           sd1: _ppgAlgorithm?.getSd1() ?? 0.0,
           sd2: _ppgAlgorithm?.getSd2() ?? 0.0,
+          spo2: _ppgAlgorithm?.getSummarySpO2() ?? 0.0,
           bpmHistory: _ppgAlgorithm?.getBpmHistory() ?? const [],
         ),
       ),
@@ -648,7 +648,6 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     }
     if (_hasInitializedCameraController) {
       _cameraController.dispose();
-      _cameraController.setFlashMode(FlashMode.off);
     }
     _graphUpdateTimer?.cancel();
     _navigationTimer?.cancel();
@@ -779,9 +778,15 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       Container(
                         width: cameraSize,
                         height: cameraSize,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.black, // Background pro kruh
+                          border: Border.all(
+                            color: _signalQuality == 'Dobrá'
+                                ? Colors.green
+                                : Colors.red,
+                            width: 4,
+                          ),
                         ),
                         child: ClipOval(
                           child: SizedBox(
@@ -809,9 +814,15 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       Container(
                         width: cameraSize,
                         height: cameraSize,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.grey,
+                          border: Border.all(
+                            color: _signalQuality == 'Dobrá'
+                                ? Colors.green
+                                : Colors.red,
+                            width: 4,
+                          ),
                         ),
                         child: const Center(
                           child: CircularProgressIndicator(
