@@ -35,8 +35,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   Timer? _navigationTimer;
   Timer? _countdownTimer; // Timer for countdown display
   List<FlSpot> _data = [];
-  List<FlSpot> _data2 = [];
   List<FlSpot> _smoothedData = [];
+  List<FlSpot> _fullRecordData =
+      []; // Full record for Summary, never window-pruned
   List<TimeLabel> _labels = [];
   List<FlSpot> _peakSpots = []; // FlSpot instances for detected peaks
   bool _isPlottingStarted = false;
@@ -66,6 +67,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   String _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
   double _liveBPM = 70.0; // New: Live BPM from UI peaks
   double _lastBpmUpdateTime = 0.0; // New: Time of last BPM update
+  double _yAxisHalfRange =
+      1.5; // Symmetric Y axis around 0 for stable oscilloscope view
+  int _samplesSinceLastScaleUpdate = 0;
+  double _emaState = 0.0; // Persistent EMA state across timer ticks
   bool _isTeardown = false;
   bool _isSwitchingCamera = false;
 
@@ -202,45 +207,107 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     final ppgPlot = _ppgAlgorithm!.getPpgPlot();
     if (ppgPlot.isEmpty) return;
     final double rawValue = ppgPlot.last;
-    final double newValue = -rawValue * 1.0; // Bez zesílení - reálné hodnoty
-    final double minX = max(0.0, _currentTime - _windowTime);
+    final double newValue =
+        -rawValue * 1.0; // Inverze: surový signál se invertuje pro zobrazení
+    // Keep a fixed oscilloscope-like window from the very first frame.
+    // This prevents horizontal stretching while the signal history grows.
+    final double minX = _currentTime - _windowTime;
     // Append new data point with time as x
     final double newX = _currentTime;
     _data.add(FlSpot(newX, newValue));
     // Remove old data points (keep buffer for smooth left exit)
     _data.removeWhere((spot) => spot.x < minX - _bufferTime);
-    _data2 = List<FlSpot>.from(_data);
-    // Moving average smoothing
-    int windowSize = 7; // Increased for less noise
-    List<FlSpot> smoothed = [];
-    for (int i = 0; i < _data.length; i++) {
-      double sum = 0.0;
-      int count = 0;
-      for (int j = i - windowSize + 1; j <= i; j++) {
-        if (j >= 0) {
-          sum += _data[j].y;
-          count++;
+
+    // IMPROVED FILTERING PIPELINE:
+    // 1. Median filter (spike removal) → 2. Baseline removal → 3. Light EMA smoothing
+    // This preserves waveform morphology while removing noise and drift.
+
+    List<double> yValues = _data.map((spot) => spot.y).toList();
+
+    // Step 1: Median filter for spike/outlier removal (window=5)
+    List<double> medianFiltered = List<double>.from(yValues);
+    const int medianWindowSize = 5;
+    for (int i = 0; i < yValues.length; i++) {
+      List<double> window = [];
+      for (int j = i - medianWindowSize ~/ 2;
+          j <= i + medianWindowSize ~/ 2;
+          j++) {
+        if (j >= 0 && j < yValues.length) {
+          window.add(yValues[j]);
         }
       }
-      double avg = count > 0 ? sum / count : _data[i].y;
-      smoothed.add(FlSpot(_data[i].x, avg));
+      window.sort();
+      medianFiltered[i] = window[window.length ~/ 2];
     }
-    _smoothedData = smoothed;
-    // Detect peaks on the smoothed data
-    List<double> yValues = _smoothedData.map((spot) => spot.y).toList();
-    // IMPROVED: Use synchronized peak detection with adaptive threshold and minDistance.
-    List<int> potential = _findPeaks(yValues, sampleRate: _sampleRate);
+
+    // Step 2: Causal baseline removal using backward-only moving average
+    // Only uses past samples so already-plotted values don't change
+    const int baselineWindow = 60; // ~2 seconds at 30 FPS
+    List<double> detrended = List<double>.filled(medianFiltered.length, 0.0);
+    for (int i = 0; i < medianFiltered.length; i++) {
+      double sum = 0.0;
+      int count = 0;
+      final int start = max(0, i - baselineWindow + 1);
+      for (int j = start; j <= i; j++) {
+        sum += medianFiltered[j];
+        count++;
+      }
+      detrended[i] = medianFiltered[i] - (count > 0 ? sum / count : 0.0);
+    }
+
+    // Step 3: Causal EMA - apply only to the new sample and keep history unchanged.
+    const double emaAlpha = 0.4;
+    final double latestDetrended = detrended.last;
+    _emaState = _emaState * (1 - emaAlpha) + latestDetrended * emaAlpha;
+
+    // Append only the newest smoothed point to avoid historical Y deformation.
+    _smoothedData.add(FlSpot(_data.last.x, _emaState));
+    if (_isRecording) {
+      _fullRecordData.add(FlSpot(_data.last.x, _emaState));
+    }
+
+    // Keep the same visible/pruned time window as _data.
+    _smoothedData.removeWhere(
+        (spot) => spot.x < _currentTime - _windowTime - _bufferTime);
+    _updateYAxisScale();
+
+    // Peak detection on detrended+smoothed signal
+    List<double> smoothedYValues = _smoothedData.map((spot) => spot.y).toList();
+    List<int> allPeaks = _findPeaksSimple(smoothedYValues);
+
     double rightThresh = minX + (_currentTime - minX) * 0.7;
-    double minDistTime = 60.0 / 200.0; // 0.3s min spacing for max HR 200
-    for (int idx in potential) {
+    double minDistTime = 60.0 / 150.0; // 0.4s min spacing for max HR 150
+
+    // Filter peaks by prominence and time position
+    final double mean = smoothedYValues.isEmpty
+        ? 0
+        : smoothedYValues.reduce((a, b) => a + b) / smoothedYValues.length;
+    final double std = smoothedYValues.isEmpty
+        ? 1
+        : sqrt(smoothedYValues
+                .map((v) => (v - mean) * (v - mean))
+                .reduce((a, b) => a + b) /
+            smoothedYValues.length);
+    final double prominenceThreshold =
+        0.5 * std; // Slightly lower for detrended signal
+
+    for (int idx in allPeaks) {
       FlSpot newPeak = _smoothedData[idx];
-      if (newPeak.x > rightThresh &&
+      double peakProminence = smoothedYValues[idx] - mean;
+
+      if (peakProminence > prominenceThreshold &&
+          newPeak.x > rightThresh &&
           !_peakSpots.any((ex) => (ex.x - newPeak.x).abs() < minDistTime)) {
         _peakSpots.add(newPeak);
       }
     }
+
     // Remove old peaks
     _peakSpots.removeWhere((spot) => spot.x < minX - _bufferTime);
+
+    // Sort peaks by time
+    _peakSpots.sort((a, b) => a.x.compareTo(b.x));
+
     // New: Calculate live BPM from recent peaks if 5 seconds have passed
     if (_currentTime - _lastBpmUpdateTime >= 5.0 && _peakSpots.length >= 3) {
       // Need at least 2 intervals
@@ -253,7 +320,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       // Clamp to reasonable range
       if (_liveBPM < 40 || _liveBPM > 200) _liveBPM = 70.0;
       _lastBpmUpdateTime = _currentTime; // Update last time
-      print('Updated live BPM: $_liveBPM'); // For debug
+      print(
+          'DEBUG: ${_peakSpots.length} peaks detected, intervals: ${intervals.map((i) => i.toStringAsFixed(2)).toList()}, avgInterval: ${avgInterval.toStringAsFixed(3)}s, BPM: ${_liveBPM.toStringAsFixed(1)}'); // For debug
     }
     // Posuň časové značky – no shift needed, remove old
     _labels.removeWhere((label) => label.x < minX);
@@ -280,71 +348,28 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     setState(() {}); // Aktualizuj UI
   }
 
-  // IMPROVED: Robust live peak detection with local threshold, prominence, and refractory.
-  List<int> _findPeaks(List<double> signal, {double sampleRate = 30.0}) {
+  // Improved peak detection: 5-point local maxima with adaptive threshold
+  List<int> _findPeaksSimple(List<double> signal) {
     List<int> peaks = [];
-    if (signal.length < 3) return peaks;
+    if (signal.length < 5) return peaks;
 
-    final globalMean = signal.reduce((a, b) => a + b) / signal.length;
-    final globalSumSq = signal
-        .map((v) => (v - globalMean) * (v - globalMean))
-        .reduce((a, b) => a + b);
-    final globalStd = sqrt(globalSumSq / signal.length);
+    final double mean = signal.reduce((a, b) => a + b) / signal.length;
+    final double variance =
+        signal.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) /
+            signal.length;
+    final double std = sqrt(variance);
 
-    final int minDistance =
-        (sampleRate * 60 / 200).round().clamp(3, signal.length); // max HR 200
-    final int localWindow = (sampleRate * 1.0).round().clamp(5, 120);
+    // Adaptive threshold: lower for detrended signal (which is zero-centered)
+    final double threshold = mean + 0.25 * std;
 
-    int lastIndex = -minDistance;
-    for (int i = 1; i < signal.length - 1; i++) {
-      final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-      if (!isPeak) continue;
-
-      final start = (i - localWindow).clamp(0, signal.length - 1);
-      final end = (i + localWindow).clamp(0, signal.length - 1);
-      double localSum = 0.0;
-      double localSumSq = 0.0;
-      int count = 0;
-      for (int j = start; j <= end; j++) {
-        localSum += signal[j];
-        localSumSq += signal[j] * signal[j];
-        count++;
-      }
-      final localMean = localSum / count;
-      final localVar = (localSumSq / count) - (localMean * localMean);
-      final localStd = sqrt(localVar.abs());
-
-      final threshold = localMean + 0.25 * localStd;
-      final prominence = signal[i] - localMean;
-      final aboveThreshold = signal[i] > threshold;
-      final strongEnough = prominence > (0.35 * localStd).clamp(0.01, 999.0);
-      final farEnough = (i - lastIndex) >= minDistance;
-
-      if (!aboveThreshold || !strongEnough) continue;
-
-      if (!farEnough) {
-        if (peaks.isNotEmpty && signal[i] > signal[peaks.last]) {
-          peaks[peaks.length - 1] = i;
-          lastIndex = i;
-        }
-        continue;
-      }
-
-      peaks.add(i);
-      lastIndex = i;
-    }
-
-    if (peaks.isEmpty && globalStd > 0) {
-      final fallbackThreshold = globalMean + 0.15 * globalStd;
-      lastIndex = -minDistance;
-      for (int i = 1; i < signal.length - 1; i++) {
-        final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-        final aboveThreshold = signal[i] > fallbackThreshold;
-        final farEnough = (i - lastIndex) >= minDistance;
-        if (isPeak && aboveThreshold && farEnough) {
-          peaks.add(i);
-          lastIndex = i;
-        }
+    // 5-point local maxima: must be higher than 2 neighbors on each side
+    for (int i = 2; i < signal.length - 2; i++) {
+      if (signal[i] > signal[i - 1] &&
+          signal[i] > signal[i + 1] &&
+          signal[i] >= signal[i - 2] &&
+          signal[i] >= signal[i + 2] &&
+          signal[i] > threshold) {
+        peaks.add(i);
       }
     }
     return peaks;
@@ -364,6 +389,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
       _liveBPM = 70.0; // Reset live BPM
       _lastBpmUpdateTime = 0.0; // Reset update time
+      _yAxisHalfRange = 1.5;
+      _samplesSinceLastScaleUpdate = 0;
+      _emaState = 0.0;
+      _fullRecordData = [];
     });
   }
 
@@ -486,6 +515,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _buttonLabel = 'ZASTAVIT MĚŘENÍ';
       _liveBPM = 70.0; // Initial during recording
       _lastBpmUpdateTime = 0.0; // Reset update time
+      _yAxisHalfRange = 1.5;
+      _samplesSinceLastScaleUpdate = 0;
+      _emaState = 0.0;
+      _fullRecordData = [];
     });
     _initializeTimers();
     _progressController.forward();
@@ -517,14 +550,6 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   }
 
   Future<void> _navigateToSummaryPage() async {
-    setState(() {
-      if (_data.length > 150) {
-        _data.removeRange(0, 150);
-      }
-      if (_data2.length > 150) {
-        _data2.removeRange(0, 150);
-      }
-    });
     double averageBPM = _ppgAlgorithm?.getSummary() ?? 0;
     bpm_list.add(averageBPM.toInt());
     List<double> frames_list = _ppgAlgorithm?.getFrames() ?? [];
@@ -543,14 +568,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         averageRR = validRates.reduce((a, b) => a + b) / validRates.length;
         print('DEBUG: calculated averageRR = $averageRR');
       } else {
-        // Fallback: estimate from average BPM (rough: RR ≈ HR/4 to HR/5)
-        averageRR = (averageBPM / 4.5).clamp(6.0, 30.0);
-        print('DEBUG: fallback1 averageRR = $averageRR (from BPM=$averageBPM)');
+        averageRR = 0.0; // validRates empty -> unknown RR
       }
     } else {
-      // Fallback: estimate from average BPM
-      averageRR = (averageBPM / 4.5).clamp(6.0, 30.0);
-      print('DEBUG: fallback2 averageRR = $averageRR (from BPM=$averageBPM)');
+      averageRR = 0.0; // no RR available
     }
     print('DEBUG: Final RR = $averageRR');
     if (_hasInitializedCameraController) {
@@ -569,12 +590,14 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     // Fire-and-forget to avoid getting stuck on awaitSpeakCompletion
     // ignore: unawaited_futures
     TtsService.instance.announceMeasurementEnd();
+    print(
+        'DEBUG fullRecordData length: ${_fullRecordData.length}, recordingDuration: $_recordingDuration');
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => Summary(
           averageBPM: averageBPM,
-          data: _ppgAlgorithm?.dataToPlot() ?? [],
+          data: _fullRecordData.map((s) => s.y).toList(),
           bpm_list: bpm_list,
           frames: frames_list,
           recordingDuration:
@@ -591,15 +614,31 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     );
   }
 
-  // Dynamické škálování Y osy – menší padding pro reálné hodnoty
-  double _getDynamicMinY() {
-    if (_data.isEmpty) return _ppgAlgorithm?.getMin() ?? -1.0;
-    return _data.map((spot) => spot.y).reduce(min) - 1.0; // Malý padding
-  }
+  // Y-axis scaling from raw detrended values. Data points are never rescaled.
+  void _updateYAxisScale() {
+    _samplesSinceLastScaleUpdate++;
+    if (_samplesSinceLastScaleUpdate < 150) return;
 
-  double _getDynamicMaxY() {
-    if (_data.isEmpty) return _ppgAlgorithm?.getMax() ?? 1.0;
-    return _data.map((spot) => spot.y).reduce(max) + 1.0; // Malý padding
+    if (_smoothedData.isEmpty) return;
+
+    // Use the last 150 samples for scaling (or all if less)
+    final recentData = _smoothedData.length >= 150
+        ? _smoothedData.sublist(_smoothedData.length - 150)
+        : _smoothedData;
+    final maxAbsY = recentData.map((spot) => spot.y.abs()).reduce(max);
+
+    // Keep a margin so peaks do not touch chart bounds.
+    final rawTarget = (maxAbsY * 1.15).clamp(0.05, 10.0);
+    const step = 0.1;
+    final quantized = (rawTarget / step).ceil() * step;
+
+    // Hysteresis to avoid frequent oscillation.
+    if (quantized > _yAxisHalfRange * 1.1 ||
+        quantized < _yAxisHalfRange * 0.85) {
+      _yAxisHalfRange = quantized;
+    }
+
+    _samplesSinceLastScaleUpdate = 0;
   }
 
   @override
@@ -646,17 +685,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     if (currentBPM != _lastBPM) {
       HapticFeedback.heavyImpact();
       _lastBPM = currentBPM;
-      bpm_list.add(_lastBPM.toInt());
     }
     if (currentBPM > 0) {
       double heartRateFactor = (currentBPM - 30) / (220 - 30);
       _heartAnimationController.duration =
           Duration(milliseconds: max(300, (600 / heartRateFactor).round()));
     }
-    final minY = _getDynamicMinY();
-    final maxY = _getDynamicMaxY();
-    final double minX = max(0.0, _currentTime - _windowTime);
+    final minY = -_yAxisHalfRange;
+    final maxY = _yAxisHalfRange;
+    final double minX = _currentTime - _windowTime;
     final double maxX = _currentTime;
+
+    final List<FlSpot> scaledSmoothedData = _smoothedData;
+    final List<FlSpot> scaledPeakSpots = _peakSpots;
     final currentCamera =
         _backCameras.isNotEmpty ? _backCameras[_currentBackCameraIndex] : null;
     return WillPopScope(
@@ -867,7 +908,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                               maxY: maxY,
                               lineBarsData: [
                                 LineChartBarData(
-                                  spots: _smoothedData,
+                                  spots: scaledSmoothedData,
                                   isCurved: false, // Přímá čára pro signál
                                   color: const Color.fromARGB(255, 246, 41, 0),
                                   barWidth: 2.0,
@@ -879,7 +920,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                                 ),
                                 // Peak markers as a separate series (dots only)
                                 LineChartBarData(
-                                  spots: _peakSpots,
+                                  spots: scaledPeakSpots,
                                   isCurved: false,
                                   color: Colors.transparent,
                                   barWidth: 0,

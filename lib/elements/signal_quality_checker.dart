@@ -25,17 +25,15 @@ class SignalQualityChecker {
   static const double _adaptFactor =
       0.9; // Adaptation factor: threshold = _adaptFactor * moving_STD
   static const double _tooDarkThreshold =
-      80; // Too dark signal (effective intensity)
-  // OPRACENA: Zvýšen threshold pro no finger (>200 místo 150) – saturace ~220 je teď OK pro prst s flashem.
+      70; // Too dark signal (effective intensity)
   static const double _noFingerThreshold =
-      230.0; // No finger (high green >200 bez variability)
+      240.0; // No finger (high green >240 bez variability)
   static const double _minSkinRatioGR =
-      0.4; // Min G/R ratio for skin (low = poor absorption)
+      0.3; // Min G/R ratio for skin (relaxed for better acceptance)
   static const double _maxSkinRatioGR =
-      2.2; // Max G/R ratio for skin (high = overexposed)
-  // NOVÁ: Threshold pro low variability + high intensity (stabilní prázdný signál).
+      3.0; // Max G/R ratio for skin (relaxed for better acceptance)
   static const double _lowVariabilityThreshold =
-      2.0; // Low STD <2 (uvolněno pro lepší detekci)
+      1.5; // Low STD <1.5 (relaxed to accept subtle signals)
 
   /// Computes signal quality from FlSpot data (green-based plot) and optional RGB means.
   /// Uses STD for motion robustness. First validates finger/lighting via green mean and G/R ratio.
@@ -101,10 +99,10 @@ class SignalQualityChecker {
     }
 
     // Detect too dark: Low green (poor lighting/contact) – teď integrováno výše.
-    // Detect poor contact: G/R ratio out of skin range (e.g., not absorbing blood properly)
+    // Detect poor contact: only if signal is weak AND ratio is very wrong
+    // (high intensity with wrong ratio likely means good contact but unusual light)
     if (!useRedAsPrimary &&
-        currentGreen > 5.0 &&
-        currentRed > 5.0 &&
+        effectiveIntensity < _tooDarkThreshold &&
         (grRatio < _minSkinRatioGR || grRatio > _maxSkinRatioGR)) {
       return _stabilizeQuality('Špatný kontakt');
     }

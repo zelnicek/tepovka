@@ -729,6 +729,14 @@ class _RecordsPageState extends State<RecordsPage> {
     return calculatedAverageBPM;
   }
 
+  /// Pomocná funkce na výpočet percentilu – pro robustní škálování bez vlivů outlierů
+  double _calculatePercentile(List<double> values, double percentile) {
+    if (values.isEmpty) return 0.0;
+    final sorted = List<double>.from(values)..sort();
+    final index = ((percentile / 100.0) * (sorted.length - 1)).round();
+    return sorted[index.clamp(0, sorted.length - 1)];
+  }
+
   void _showRecordDetail(Record record) {
     // Recompute smoothed data, peaks, labels, and HRV
     List<FlSpot> smoothedData = [];
@@ -908,12 +916,16 @@ class _RecordsPageState extends State<RecordsPage> {
 
     // Removed duplicate totalTime declaration
     double chartWidth = totalTime * pixelsPerSecond;
-    double minY = smoothedData.isEmpty
-        ? -1.0
-        : smoothedData.map((spot) => spot.y).reduce(min) - 1.0;
-    double maxY = smoothedData.isEmpty
-        ? 1.0
-        : smoothedData.map((spot) => spot.y).reduce(max) + 1.0;
+
+    // Použji percentilové škálování místo min-max – odolné vůči výchylkám na konci
+    double minY = -1.0;
+    double maxY = 1.0;
+    if (smoothedData.isNotEmpty) {
+      final yValues = smoothedData.map((spot) => spot.y).toList();
+      minY = _calculatePercentile(yValues, 2.0) - 1.0;
+      maxY = _calculatePercentile(yValues, 98.0) + 1.0;
+    }
+
     double minX = 0.0;
     double maxX = totalTime;
 
@@ -1545,6 +1557,10 @@ class _RecordsPageState extends State<RecordsPage> {
     final maxX = durationSec;
     double minY = spots.map((s) => s.y).reduce(min);
     double maxY = spots.map((s) => s.y).reduce(max);
+    // Aplikuj percentilové škálování pro robustnost vůči outlierům
+    final yValues = spots.map((s) => s.y).toList();
+    minY = _calculatePercentile(yValues, 2.0);
+    maxY = _calculatePercentile(yValues, 98.0);
     final padding = ((maxY - minY).abs() * 0.1).clamp(2.0, 15.0);
     minY = (minY - padding).clamp(30.0, 300.0);
     maxY = (maxY + padding).clamp(30.0, 300.0);

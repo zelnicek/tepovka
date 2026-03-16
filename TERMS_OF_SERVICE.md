@@ -141,7 +141,7 @@ Právo ukončit:
 
 Máte-li podání, prosím kontaktujte:
 
-📧 **support@mojetepovka.cz**  
+📧 **info@mojetepovka.cz**  
 ⏱️ **Čas odpovědi:** 48-72 hodin
 
 ---
@@ -153,21 +153,21 @@ Máte-li podání, prosím kontaktujte:
 | App selhává | Aktualizujte OS, vymažte cache |
 | Měření není přesné | Zlepšete osvětlení, udržujte ruku nehybně |
 | Ztrata dat | Pokud jste data neexportovali, nelze obnovit |
-| Technická chyba | Kontaktujte support@mojetepovka.cz |
+| Technická chyba | Kontaktujte info@mojetepovka.cz |
 
 ---
 
 ## 14. Kontakty
 
 **Technická podpora:**  
-📧 support@mojetepovka.cz  
+📧 infop@mojetepovka.cz  
 🌐 https://mojetepovka.cz
 
 **Právní otázky:**  
-📧 legal@mojetepovka.cz
+📧 info@mojetepovka.cz
 
 **Hlášení bezpečnostních chyb:**  
-📧 security@mojetepovka.cz
+📧 info@mojetepovka.cz
 
 ---
 

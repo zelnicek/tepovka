@@ -96,7 +96,10 @@ class _SummaryState extends State<Summary> {
     print('Délka dat: ${widget.data.length}');
     super.initState();
     _authorizeHealth();
-    _respiratoryRate = widget.respiratoryRate; // Uložení RR
+    _respiratoryRate =
+        (widget.respiratoryRate > 0 && widget.respiratoryRate <= 30)
+            ? widget.respiratoryRate
+            : 0.0; // 0.0 = nevalidní / nezobrazovat
 
     // Use HRV metrics from PPGAlgorithm (more accurate)
     _sdnn = widget.sdnn;
@@ -104,9 +107,13 @@ class _SummaryState extends State<Summary> {
     _pnn50 = widget.pnn50;
     _sd1 = widget.sd1;
     _sd2 = widget.sd2;
+    print(
+        'DEBUG HRV from algo: sdnn=${widget.sdnn}, rmssd=${widget.rmssd}, pnn50=${widget.pnn50}, sd1=${widget.sd1}, sd2=${widget.sd2}');
     _sd2sd1 = _sd1 > 0 ? _sd2 / _sd1 : 0.0;
 
     _computeSmoothedPeaksAndLabels();
+    print(
+        'DEBUG Summary peaks: ${_peakSpots.length}, smoothedData: ${_smoothedData.length}');
     _computeHRV(); // Compute remaining metrics (LF, HF, stress index)
     _computeHRRecovery();
     _buildRecoverySpots();
@@ -297,10 +304,10 @@ class _SummaryState extends State<Summary> {
     if (trimmedData.length > expectedLength) {
       trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
     }
-    // Create spots with time x and inverted y
+    // Create spots with time x; signal is already oriented in Home.
     List<FlSpot> spots = [];
     for (int i = 0; i < trimmedData.length; i++) {
-      spots.add(FlSpot(i / sampleRate, -trimmedData[i]));
+      spots.add(FlSpot(i / sampleRate, trimmedData[i]));
     }
     // Moving average smoothing
     int windowSize = 7;
@@ -359,7 +366,47 @@ class _SummaryState extends State<Summary> {
     // Mean RR (for LF/HF calculation and stress index)
     _meanRR = rrIntervals.reduce((a, b) => a + b) / rrIntervals.length;
 
-    // Stress Index (Baevsky approximation) - using SDNN from PPGAlgorithm
+    // If PPGAlgorithm did not return HRV metrics, recompute from RR intervals.
+    if (_sdnn == 0.0 && rrIntervals.length >= 3) {
+      final mean = _meanRR;
+
+      // SDNN
+      final sdnn = sqrt(
+        rrIntervals
+                .map((v) => (v - mean) * (v - mean))
+                .reduce((a, b) => a + b) /
+            rrIntervals.length,
+      );
+      _sdnn = sdnn;
+
+      // RMSSD and pNN50
+      double sumSqDiff = 0.0;
+      int nn50count = 0;
+      for (int i = 1; i < rrIntervals.length; i++) {
+        final diff = rrIntervals[i] - rrIntervals[i - 1];
+        sumSqDiff += diff * diff;
+        if (diff.abs() > 50) nn50count++;
+      }
+      _rmssd = sqrt(sumSqDiff / (rrIntervals.length - 1));
+      _pnn50 = (nn50count / (rrIntervals.length - 1)) * 100.0;
+
+      // SD1 and SD2 (Poincare)
+      final sd1 = sqrt(sumSqDiff / (2.0 * (rrIntervals.length - 1)));
+      final variance = rrIntervals
+              .map((v) => (v - mean) * (v - mean))
+              .reduce((a, b) => a + b) /
+          rrIntervals.length;
+      final sd2 =
+          sqrt((2 * variance) - (sd1 * sd1)).clamp(0.0, double.infinity);
+      _sd1 = sd1;
+      _sd2 = sd2;
+      _sd2sd1 = sd1 > 0 ? sd2 / sd1 : 0.0;
+
+      print(
+          'DEBUG HRV recomputed: sdnn=$_sdnn, rmssd=$_rmssd, pnn50=$_pnn50, sd1=$_sd1, sd2=$_sd2');
+    }
+
+    // Stress Index (Baevsky approximation) - recomputed after SDNN fallback.
     _stressIndex = _sdnn == 0 ? 0.0 : pow(_meanRR / (2 * _sdnn), 2).toDouble();
 
     // Frequency domain using FFT - requires more data, but proceed if possible
@@ -411,6 +458,41 @@ class _SummaryState extends State<Summary> {
       _hf = (_hf / total) * 100;
     }
     _lfhf = _hf == 0.0 ? 0.0 : _lf / _hf;
+
+    // Fallback RR estimate from RR-interval modulation when algo RR is unavailable.
+    if (_respiratoryRate == 0.0 && rrIntervals.length >= 10) {
+      const double windowSec = 6.0;
+      final int windowSamples =
+          (windowSec * 1000 / _meanRR).round().clamp(3, rrIntervals.length);
+
+      final List<double> variances = [];
+      for (int i = 0; i <= rrIntervals.length - windowSamples; i++) {
+        final window = rrIntervals.sublist(i, i + windowSamples);
+        final mean = window.reduce((a, b) => a + b) / window.length;
+        final variance =
+            window.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) /
+                window.length;
+        variances.add(variance);
+      }
+
+      if (variances.isNotEmpty) {
+        int breathCount = 0;
+        for (int i = 1; i < variances.length - 1; i++) {
+          if (variances[i] > variances[i - 1] &&
+              variances[i] > variances[i + 1]) {
+            breathCount++;
+          }
+        }
+
+        final totalTimeSec = rrIntervals.reduce((a, b) => a + b) / 1000.0;
+        if (totalTimeSec > 0 && breathCount > 0) {
+          final estimated = (breathCount / totalTimeSec) * 60.0;
+          if (estimated >= 6 && estimated <= 30) {
+            _respiratoryRate = estimated;
+          }
+        }
+      }
+    }
   }
 
   List<double> _interpolate(
@@ -498,10 +580,10 @@ class _SummaryState extends State<Summary> {
       final localVar = (localSumSq / count) - (localMean * localMean);
       final localStd = sqrt(localVar.abs());
 
-      final threshold = localMean + 0.25 * localStd;
+      final threshold = localMean + 0.1 * localStd;
       final prominence = signal[i] - localMean;
       final aboveThreshold = signal[i] > threshold;
-      final strongEnough = prominence > (0.35 * localStd).clamp(0.01, 999.0);
+      final strongEnough = prominence > (0.15 * localStd).clamp(0.001, 999.0);
       final farEnough = (i - lastIndex) >= minDistance;
 
       if (!aboveThreshold || !strongEnough) continue;
@@ -736,14 +818,28 @@ class _SummaryState extends State<Summary> {
     }
   }
 
+  /// Pomocná funkce na výpočet percentilu – používá se pro robustní škálování bez vlivů outlierů
+  double _calculatePercentile(List<double> values, double percentile) {
+    if (values.isEmpty) return 0.0;
+    final sorted = List<double>.from(values)..sort();
+    final index = ((percentile / 100.0) * (sorted.length - 1)).round();
+    return sorted[index.clamp(0, sorted.length - 1)];
+  }
+
   double _getDynamicMinY() {
     if (_smoothedData.isEmpty) return -1.0;
-    return _smoothedData.map((spot) => spot.y).reduce(min) - 1.0;
+    final yValues = _smoothedData.map((spot) => spot.y).toList();
+    // Použij 2. percentil místo absolutního minima – ignoruje outliers na konci
+    final minValue = _calculatePercentile(yValues, 2.0);
+    return minValue - 1.0;
   }
 
   double _getDynamicMaxY() {
     if (_smoothedData.isEmpty) return 1.0;
-    return _smoothedData.map((spot) => spot.y).reduce(max) + 1.0;
+    final yValues = _smoothedData.map((spot) => spot.y).toList();
+    // Použij 98. percentil místo absolutního maxima – ignoruje outliers na konci
+    final maxValue = _calculatePercentile(yValues, 98.0);
+    return maxValue + 1.0;
   }
 
   @override
@@ -1329,8 +1425,11 @@ class _SummaryState extends State<Summary> {
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
             children: [
-              _buildHRVCard('Dechová frekvence',
-                  '${_respiratoryRate.toStringAsFixed(1)} dechů/min'),
+              _buildHRVCard(
+                  'Dechová frekvence',
+                  _respiratoryRate > 0
+                      ? '${_respiratoryRate.toStringAsFixed(1)} dechů/min'
+                      : '—'),
               _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
               _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
               _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
