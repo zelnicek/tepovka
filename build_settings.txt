@@ -1,0 +1,7 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -showBuildSettings
+
+2026-05-17 14:23:58.918 xcodebuild[32872:9885166]  DVTDeviceOperation: Encountered a build number "" that is incompatible with DVTBuildVersion.
+2026-05-17 14:23:59.004 xcodebuild[32872:9885145] [MT] DVTDeviceOperation: Encountered a build number "" that is incompatible with DVTBuildVersion.
+2026-05-17 14:23:59.101 xcodebuild[32872:9885145] Writing error result bundle to /var/folders/sl/bg5g6hf14sd90blgqdkwnvfh0000gn/T/ResultBundle_2026-17-05_14-23-0059.xcresult
+xcodebuild: error: Could not configure request to show build settings: Found no destinations for the scheme 'Runner' and action build.

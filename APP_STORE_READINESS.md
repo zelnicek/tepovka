@@ -369,7 +369,7 @@ If App Too Large (>100MB):
 | Technical support | info@mojetepovka.cz |
 | Security issues | info@mojetepovka.cz |
 | Privacy questions | info@mojetepovka.cz |
-| Press/Media | press@mojetepovka.cz |
+| Press/Media | info@mojetepovka.cz |
 
 ---
 

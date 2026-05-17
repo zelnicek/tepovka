@@ -160,7 +160,7 @@ Máte-li podání, prosím kontaktujte:
 ## 14. Kontakty
 
 **Technická podpora:**  
-📧 infop@mojetepovka.cz  
+📧 info@mojetepovka.cz  
 🌐 https://mojetepovka.cz
 
 **Právní otázky:**  

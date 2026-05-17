@@ -347,9 +347,9 @@ flutter test test/ppg_algorithm_test.dart   # Specific test file
 
 ### Reporting Issues
 ```
-Bug reports: contact@mojetepovka.cz
-Security issues: security@mojetepovka.cz
-Feature requests: feedback@mojetepovka.cz
+Bug reports: info@mojetepovka.cz
+Security issues: info@mojetepovka.cz
+Feature requests: info@mojetepovka.cz
 ```
 
 ### Development
@@ -383,9 +383,9 @@ MIT License – See [LICENSE](./LICENSE) for details.
 
 | | Contact |
 |---|---------|
-| **Support** | support@mojetepovka.cz |
-| **Technical** | tech@mojetepovka.cz |
-| **Privacy** | privacy@mojetepovka.cz |
+| **Support** | info@mojetepovka.cz |
+| **Technical** | info@mojetepovka.cz |
+| **Privacy** | info@mojetepovka.cz |
 | **Website** | https://mojetepovka.cz |
 | **GitHub** | github.com/zelnicek/tepovka |
 

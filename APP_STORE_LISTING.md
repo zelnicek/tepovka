@@ -378,9 +378,9 @@ flutter build ios --release
 | Role | Name | Email |
 |------|------|-------|
 | Product Manager | Štěpán | stepan@vut.cz |
-| Technical Lead | [Your Name] | tech@mojetepovka.cz |
+| Technical Lead | [Your Name] | info@mojetepovka.cz |
 | Privacy Officer | [Name] | privacy@vut.cz |
-| Legal Contact | [Name] | legal@mojetepovka.cz |
+| Legal Contact | [Name] | info@mojetepovka.cz |
 
 ---
 
