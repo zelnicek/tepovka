@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:tepovka/pages/intro_page.dart';
+import 'package:tepovka/pages/medical_disclaimer_page.dart';
 import 'package:tepovka/theme.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/services/local_profile_service.dart';
@@ -105,8 +105,10 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
     // Přesun na hlavní obrazovku po dokončení animace
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
+        if (!mounted) return;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const IntroPage()),
+          MaterialPageRoute(
+              builder: (context) => const MedicalDisclaimerPage()),
         );
       }
     });
