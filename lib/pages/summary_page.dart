@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/pages/intro_page.dart';
@@ -96,6 +97,13 @@ class _SummaryState extends State<Summary> {
 
   double get _effectiveAverageBpm =>
       _calculatedAverageBPM > 0 ? _calculatedAverageBPM : widget.averageBPM;
+
+  int _responsiveGridColumns(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < 380) return 1;
+    if (width < 700) return 2;
+    return 3;
+  }
 
   @override
   void initState() {
@@ -894,12 +902,12 @@ class _SummaryState extends State<Summary> {
                   // Section toggle buttons
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         _buildSectionChip('Signál', 0),
-                        const SizedBox(width: 8),
                         _buildSectionChip('HRV', 1),
-                        const SizedBox(width: 8),
                         _buildSectionChip('Zotavení', 2),
                       ],
                     ),
@@ -909,9 +917,9 @@ class _SummaryState extends State<Summary> {
                   if (_summarySectionIndex == 0)
                     _buildSignalSection(chartWidth, minX, maxX, minY, maxY)
                   else if (_summarySectionIndex == 1)
-                    _buildHrvSection()
+                    _buildHrvSection(context)
                   else
-                    _buildHrrSection(),
+                    _buildHrrSection(context),
                   const SizedBox(height: 16),
                   const SizedBox(height: 20),
                   _buildSaveCancelRow(context),
@@ -1341,7 +1349,8 @@ class _SummaryState extends State<Summary> {
     );
   }
 
-  Widget _buildHrvSection() {
+  Widget _buildHrvSection(BuildContext context) {
+    final columns = _responsiveGridColumns(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1361,7 +1370,7 @@ class _SummaryState extends State<Summary> {
           child: GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
+            crossAxisCount: columns,
             childAspectRatio: 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
@@ -1388,7 +1397,28 @@ class _SummaryState extends State<Summary> {
     );
   }
 
-  Widget _buildRespAndSpo2Info() {
+  Widget _buildRespAndSpo2Info(BuildContext context) {
+    final columns = _responsiveGridColumns(context);
+    if (kReleaseMode) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Card(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Funkce SpO2 bude brzy k dispozici.',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1397,7 +1427,7 @@ class _SummaryState extends State<Summary> {
           child: GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
+            crossAxisCount: columns,
             childAspectRatio: 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
@@ -1450,7 +1480,8 @@ class _SummaryState extends State<Summary> {
     );
   }
 
-  Widget _buildHrrSection() {
+  Widget _buildHrrSection(BuildContext context) {
+    final columns = _responsiveGridColumns(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1476,7 +1507,7 @@ class _SummaryState extends State<Summary> {
           ),
         ),
         const SizedBox(height: 8),
-        _buildRespAndSpo2Info(),
+        _buildRespAndSpo2Info(context),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1488,7 +1519,7 @@ class _SummaryState extends State<Summary> {
           child: GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
+            crossAxisCount: columns,
             childAspectRatio: 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,

@@ -83,12 +83,6 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
   late AnimationController _controller;
   late Animation<double> _animation;
 
-  // Tyto hodnoty musíš nahradit podle hodnot z LaunchScreen
-  final double x = 55; // X pozice
-  final double y = 270; // Y pozice
-  final double width = 285; // Šířka obrázku
-  final double height = 174; // Výška obrázku
-
   @override
   void initState() {
     super.initState();
@@ -122,27 +116,35 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white, // Nastavení pozadí
-      body: Stack(
-        children: [
-          // Umístění animovaného obrázku s použitím hodnot pro X, Y, Width, Height
-          Positioned(
-            left: x,
-            top: y,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shortestSide =
+            constraints.biggest.shortestSide.clamp(0.0, double.infinity);
+        final imageWidth = (shortestSide * 0.72).clamp(220.0, 320.0);
+        final imageHeight = imageWidth * (174 / 285);
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
             child: AnimatedBuilder(
               animation: _animation,
               builder: (context, child) {
                 return Transform.scale(
                   scale: _animation.value,
-                  child: Image.asset('assets/tepovka.png',
-                      width: width, height: height), // Nahraď obrázkem
+                  child: SizedBox(
+                    width: imageWidth,
+                    height: imageHeight,
+                    child: Image.asset(
+                      'assets/tepovka.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                 );
               },
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

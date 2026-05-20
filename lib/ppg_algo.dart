@@ -81,7 +81,6 @@ class PPGAlgorithm {
 
   /// Motion artifact scores (0-1, where 1 is maximum artifact)
   final List<double> _motionArtifactScores = [];
-  double _lastMotionArtifactScore = 0.0;
 
   /// Display smoothing buffer for extra stability in plot
   final List<double> _displayBuffer = [];
@@ -128,9 +127,23 @@ class PPGAlgorithm {
   /// Extracts RGB means, applies motion detection, updates buffers continuously
   /// with smooth scrolling animation (sliding window).
   void processImage(final CameraImage image) {
+    final RgbMeans rgbMeans = _calculateRgbMeans(image);
+    _processRgbMeans(rgbMeans);
+  }
+
+  /// Processes an already-extracted RGB sample.
+  /// This is used by any non-camera frame source that feeds the same PPG pipeline.
+  void processRgbSample({
+    required double red,
+    required double green,
+    required double blue,
+  }) {
+    _processRgbMeans(RgbMeans(red: red, green: green, blue: blue));
+  }
+
+  void _processRgbMeans(final RgbMeans rgbMeans) {
     final int currentTime = DateTime.now().millisecondsSinceEpoch;
 
-    // Update frame rate estimate
     if (_timestamps.isNotEmpty) {
       final int intervalMs = currentTime - _timestamps.last;
       if (intervalMs > 0) {
@@ -141,77 +154,59 @@ class PPGAlgorithm {
     }
     _timestamps.add(currentTime);
 
-    // Extract RGB means from center ROI with optimized cropping
-    final RgbMeans rgbMeans = _calculateRgbMeans(image);
     _lastAverageGreen = rgbMeans.green;
     _lastAverageRed = rgbMeans.red;
     _lastAverageBlue = rgbMeans.blue;
     _spo2Algorithm.addSample(rgbMeans.red, rgbMeans.green);
 
-    // Select primary signal (prefer green for better perfusion detection)
     double primarySignal = rgbMeans.green;
     if (primarySignal < 10.0) {
-      primarySignal = rgbMeans.red; // Fallback to red if green too low
+      primarySignal = rgbMeans.red;
     }
 
-    // Detect motion artifacts before adding to buffer
     final double motionScore = _detectMotionArtifacts(primarySignal, rgbMeans);
-    _lastMotionArtifactScore = motionScore;
     if (_motionArtifactScores.length > 50) {
       _motionArtifactScores.removeAt(0);
     }
     _motionArtifactScores.add(motionScore);
 
-    // Add raw signal to buffer
     _intensityValues.add(primarySignal);
     _ppgSignal.add(primarySignal);
     _fullRecordBuffer.add(primarySignal);
 
-    // Process and add filtered signal continuously (smooth scrolling)
     final List<double> currentProcessed = _processRawSignal(primarySignal);
     for (double sample in currentProcessed) {
       _filteredIntensities.add(sample);
     }
 
-    // Keep display buffer at fixed size (smooth scrolling window)
     if (_filteredIntensities.length > _displayBufferSize) {
       final int removeCount = _filteredIntensities.length - _displayBufferSize;
       _filteredIntensities.removeRange(0, removeCount);
     }
 
-    // PERIODIC ANALYSIS: Process every 30 frames for HR calculation
     _framesProcessedSinceLastUpdate++;
 
     if (_framesProcessedSinceLastUpdate >= 30 &&
         _intensityValues.length >= 120) {
       _framesProcessedSinceLastUpdate = 0;
 
-      // Use last 120 frames for HR calculation
       final List<double> analysisWindow = _intensityValues.length >= 120
           ? _intensityValues.sublist(_intensityValues.length - 120)
           : _intensityValues;
 
-      // Calculate LOCAL frame rate
       _localFrameRate = _calculateLocalFrameRate();
       if (_localFrameRate >= 20.0) {
         _frameRates.add(_localFrameRate);
-
-        // Calculate heart rate
         _currentHeartRate =
             _calculateHeartRate(analysisWindow, _localFrameRate);
-
-        // Calculate respiratory rate
         _currentRespiratoryRate =
             _calculateRespiratoryRate(analysisWindow, _localFrameRate);
         if (_currentRespiratoryRate > 0) {
           _respiratoryRates.add(_currentRespiratoryRate);
         }
-
-        // Update continuous HRV
         _updateContinuousHrv();
       }
 
-      // Maintain sliding window for analysis
       if (_intensityValues.length > 300) {
         final removeCount = _intensityValues.length - 120;
         _intensityValues.removeRange(0, removeCount);
@@ -1006,24 +1001,6 @@ class PPGAlgorithm {
   List<int> getIntensityValues() =>
       _intensityValues.map((e) => e.toInt()).toList();
 
-  List<double> _computeMovingAverage(
-      final List<double> values, final int windowSize) {
-    if (values.length < windowSize) return values;
-
-    final List<double> averages = [];
-    for (int i = 0; i <= values.length - windowSize; i++) {
-      double sum = 0.0;
-      for (int j = 0; j < windowSize; j++) {
-        sum += values[i + j];
-      }
-      averages.add(sum / windowSize);
-    }
-    while (averages.length < values.length) {
-      averages.add(averages.last);
-    }
-    return averages;
-  }
-
   // ignore: unused_element
   List<double> _computeDerivative(final List<double> data) {
     // ignore: unused_element
@@ -1201,7 +1178,6 @@ class PPGAlgorithm {
     _frameRate = 0.0;
     _localFrameRate = 0.0;
     _currentBpmConfidence = 0.0;
-    _lastMotionArtifactScore = 0.0;
     _yAxisMax = 2.0;
     _yAxisMin = -2.0;
     _smoothedYAxisMax = 2.0;
