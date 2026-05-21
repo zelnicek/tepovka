@@ -111,6 +111,7 @@ class _RecordsPageState extends State<RecordsPage> {
   static const double sampleRate = 30.0; // Define sample rate (Hz)
   static const double pixelsPerSecond = 20.0; // Used for chart width
   List<Record> _records = [];
+  final ScrollController _chartScrollController = ScrollController();
   int _selectedIndex = -1;
   final StorageService _storage = StorageService();
   // UX filters state
@@ -558,10 +559,12 @@ class _RecordsPageState extends State<RecordsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
+                      Flexible(
                         child: Text(
                           title,
                           textAlign: TextAlign.center,
+                          softWrap: true,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 14,
@@ -1080,8 +1083,10 @@ class _RecordsPageState extends State<RecordsPage> {
                     child: Padding(
                       padding: const EdgeInsets.all(10.0),
                       child: Scrollbar(
+                        controller: _chartScrollController,
                         thumbVisibility: true,
                         child: SingleChildScrollView(
+                          controller: _chartScrollController,
                           scrollDirection: Axis.horizontal,
                           child: SizedBox(
                             width: chartWidth,
@@ -1335,96 +1340,84 @@ class _RecordsPageState extends State<RecordsPage> {
             ),
           ),
           actions: <Widget>[
-            Column(
-              mainAxisSize: MainAxisSize.min,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // Tlačítko pro PDF
-                    TextButton(
-                      onPressed: () async {
-                        final chartImageBytes = await _captureChart(chartKey);
-                        final hrvMetrics = {
-                          'SDNN': '${sdnn.toStringAsFixed(2)} ms',
-                          'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
-                          'pNN50': '${pnn50.toStringAsFixed(2)} %',
-                          'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
-                          'SD1': '${sd1.toStringAsFixed(2)} ms',
-                          'SD2': '${sd2.toStringAsFixed(2)} ms',
-                          'SD2/SD1': '${sd2sd1.toStringAsFixed(2)}',
-                          'LF': '${lf.toStringAsFixed(2)} %',
-                          'HF': '${hf.toStringAsFixed(2)} %',
-                          'LF/HF': '${lfhf.toStringAsFixed(2)}',
-                          'Stress Index': '${stressIndex.toStringAsFixed(2)}',
-                        };
-                        final pdfPath = await createPdf(
-                          averageBPM: calculatedAverageBPM.toInt(),
-                          notes: record.notesContent,
-                          duration: record.duration,
-                          hrvMetrics: hrvMetrics,
-                          chartImageBytes: chartImageBytes,
-                          formattedDate: record.date,
-                          formattedTime: record.time,
-                        );
-                        if (pdfPath != null) {
-                          await OpenFilex.open(pdfPath);
-                        }
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue, // Barva textu a ikony
+                TextButton(
+                  onPressed: () async {
+                    final chartImageBytes = await _captureChart(chartKey);
+                    final hrvMetrics = {
+                      'SDNN': '${sdnn.toStringAsFixed(2)} ms',
+                      'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
+                      'pNN50': '${pnn50.toStringAsFixed(2)} %',
+                      'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
+                      'SD1': '${sd1.toStringAsFixed(2)} ms',
+                      'SD2': '${sd2.toStringAsFixed(2)} ms',
+                      'SD2/SD1': '${sd2sd1.toStringAsFixed(2)}',
+                      'LF': '${lf.toStringAsFixed(2)} %',
+                      'HF': '${hf.toStringAsFixed(2)} %',
+                      'LF/HF': '${lfhf.toStringAsFixed(2)}',
+                      'Stress Index': '${stressIndex.toStringAsFixed(2)}',
+                    };
+                    final pdfPath = await createPdf(
+                      averageBPM: calculatedAverageBPM.toInt(),
+                      notes: record.notesContent,
+                      duration: record.duration,
+                      hrvMetrics: hrvMetrics,
+                      chartImageBytes: chartImageBytes,
+                      formattedDate: record.date,
+                      formattedTime: record.time,
+                    );
+                    if (pdfPath != null) {
+                      await OpenFilex.open(pdfPath);
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        FontAwesomeIcons.filePdf,
+                        size: 18,
+                        color: Colors.red,
                       ),
-                      child: Row(
-                        mainAxisSize:
-                            MainAxisSize.min, // Aby text a ikona byly u sebe
-                        children: [
-                          Icon(
-                            FontAwesomeIcons.filePdf, // Ikona pro PDF
-                            size: 18, // Velikost ikony
-                            color: Colors.red, // Barva ikony
-                          ),
-                          const SizedBox(
-                              width: 5), // Malý prostor mezi ikonou a textem
-                          const Text(
-                            'Stáhnout PDF',
-                            style:
-                                TextStyle(color: Colors.black), // Barva textu
-                          ),
-                        ],
+                      const SizedBox(width: 5),
+                      const Text(
+                        'Stáhnout PDF',
+                        style: TextStyle(color: Colors.black),
                       ),
-                    ),
-
-                    // Tlačítko pro TXT
-                    TextButton(
-                      onPressed: () async {
-                        final txtPath = await _createTxt(record);
-                        if (txtPath != null) {
-                          await OpenFilex.open(txtPath);
-                        }
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue, // Barva textu a ikony
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final txtPath = await _createTxt(record);
+                    if (txtPath != null) {
+                      await OpenFilex.open(txtPath);
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        FontAwesomeIcons.fileLines,
+                        size: 18,
+                        color: Colors.black,
                       ),
-                      child: Row(
-                        mainAxisSize:
-                            MainAxisSize.min, // Aby text a ikona byly u sebe
-                        children: [
-                          Icon(
-                            FontAwesomeIcons.fileLines, // Ikona pro TXT
-                            size: 18, // Velikost ikony
-                            color: Colors.black, // Barva ikony
-                          ),
-                          const SizedBox(
-                              width: 5), // Malý prostor mezi ikonou a textem
-                          const Text(
-                            'Export TXT',
-                            style:
-                                TextStyle(color: Colors.black), // Barva textu
-                          ),
-                        ],
+                      const SizedBox(width: 5),
+                      const Text(
+                        'Export TXT',
+                        style: TextStyle(color: Colors.black),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 TextButton(
                   style: TextButton.styleFrom(
@@ -1705,12 +1698,12 @@ class _RecordsPageState extends State<RecordsPage> {
     }
     final offset = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
-    final rect = RelativeRect.fromLTRB(
-      offset.dx,
-      offset.dy + size.height,
-      offset.dx + size.width,
-      offset.dy,
-    );
+    final mq = MediaQuery.of(context);
+    final left = offset.dx;
+    final top = offset.dy + size.height;
+    final right = mq.size.width - (offset.dx + size.width);
+    final bottom = mq.size.height - offset.dy;
+    final rect = RelativeRect.fromLTRB(left, top, right, bottom);
     final desc = _getMetricInfoText(title);
     await showMenu(
       context: context,
@@ -1722,7 +1715,9 @@ class _RecordsPageState extends State<RecordsPage> {
           enabled: false,
           padding: const EdgeInsets.all(0),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
+            constraints: BoxConstraints(
+                maxWidth: (MediaQuery.of(context).size.width - 48)
+                    .clamp(140.0, 560.0)),
             child: Padding(
               padding: const EdgeInsets.all(12.0),
               child: Column(
@@ -2001,6 +1996,12 @@ class _RecordsPageState extends State<RecordsPage> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _chartScrollController.dispose();
+    super.dispose();
   }
 }
 

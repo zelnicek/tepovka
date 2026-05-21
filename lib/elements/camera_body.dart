@@ -30,8 +30,7 @@ class _CameraBodyState extends State<CameraBody> {
   Future<void> _initializeCamera() async {
     _cameraController = CameraController(
       widget.cameraDescription,
-      ResolutionPreset
-          .medium, // CHANGED: from high to medium for better PPG performance
+      ResolutionPreset.max, // Use highest resolution as requested
     );
 
     try {

@@ -67,6 +67,7 @@ class _SummaryState extends State<Summary> {
   List<FlSpot> _smoothedData = [];
   List<FlSpot> _peakSpots = [];
   List<TimeLabel> _labels = [];
+  final ScrollController _signalScrollController = ScrollController();
   double _calculatedAverageBPM = 0.0;
   static const double sampleRate = 30.0;
   static const double pixelsPerSecond =
@@ -566,6 +567,7 @@ class _SummaryState extends State<Summary> {
   @override
   void dispose() {
     _notesController.dispose();
+    _signalScrollController.dispose();
     super.dispose();
   }
 
@@ -1250,8 +1252,10 @@ class _SummaryState extends State<Summary> {
       child: Padding(
         padding: const EdgeInsets.all(10.0),
         child: Scrollbar(
+          controller: _signalScrollController,
           thumbVisibility: true,
           child: SingleChildScrollView(
+            controller: _signalScrollController,
             scrollDirection: Axis.horizontal,
             child: SizedBox(
               width: chartWidth,
@@ -1354,6 +1358,25 @@ class _SummaryState extends State<Summary> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // If SpO2 not yet available, show short note so user knows it's being prepared
+        if (_spo2 <= 0.0)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+            child: Card(
+              color: Colors.yellow[50],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: Colors.orange.withOpacity(0.6)),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Text(
+                  'Poznámka: Hodnota SpO2 se právě připravuje a nemusí být okamžitě aktuální.',
+                  style: TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+              ),
+            ),
+          ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 20),
           child: Text(

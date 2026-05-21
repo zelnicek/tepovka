@@ -5,6 +5,11 @@ import 'package:tepovka/pages/login_page.dart';
 import 'package:tepovka/pages/qr_code_page.dart';
 import 'package:tepovka/services/local_profile_service.dart';
 import 'package:tepovka/services/tts_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tepovka/services/local_logger.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -21,6 +26,8 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _highContrast;
   late double _textScale;
   late UserMode _userMode;
+  int _measurementsCount = 0;
+  String _lastMeasurement = '-';
 
   @override
   void initState() {
@@ -32,6 +39,72 @@ class _SettingsPageState extends State<SettingsPage> {
     _userMode = s.userMode;
     _haptics = s.haptics;
     _saveRecords = s.saveRecords;
+    _loadLocalStats();
+  }
+
+  Future<void> _loadLocalStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _measurementsCount = prefs.getInt('measurements_count') ?? 0;
+        _lastMeasurement = prefs.getString('last_measurement_time') ?? '-';
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _openLog() async {
+    try {
+      final path = await LocalLogger.getLogFilePath();
+      if (path != null && await File(path).exists()) {
+        await OpenFilex.open(path);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Log soubor nenalezen')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Chyba při otevírání logu: $e')));
+    }
+  }
+
+  Future<void> _shareLog() async {
+    try {
+      final path = await LocalLogger.getLogFilePath();
+      if (path != null && await File(path).exists()) {
+        await Share.shareXFiles([XFile(path)], text: 'Tepovka logs');
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Log soubor nenalezen')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Chyba při sdílení logu: $e')));
+    }
+  }
+
+  Future<void> _clearLog() async {
+    try {
+      final path = await LocalLogger.getLogFilePath();
+      if (path != null && await File(path).exists()) {
+        await File(path).delete();
+        await LocalLogger.init(); // recreate
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Log vymazán')));
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Log soubor nenalezen')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Chyba při mazání logu: $e')));
+    }
   }
 
   @override
@@ -226,6 +299,49 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: const Text('Připravujeme'),
             trailing: const Icon(Symbols.chevron_right),
             onTap: () {},
+          ),
+          const Divider(height: 24),
+          const ListTile(
+            title: Text(
+              'Logy a diagnostika',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.insights),
+            title: const Text('Počet měření uložených lokálně'),
+            subtitle: Text('$_measurementsCount'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Poslední měření'),
+            subtitle: Text('$_lastMeasurement'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _openLog,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Otevřít log'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _shareLog,
+                  icon: const Icon(Icons.share),
+                  label: const Text('Sdílet log'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _clearLog,
+                  icon: const Icon(Icons.delete),
+                  label: const Text('Vymazat log'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                ),
+              ],
+            ),
           ),
         ],
       ),

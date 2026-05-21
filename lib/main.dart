@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:tepovka/pages/medical_disclaimer_page.dart';
+import 'package:tepovka/pages/intro_page.dart';
+import 'package:tepovka/widgets/privacy_consent.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tepovka/services/local_logger.dart';
+import 'dart:async';
 import 'package:tepovka/theme.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/services/local_profile_service.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await AppSettings.init();
-  await LocalProfileService.init();
-  runApp(const MyApp());
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await AppSettings.init();
+    await LocalProfileService.init();
+
+    // Initialize local logger
+    await LocalLogger.init();
+
+    // Capture Flutter framework errors locally
+    FlutterError.onError = (details) async {
+      await LocalLogger.log('error', details.exceptionAsString(),
+          {'stack': details.stack?.toString() ?? ''});
+      FlutterError.presentError(details);
+    };
+
+    runApp(const MyApp());
+  }, (error, stack) async {
+    await LocalLogger.log(
+        'error', error.toString(), {'stack': stack.toString()});
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -100,10 +120,20 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-              builder: (context) => const MedicalDisclaimerPage()),
-        );
+        // Check privacy consent and navigate accordingly
+        SharedPreferences.getInstance().then((prefs) {
+          final consent = prefs.getBool('privacy_consent') ?? false;
+          if (consent) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const IntroPage()),
+            );
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                  builder: (context) => const PrivacyConsentPage()),
+            );
+          }
+        });
       }
     });
   }

@@ -46,6 +46,12 @@ class _InfoAppState extends State<InfoApp> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final double socialIconSize = screenWidth < 400 ? 32 : 40;
+    final double coffeeWidth = screenWidth < 400 ? screenWidth * 0.34 : 170;
+    final double coffeeHeight = coffeeWidth * 0.53;
+    final double socialSpacing = screenWidth < 400 ? 12 : 20;
+
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
@@ -124,9 +130,9 @@ class _InfoAppState extends State<InfoApp> {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     FontAwesomeIcons.linkedin, // LinkedIn icon
-                    size: 40,
+                    size: socialIconSize,
                     color:
                         Color.fromARGB(255, 42, 94, 252), // LinkedIn blue color
                   ),
@@ -140,11 +146,11 @@ class _InfoAppState extends State<InfoApp> {
                     }
                   },
                 ),
-                const SizedBox(width: 20),
+                SizedBox(width: socialSpacing),
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     FontAwesomeIcons.instagram, // Instagram icon
-                    size: 40,
+                    size: socialIconSize,
                     color: Colors.pink, // Instagram color
                   ),
                   onPressed: () async {
@@ -157,7 +163,7 @@ class _InfoAppState extends State<InfoApp> {
                     }
                   },
                 ),
-                const SizedBox(width: 20),
+                SizedBox(width: socialSpacing),
                 GestureDetector(
                   onTap: () async {
                     final Uri _url = Uri.parse(
@@ -170,8 +176,8 @@ class _InfoAppState extends State<InfoApp> {
                   },
                   child: Image.asset(
                     'assets/bmc.png', // VUT logo
-                    width: 170,
-                    height: 90,
+                    width: coffeeWidth,
+                    height: coffeeHeight,
                   ),
                 ),
               ],

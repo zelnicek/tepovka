@@ -16,6 +16,7 @@ import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samosta
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/services/tts_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TimeLabel {
   double x;
@@ -29,7 +30,8 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> with TickerProviderStateMixin {
+class _HomeState extends State<Home>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late CameraController _cameraController; // Definice proměnné pro kameru
   PPGAlgorithm? _ppgAlgorithm;
   Timer? _graphUpdateTimer;
@@ -94,6 +96,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Inicializace samostatné třídy pro kvalitu
     _signalQualityChecker = SignalQualityChecker();
     // Initialize back cameras list
@@ -350,7 +353,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     setState(() {}); // Aktualizuj UI
   }
 
-  void _stopRecording() {
+  Future<void> _stopRecording() async {
     _navigationTimer?.cancel();
     _countdownTimer?.cancel();
     _progressController.reset();
@@ -369,6 +372,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _emaState = 0.0;
       _fullRecordData = [];
     });
+
+    // Ensure camera stream and torch are stopped when user manually stops measuring
+    await _stopAllActivity(disposeCamera: false);
   }
 
   void _onItemTapped(int index) async {
@@ -591,6 +597,21 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     TtsService.instance.announceMeasurementEnd();
     print(
         'DEBUG fullRecordData length: ${_fullRecordData.length}, recordingDuration: $_recordingDuration');
+    // Log measurement completion locally and increment local counter
+    try {
+      // Local logger (non-blocking)
+      // ignore: unawaited_futures
+      Future(() async {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final count = prefs.getInt('measurements_count') ?? 0;
+          await prefs.setInt('measurements_count', count + 1);
+          await prefs.setString(
+              'last_measurement_time', DateTime.now().toIso8601String());
+        } catch (_) {}
+      });
+    } catch (_) {}
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -643,6 +664,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_isStreamingImages) {
       _cameraController.stopImageStream();
     }
@@ -662,6 +684,28 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     // When route changes, stop streaming/animations to avoid background activity
     _stopAllActivity(disposeCamera: false);
     super.deactivate();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    try {
+      if (!_hasInitializedCameraController) return;
+      if (state == AppLifecycleState.inactive ||
+          state == AppLifecycleState.paused) {
+        if (_isStreamingImages) {
+          _cameraController.stopImageStream();
+        }
+      } else if (state == AppLifecycleState.resumed) {
+        if (_hasInitializedCameraController &&
+            !_isStreamingImages &&
+            _isRecording) {
+          _startImageStream();
+        }
+      }
+    } catch (e) {
+      debugPrint('Lifecycle handling error: $e');
+    }
+    super.didChangeAppLifecycleState(state);
   }
 
   @override

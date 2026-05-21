@@ -49,6 +49,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.2.8
 
 
 flutter:
@@ -77,3 +79,14 @@ flutter:
     - family: Roboto
       fonts:
         - asset: assets/fonts/Roboto-Regular.ttf
+
+flutter_icons:
+  android: false
+  ios: true
+  image_path_ios: "assets/tepovka.png"
+
+flutter_native_splash:
+  image: assets/ppg.png
+  color: "#ffffff"
+  android: false
+  ios: true

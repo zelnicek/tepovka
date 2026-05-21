@@ -9,6 +9,8 @@ PODS:
     - Mantle
     - SDWebImage
     - SDWebImageWebPCoder
+  - flutter_native_splash (2.4.3):
+    - Flutter
   - flutter_tts (0.0.1):
     - Flutter
   - health (13.2.0):
@@ -48,18 +50,13 @@ PODS:
     - FlutterMacOS
   - url_launcher_ios (0.0.1):
     - Flutter
-  - video_player_avfoundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - video_thumbnail (0.0.1):
-    - Flutter
-    - libwebp
 
 DEPENDENCIES:
   - camera_avfoundation (from `.symlinks/plugins/camera_avfoundation/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - Flutter (from `Flutter`)
   - flutter_image_compress_common (from `.symlinks/plugins/flutter_image_compress_common/ios`)
+  - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
   - flutter_tts (from `.symlinks/plugins/flutter_tts/ios`)
   - health (from `.symlinks/plugins/health/ios`)
   - open_filex (from `.symlinks/plugins/open_filex/ios`)
@@ -68,8 +65,6 @@ DEPENDENCIES:
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
-  - video_player_avfoundation (from `.symlinks/plugins/video_player_avfoundation/darwin`)
-  - video_thumbnail (from `.symlinks/plugins/video_thumbnail/ios`)
 
 SPEC REPOS:
   trunk:
@@ -87,6 +82,8 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_image_compress_common:
     :path: ".symlinks/plugins/flutter_image_compress_common/ios"
+  flutter_native_splash:
+    :path: ".symlinks/plugins/flutter_native_splash/ios"
   flutter_tts:
     :path: ".symlinks/plugins/flutter_tts/ios"
   health:
@@ -103,16 +100,13 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
-  video_player_avfoundation:
-    :path: ".symlinks/plugins/video_player_avfoundation/darwin"
-  video_thumbnail:
-    :path: ".symlinks/plugins/video_thumbnail/ios"
 
 SPEC CHECKSUMS:
   camera_avfoundation: 5675ca25298b6f81fa0a325188e7df62cc217741
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_image_compress_common: 1697a328fd72bfb335507c6bca1a65fa5ad87df1
+  flutter_native_splash: c32d145d68aeda5502d5f543ee38c192065986cf
   flutter_tts: 35ac3c7d42412733e795ea96ad2d7e05d0a75113
   health: b9d24db6428057ea8aa69518bfccec584fdfbe1e
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -125,8 +119,6 @@ SPEC CHECKSUMS:
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
-  video_player_avfoundation: 3453f792138786248960ca029747fcd9f318ef52
-  video_thumbnail: b637e0ad5f588ca9945f6e2c927f73a69a661140
 
 PODFILE CHECKSUM: 7bc5edcbd2caa7865922e4e099df7a1dbab97a1b
 
