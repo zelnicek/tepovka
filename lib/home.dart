@@ -630,6 +630,11 @@ class _HomeState extends State<Home>
           sd2: _ppgAlgorithm?.getSd2() ?? 0.0,
           spo2: _ppgAlgorithm?.getSummarySpO2() ?? 0.0,
           bpmHistory: _ppgAlgorithm?.getBpmHistory() ?? const [],
+          rawRgbSamples: _ppgAlgorithm?.getRawRgbSamples() ?? const [],
+          bpmConfidence: _ppgAlgorithm?.currentBpmConfidence ?? 0.0,
+          bpmSnrScore: _ppgAlgorithm?.currentBpmSnrScore ?? 0.0,
+          bpmHarmonicScore: _ppgAlgorithm?.currentBpmHarmonicScore ?? 0.0,
+          bpmAutocorrScore: _ppgAlgorithm?.currentBpmAutocorrScore ?? 0.0,
         ),
       ),
     );

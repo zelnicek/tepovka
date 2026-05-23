@@ -47,11 +47,20 @@ class PPGAlgorithm {
   /// Current BPM confidence score (0-1, where 1 is highest confidence)
   double get currentBpmConfidence => _currentBpmConfidence;
   double _currentBpmConfidence = 0.0;
+  double get currentBpmSnrScore => _currentBpmSnrScore;
+  double get currentBpmHarmonicScore => _currentBpmHarmonicScore;
+  double get currentBpmAutocorrScore => _currentBpmAutocorrScore;
+  double _currentBpmSnrScore = 0.0;
+  double _currentBpmHarmonicScore = 0.0;
+  double _currentBpmAutocorrScore = 0.0;
 
   /// Last computed RGB means for quality analysis.
   double? _lastAverageGreen;
   double? _lastAverageRed;
   double? _lastAverageBlue;
+
+  /// Raw RGB samples captured for export.
+  final List<RgbMeans> _rawRgbSamples = [];
 
   /// Maximum display buffer size for plotting
   static const int _displayBufferSize = 200; // ~6-7 seconds at 30 FPS
@@ -157,6 +166,7 @@ class PPGAlgorithm {
     _lastAverageGreen = rgbMeans.green;
     _lastAverageRed = rgbMeans.red;
     _lastAverageBlue = rgbMeans.blue;
+    _rawRgbSamples.add(rgbMeans);
     _spo2Algorithm.addSample(rgbMeans.red, rgbMeans.green);
 
     double primarySignal = rgbMeans.green;
@@ -653,7 +663,12 @@ class PPGAlgorithm {
   /// IMPROVED: Confidence score with SNR + harmonic validation + autocorrelation
   double _calculateBpmConfidence(
       List<double> signal, double localFrameRate, double bpm) {
-    if (bpm <= 0 || signal.length < 30) return 0.0;
+    if (bpm <= 0 || signal.length < 30) {
+      _currentBpmSnrScore = 0.0;
+      _currentBpmHarmonicScore = 0.0;
+      _currentBpmAutocorrScore = 0.0;
+      return 0.0;
+    }
 
     final int origN = signal.length;
     int N = 256;
@@ -718,6 +733,10 @@ class PPGAlgorithm {
       // 3. Autocorrelation score
       double acScore = _autocorrelationScore(signal, localFrameRate, bpm);
 
+      _currentBpmSnrScore = snrScore;
+      _currentBpmHarmonicScore = harmonicScore;
+      _currentBpmAutocorrScore = acScore;
+
       // Combined confidence
       final double confidence =
           (0.5 * snrScore + 0.2 * harmonicScore + 0.3 * acScore)
@@ -725,6 +744,9 @@ class PPGAlgorithm {
 
       return confidence;
     } catch (e) {
+      _currentBpmSnrScore = 0.0;
+      _currentBpmHarmonicScore = 0.0;
+      _currentBpmAutocorrScore = 0.0;
       if (kDebugMode) print('Confidence calculation error: $e');
       return 0.0;
     }
@@ -998,6 +1020,8 @@ class PPGAlgorithm {
         blue: _lastAverageBlue ?? 0.0,
       );
 
+  List<RgbMeans> getRawRgbSamples() => List.unmodifiable(_rawRgbSamples);
+
   List<int> getIntensityValues() =>
       _intensityValues.map((e) => e.toInt()).toList();
 
@@ -1156,6 +1180,7 @@ class PPGAlgorithm {
     _derivativeValues.clear();
     _ppgSignal.clear();
     _fullRecordBuffer.clear();
+    _rawRgbSamples.clear();
     _timestamps.clear();
     _bpmHistory.clear();
     _frameRates.clear();

@@ -6,6 +6,7 @@ import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:tepovka/home.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/pages/about.dart';
+import 'package:tepovka/ppg_algo.dart';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:health/health.dart';
@@ -31,12 +32,17 @@ class Summary extends StatefulWidget {
   final int recordingDuration; // Přidáno: Délka měření
   final double respiratoryRate; // Přidáno: Dechová frekvence
   final List<double> bpmHistory; // HR time series for Recovery metrics
+  final List<RgbMeans> rawRgbSamples; // Raw RGB samples for export
   final double sdnn; // HRV: SDNN
   final double rmssd; // HRV: RMSSD
   final double pnn50; // HRV: pNN50
   final double sd1; // HRV: SD1
   final double sd2; // HRV: SD2
   final double spo2; // Estimated oxygen saturation
+  final double bpmConfidence; // BPM confidence from FFT/autocorr
+  final double bpmSnrScore; // SNR component of confidence
+  final double bpmHarmonicScore; // Harmonic component of confidence
+  final double bpmAutocorrScore; // Autocorrelation component of confidence
   const Summary({
     Key? key,
     required this.averageBPM,
@@ -46,12 +52,17 @@ class Summary extends StatefulWidget {
     required this.recordingDuration,
     required this.respiratoryRate, // Přidáno: RR
     required this.bpmHistory,
+    required this.rawRgbSamples,
     required this.sdnn,
     required this.rmssd,
     required this.pnn50,
     required this.sd1,
     required this.sd2,
     required this.spo2,
+    required this.bpmConfidence,
+    required this.bpmSnrScore,
+    required this.bpmHarmonicScore,
+    required this.bpmAutocorrScore,
   }) : super(key: key);
   @override
   State<Summary> createState() => _SummaryState();
@@ -95,6 +106,14 @@ class _SummaryState extends State<Summary> {
   double _tauSec = 0.0;
   List<FlSpot> _recoverySpots = [];
   double _spo2 = 0.0;
+  double _bpmConfidence = 0.0;
+  double _bpmSnrScore = 0.0;
+  double _bpmHarmonicScore = 0.0;
+  double _bpmAutocorrScore = 0.0;
+  double _bpmCiLower = 0.0;
+  double _bpmCiUpper = 0.0;
+  double _bpmMean = 0.0;
+  double _bpmStdDev = 0.0;
 
   double get _effectiveAverageBpm =>
       _calculatedAverageBPM > 0 ? _calculatedAverageBPM : widget.averageBPM;
@@ -125,6 +144,11 @@ class _SummaryState extends State<Summary> {
     _sd1 = widget.sd1;
     _sd2 = widget.sd2;
     _spo2 = (widget.spo2 >= 70.0 && widget.spo2 <= 100.0) ? widget.spo2 : 0.0;
+    _bpmConfidence = widget.bpmConfidence.clamp(0.0, 1.0);
+    _bpmSnrScore = widget.bpmSnrScore.clamp(0.0, 1.0);
+    _bpmHarmonicScore = widget.bpmHarmonicScore.clamp(0.0, 1.0);
+    _bpmAutocorrScore = widget.bpmAutocorrScore.clamp(0.0, 1.0);
+    _computeBpmConfidenceInterval();
     print(
         'DEBUG HRV from algo: sdnn=${widget.sdnn}, rmssd=${widget.rmssd}, pnn50=${widget.pnn50}, sd1=${widget.sd1}, sd2=${widget.sd2}');
     _sd2sd1 = _sd1 > 0 ? _sd2 / _sd1 : 0.0;
@@ -135,6 +159,22 @@ class _SummaryState extends State<Summary> {
     _computeHRV(); // Compute remaining metrics (LF, HF, stress index)
     _computeHRRecovery();
     _buildRecoverySpots();
+  }
+
+  void _computeBpmConfidenceInterval() {
+    final values = widget.bpmHistory.where((v) => v > 0).toList();
+    if (values.length < 2) return;
+    _bpmMean = values.reduce((a, b) => a + b) / values.length;
+    double sumSq = 0.0;
+    for (final value in values) {
+      final diff = value - _bpmMean;
+      sumSq += diff * diff;
+    }
+    _bpmStdDev = sqrt(sumSq / (values.length - 1));
+    final standardError = _bpmStdDev / sqrt(values.length.toDouble());
+    final margin = 1.96 * standardError;
+    _bpmCiLower = max(0.0, _bpmMean - margin);
+    _bpmCiUpper = _bpmMean + margin;
   }
 
   void _computeHRRecovery() {
@@ -644,6 +684,13 @@ class _SummaryState extends State<Summary> {
                 'y': s.y,
               })
           .toList();
+      final rawRgbSamples = widget.rawRgbSamples
+          .map((sample) => {
+                'red': sample.red,
+                'green': sample.green,
+                'blue': sample.blue,
+              })
+          .toList();
       final peakTimesSec = _peakSpots.map((s) => s.x).toList();
       final rrIntervalsMs = <double>[];
       for (int i = 1; i < _peakSpots.length; i++) {
@@ -657,6 +704,7 @@ class _SummaryState extends State<Summary> {
         'notes': notesContent,
         'bpmList': bpmList,
         'bpmHistory': widget.bpmHistory,
+        'rawRgbSamples': rawRgbSamples,
         'frames': frames,
         'waveformSmoothed': smoothedWaveform,
         'peakTimesSec': peakTimesSec,
@@ -664,6 +712,16 @@ class _SummaryState extends State<Summary> {
         'duration': widget.recordingDuration,
         'respiratoryRate': _respiratoryRate, // Přidáno: RR
         'spo2': _spo2,
+        'confidence': {
+          'bpmConfidence': _bpmConfidence,
+          'snrScore': _bpmSnrScore,
+          'harmonicScore': _bpmHarmonicScore,
+          'autocorrScore': _bpmAutocorrScore,
+          'meanBpm': _bpmMean,
+          'stdDevBpm': _bpmStdDev,
+          'ciLowerBpm': _bpmCiLower,
+          'ciUpperBpm': _bpmCiUpper,
+        },
         'hrv': {
           'sdnn': _sdnn,
           'rmssd': _rmssd,
@@ -676,6 +734,16 @@ class _SummaryState extends State<Summary> {
           'hf': _hf,
           'lfhf': _lfhf,
           'stressIndex': _stressIndex,
+          'confidence': {
+            'bpmConfidence': _bpmConfidence,
+            'snrScore': _bpmSnrScore,
+            'harmonicScore': _bpmHarmonicScore,
+            'autocorrScore': _bpmAutocorrScore,
+            'meanBpm': _bpmMean,
+            'stdDevBpm': _bpmStdDev,
+            'ciLowerBpm': _bpmCiLower,
+            'ciUpperBpm': _bpmCiUpper,
+          },
         },
         'hrr': {
           'hr0': _hr0,
@@ -697,6 +765,7 @@ class _SummaryState extends State<Summary> {
         },
       };
       await storage.appendRecord(record);
+      await storage.appendRecordTxt(record);
       // Cloud sync disabled in local-only mode.
       print('Ukládání úspěšně dokončeno');
     } catch (e) {

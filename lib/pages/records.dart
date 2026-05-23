@@ -30,6 +30,7 @@ class Record {
   final Map<String, dynamic> hrv; // HRV metrics
   final double respiratoryRate; // RR breaths/min
   final List<double> bpmHistory; // BPM time series for recovery
+  final List<Map<String, dynamic>> rawRgbSamples; // Raw RGB per-frame export
   final Map<String, dynamic> hrr; // HR Recovery metrics
   final Map<String, dynamic> recoveryChart; // Recovery chart points
 
@@ -45,6 +46,7 @@ class Record {
     required this.hrv,
     required this.respiratoryRate,
     required this.bpmHistory,
+    required this.rawRgbSamples,
     required this.hrr,
     required this.recoveryChart,
   });
@@ -63,6 +65,7 @@ class Record {
       'hrv': hrv,
       'respiratoryRate': respiratoryRate,
       'bpmHistory': bpmHistory,
+      'rawRgbSamples': rawRgbSamples,
       'hrr': hrr,
       'recoveryChart': recoveryChart,
     };
@@ -94,6 +97,10 @@ class Record {
           ? List<double>.from(
               json['bpmHistory'].map((v) => (v as num).toDouble()))
           : <double>[],
+      rawRgbSamples: json['rawRgbSamples'] != null
+          ? List<Map<String, dynamic>>.from(json['rawRgbSamples']
+              .map((sample) => Map<String, dynamic>.from(sample as Map)))
+          : <Map<String, dynamic>>[],
       hrr: json['hrr'] ?? {},
       recoveryChart: json['recoveryChart'] ?? {},
     );
@@ -155,6 +162,7 @@ class _RecordsPageState extends State<RecordsPage> {
             hrv: rec.hrv,
             respiratoryRate: rec.respiratoryRate,
             bpmHistory: rec.bpmHistory,
+            rawRgbSamples: rec.rawRgbSamples,
             hrr: rec.hrr,
             recoveryChart: rec.recoveryChart,
           ));
