@@ -59,7 +59,6 @@ class _IntroPageState extends State<IntroPage> {
     final double screenHeight = MediaQuery.sizeOf(context).height;
     final double cardWidthFull = screenWidth * 0.9;
     final double cardHeight = screenHeight * 0.18;
-    final double cardWidthHalf = (screenWidth / 2) - (screenWidth * 0.05);
     final double paddingSmall = screenWidth * 0.02;
     final double paddingMedium = screenWidth * 0.04;
     final double fontSizeMedium = screenWidth * 0.045;
@@ -67,6 +66,8 @@ class _IntroPageState extends State<IntroPage> {
     final double imageScaleFull = screenWidth * 0.0015;
     final double imageScaleHalf = screenWidth * 0.0018;
     final double iconSize = screenWidth * 0.06;
+    final double cardWidthHalf =
+        ((cardWidthFull - paddingSmall) / 2) - paddingSmall;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -82,206 +83,35 @@ class _IntroPageState extends State<IntroPage> {
           ],
         ),
       ),
-      body: Center(
-          child: Column(children: [
-        GestureDetector(
-          onTapDown: (_) {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _isTapped = true;
-            });
-          },
-          onTapUp: (_) {
-            setState(() {
-              _isTapped = false;
-            });
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => Home()),
-            );
-          },
-          onTapCancel: () {
-            setState(() {
-              _isTapped = false;
-            });
-          },
-          child: AnimatedScale(
-            scale: _isTapped ? 0.9 : 1.0,
-            duration: const Duration(milliseconds: 100),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(paddingSmall),
-                  child: Container(
-                    margin: EdgeInsets.only(top: paddingSmall),
-                    padding: const EdgeInsets.only(top: 0),
-                    width: cardWidthFull,
-                    height: cardHeight,
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 255, 255, 255),
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 3,
-                      ),
-                      borderRadius: const BorderRadius.all(
-                        Radius.circular(15),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          spreadRadius: 0,
-                          blurRadius: 10,
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'ZAČÍT MĚŘENÍ',
-                          style: TextStyle(
-                            fontSize: fontSizeMedium,
-                            color: Color.fromARGB(255, 0, 0, 0),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  right: -5,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 0, bottom: paddingMedium),
-                      child: Transform.scale(
-                        scale: imageScaleFull,
-                        child: Image.asset(
-                          'assets/ppg.png',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTapDown: (_) {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _isTapped2 = true;
-            });
-          },
-          onTapUp: (_) {
-            setState(() {
-              _isTapped2 = false;
-            });
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const RecordsPage()),
-            );
-          },
-          onTapCancel: () {
-            setState(() {
-              _isTapped2 = false;
-            });
-          },
-          child: AnimatedScale(
-            scale: _isTapped2 ? 0.9 : 1.0,
-            duration: const Duration(milliseconds: 100),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(paddingSmall),
-                  child: Container(
-                    margin: EdgeInsets.only(top: paddingSmall),
-                    padding: const EdgeInsets.only(top: 0),
-                    width: cardWidthFull,
-                    height: cardHeight,
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 255, 255, 255),
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 3,
-                      ),
-                      borderRadius: const BorderRadius.all(
-                        Radius.circular(15),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          spreadRadius: 0,
-                          blurRadius: 10,
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'ZÁZNAMY',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Color.fromARGB(255, 0, 0, 0),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  right: 0,
-                  bottom: paddingMedium,
-                  child: Transform.scale(
-                    scale: imageScaleFull * 0.95,
-                    child: Image.asset(
-                      'assets/folder.png',
-                      fit: BoxFit.fitHeight,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Center(
+              child: Column(children: [
             GestureDetector(
               onTapDown: (_) {
                 HapticFeedback.selectionClick();
                 setState(() {
-                  _isTapped3 = true;
+                  _isTapped = true;
                 });
               },
               onTapUp: (_) {
                 setState(() {
-                  _isTapped3 = false;
+                  _isTapped = false;
                 });
-                // Navigate to the next page
+
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const About()),
+                  MaterialPageRoute(builder: (context) => Home()),
                 );
               },
               onTapCancel: () {
                 setState(() {
-                  _isTapped3 = false;
+                  _isTapped = false;
                 });
               },
               child: AnimatedScale(
-                scale: _isTapped3 ? 0.9 : 1.0,
+                scale: _isTapped ? 0.9 : 1.0,
                 duration: const Duration(milliseconds: 100),
                 child: Stack(
                   children: [
@@ -290,7 +120,7 @@ class _IntroPageState extends State<IntroPage> {
                       child: Container(
                         margin: EdgeInsets.only(top: paddingSmall),
                         padding: const EdgeInsets.only(top: 0),
-                        width: cardWidthHalf,
+                        width: cardWidthFull,
                         height: cardHeight,
                         decoration: BoxDecoration(
                           color: const Color.fromARGB(255, 255, 255, 255),
@@ -315,9 +145,9 @@ class _IntroPageState extends State<IntroPage> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Text(
-                              'JAK TO FUNGUJE?',
+                              'ZAČÍT MĚŘENÍ',
                               style: TextStyle(
-                                fontSize: fontSizeSmall,
+                                fontSize: fontSizeMedium,
                                 color: Color.fromARGB(255, 0, 0, 0),
                               ),
                               textAlign: TextAlign.center,
@@ -327,13 +157,19 @@ class _IntroPageState extends State<IntroPage> {
                       ),
                     ),
                     Positioned.fill(
-                      right: 0,
-                      bottom: paddingMedium,
-                      child: Transform.scale(
-                        scale: imageScaleHalf,
-                        child: Image.asset(
-                          'assets/Help2.png',
-                          fit: BoxFit.fitWidth,
+                      right: -5,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding:
+                              EdgeInsets.only(top: 0, bottom: paddingMedium),
+                          child: Transform.scale(
+                            scale: imageScaleFull,
+                            child: Image.asset(
+                              'assets/ppg.png',
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -345,26 +181,26 @@ class _IntroPageState extends State<IntroPage> {
               onTapDown: (_) {
                 HapticFeedback.selectionClick();
                 setState(() {
-                  _isTapped4 = true;
+                  _isTapped2 = true;
                 });
               },
               onTapUp: (_) {
                 setState(() {
-                  _isTapped4 = false;
+                  _isTapped2 = false;
                 });
 
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const InfoApp()),
+                  MaterialPageRoute(builder: (context) => const RecordsPage()),
                 );
               },
               onTapCancel: () {
                 setState(() {
-                  _isTapped4 = false;
+                  _isTapped2 = false;
                 });
               },
               child: AnimatedScale(
-                scale: _isTapped4 ? 0.9 : 1.0,
+                scale: _isTapped2 ? 0.9 : 1.0,
                 duration: const Duration(milliseconds: 100),
                 child: Stack(
                   children: [
@@ -373,7 +209,7 @@ class _IntroPageState extends State<IntroPage> {
                       child: Container(
                         margin: EdgeInsets.only(top: paddingSmall),
                         padding: const EdgeInsets.only(top: 0),
-                        width: cardWidthHalf,
+                        width: cardWidthFull,
                         height: cardHeight,
                         decoration: BoxDecoration(
                           color: const Color.fromARGB(255, 255, 255, 255),
@@ -393,14 +229,14 @@ class _IntroPageState extends State<IntroPage> {
                             ),
                           ],
                         ),
-                        child: Column(
+                        child: const Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Text(
-                              'O APLIKACI',
+                              'ZÁZNAMY',
                               style: TextStyle(
-                                fontSize: fontSizeSmall,
+                                fontSize: 18,
                                 color: Color.fromARGB(255, 0, 0, 0),
                               ),
                               textAlign: TextAlign.center,
@@ -413,9 +249,9 @@ class _IntroPageState extends State<IntroPage> {
                       right: 0,
                       bottom: paddingMedium,
                       child: Transform.scale(
-                        scale: imageScaleHalf * 0.85,
+                        scale: imageScaleFull * 0.95,
                         child: Image.asset(
-                          'assets/tepovka.png',
+                          'assets/folder.png',
                           fit: BoxFit.fitHeight,
                         ),
                       ),
@@ -424,20 +260,194 @@ class _IntroPageState extends State<IntroPage> {
                 ),
               ),
             ),
-          ],
-        ),
-        Container(
-          margin: EdgeInsets.only(top: paddingSmall),
-          width: screenWidth * 0.5,
-          child: Padding(
-            padding: EdgeInsets.only(top: paddingMedium, bottom: paddingMedium),
-            child: Image.asset(
-              'assets/Text_loading.png',
-              opacity: const AlwaysStoppedAnimation(.5),
+            Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              runSpacing: paddingSmall,
+              spacing: paddingSmall,
+              children: [
+                GestureDetector(
+                  onTapDown: (_) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _isTapped3 = true;
+                    });
+                  },
+                  onTapUp: (_) {
+                    setState(() {
+                      _isTapped3 = false;
+                    });
+                    // Navigate to the next page
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const About()),
+                    );
+                  },
+                  onTapCancel: () {
+                    setState(() {
+                      _isTapped3 = false;
+                    });
+                  },
+                  child: AnimatedScale(
+                    scale: _isTapped3 ? 0.9 : 1.0,
+                    duration: const Duration(milliseconds: 100),
+                    child: Stack(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.all(paddingSmall),
+                          child: Container(
+                            margin: EdgeInsets.only(top: paddingSmall),
+                            padding: const EdgeInsets.only(top: 0),
+                            width: cardWidthHalf,
+                            height: cardHeight,
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(255, 255, 255, 255),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 3,
+                              ),
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(15),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.15),
+                                  spreadRadius: 0,
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 0),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'JAK TO FUNGUJE?',
+                                  style: TextStyle(
+                                    fontSize: fontSizeSmall,
+                                    color: Color.fromARGB(255, 0, 0, 0),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          right: 0,
+                          bottom: paddingMedium,
+                          child: Transform.scale(
+                            scale: imageScaleHalf,
+                            child: Image.asset(
+                              'assets/Help2.png',
+                              fit: BoxFit.fitWidth,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTapDown: (_) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _isTapped4 = true;
+                    });
+                  },
+                  onTapUp: (_) {
+                    setState(() {
+                      _isTapped4 = false;
+                    });
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const InfoApp()),
+                    );
+                  },
+                  onTapCancel: () {
+                    setState(() {
+                      _isTapped4 = false;
+                    });
+                  },
+                  child: AnimatedScale(
+                    scale: _isTapped4 ? 0.9 : 1.0,
+                    duration: const Duration(milliseconds: 100),
+                    child: Stack(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.all(paddingSmall),
+                          child: Container(
+                            margin: EdgeInsets.only(top: paddingSmall),
+                            padding: const EdgeInsets.only(top: 0),
+                            width: cardWidthHalf,
+                            height: cardHeight,
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(255, 255, 255, 255),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 3,
+                              ),
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(15),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.15),
+                                  spreadRadius: 0,
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 0),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'O APLIKACI',
+                                  style: TextStyle(
+                                    fontSize: fontSizeSmall,
+                                    color: Color.fromARGB(255, 0, 0, 0),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          right: 0,
+                          bottom: paddingMedium,
+                          child: Transform.scale(
+                            scale: imageScaleHalf * 0.7,
+                            child: Image.asset(
+                              'assets/tepovka.png',
+                              fit: BoxFit.fitHeight,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
+            Container(
+              margin: EdgeInsets.only(top: paddingSmall),
+              width: screenWidth * 0.5,
+              child: Padding(
+                padding:
+                    EdgeInsets.only(top: paddingMedium, bottom: paddingMedium),
+                child: Image.asset(
+                  'assets/Text_loading.png',
+                  opacity: const AlwaysStoppedAnimation(.5),
+                ),
+              ),
+            ),
+          ])),
         ),
-      ])),
+      ),
       bottomNavigationBar: GNav(
         tabMargin: EdgeInsets.symmetric(horizontal: paddingSmall),
         gap: paddingSmall,

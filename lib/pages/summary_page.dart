@@ -734,13 +734,18 @@ class _SummaryState extends State<Summary> {
         SnackBar(
           content: Row(
             children: [
-              Text(
-                'Úspěšně uloženo do Apple Health',
-                style:
-                    TextStyle(color: const Color.fromARGB(255, 192, 192, 192)),
+              Expanded(
+                child: Text(
+                  'Úspěšně uloženo do Apple Health',
+                  style: TextStyle(
+                    color: const Color.fromARGB(255, 192, 192, 192),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              SizedBox(
-                width: 50,
+              const SizedBox(
+                width: 12,
               ),
               Image.asset(
                 'assets/Icon - Apple Health.png',
@@ -1042,85 +1047,94 @@ class _SummaryState extends State<Summary> {
   }
 
   Widget _buildSaveCancelRow(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: const Icon(
-            Symbols.heart_broken,
-            size: 30,
-          ),
-          color: const Color.fromARGB(255, 222, 16, 1),
-          onPressed: () async {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const IntroPage()),
-            );
-          },
-        ),
-        InkWell(
-          onTap: () async {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const IntroPage()),
-            );
-          },
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 100),
-            scale: _isSaving ? 1.0 : 1.1,
-            child: const Text(
-              'Zrušit',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: Color.fromARGB(255, 222, 16, 1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool compact = constraints.maxWidth < 380;
+        return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: compact ? 8 : 16,
+          runSpacing: 8,
+          children: [
+            IconButton(
+              icon: const Icon(
+                Symbols.heart_broken,
+                size: 30,
+              ),
+              color: const Color.fromARGB(255, 222, 16, 1),
+              onPressed: () async {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const IntroPage()),
+                );
+              },
+            ),
+            InkWell(
+              onTap: () async {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const IntroPage()),
+                );
+              },
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 100),
+                scale: _isSaving ? 1.0 : 1.1,
+                child: const Text(
+                  'Zrušit',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 222, 16, 1),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 50),
-        IconButton(
-          icon: const Icon(
-            Symbols.heart_plus,
-            size: 45,
-          ),
-          color: Colors.blue,
-          onPressed: _isSaving
-              ? null
-              : () async {
-                  await _saveMeasurement();
-                  await _saveToAppleHealth(_effectiveAverageBpm);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const IntroPage()),
-                  );
-                },
-        ),
-        InkWell(
-          onTap: _isSaving
-              ? null
-              : () async {
-                  await _saveMeasurement();
-                  await _saveToAppleHealth(_effectiveAverageBpm);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const IntroPage()),
-                  );
-                },
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 100),
-            scale: _isSaving ? 1.0 : 1.1,
-            child: const Text(
-              'Uložit',
-              style: TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
+            IconButton(
+              icon: const Icon(
+                Symbols.heart_plus,
+                size: 45,
+              ),
+              color: Colors.blue,
+              onPressed: _isSaving
+                  ? null
+                  : () async {
+                      await _saveMeasurement();
+                      await _saveToAppleHealth(_effectiveAverageBpm);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const IntroPage()),
+                      );
+                    },
+            ),
+            InkWell(
+              onTap: _isSaving
+                  ? null
+                  : () async {
+                      await _saveMeasurement();
+                      await _saveToAppleHealth(_effectiveAverageBpm);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const IntroPage()),
+                      );
+                    },
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 100),
+                scale: _isSaving ? 1.0 : 1.1,
+                child: const Text(
+                  'Uložit',
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -1792,6 +1806,8 @@ class _SummaryState extends State<Summary> {
       offset.dy,
     );
     final desc = _getMetricInfoText(title);
+    final maxPopupWidth =
+        (MediaQuery.sizeOf(context).width - 32).clamp(180.0, 260.0).toDouble();
     await showMenu(
       context: context,
       position: rect,
@@ -1802,7 +1818,7 @@ class _SummaryState extends State<Summary> {
           enabled: false,
           padding: const EdgeInsets.all(0),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
+            constraints: BoxConstraints(maxWidth: maxPopupWidth),
             child: Padding(
               padding: const EdgeInsets.all(12.0),
               child: Column(

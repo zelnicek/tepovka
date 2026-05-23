@@ -581,11 +581,20 @@ class _RecordsPageState extends State<RecordsPage> {
                     waitDuration: const Duration(milliseconds: 500),
                     showDuration: const Duration(seconds: 4),
                     preferBelow: false,
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: valueColor ?? Colors.black,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: valueColor ?? Colors.black,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1220,7 +1229,7 @@ class _RecordsPageState extends State<RecordsPage> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             crossAxisCount: 2,
-                            childAspectRatio: 2,
+                            childAspectRatio: 1.55,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                             children: [
@@ -1292,7 +1301,7 @@ class _RecordsPageState extends State<RecordsPage> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             crossAxisCount: 2,
-                            childAspectRatio: 2,
+                            childAspectRatio: 1.55,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                             children: [
@@ -1377,16 +1386,16 @@ class _RecordsPageState extends State<RecordsPage> {
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.blue,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 5,
+                    children: const [
                       Icon(
                         FontAwesomeIcons.filePdf,
                         size: 18,
                         color: Colors.red,
                       ),
-                      const SizedBox(width: 5),
-                      const Text(
+                      Text(
                         'Stáhnout PDF',
                         style: TextStyle(color: Colors.black),
                       ),
@@ -1403,16 +1412,16 @@ class _RecordsPageState extends State<RecordsPage> {
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.blue,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 5,
+                    children: const [
                       Icon(
                         FontAwesomeIcons.fileLines,
                         size: 18,
                         color: Colors.black,
                       ),
-                      const SizedBox(width: 5),
-                      const Text(
+                      Text(
                         'Export TXT',
                         style: TextStyle(color: Colors.black),
                       ),
@@ -1726,16 +1735,23 @@ class _RecordsPageState extends State<RecordsPage> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       const Spacer(),
-                      Text(
-                        value,
-                        style: const TextStyle(color: Colors.black54),
+                      Flexible(
+                        child: Text(
+                          value,
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.black54),
+                        ),
                       ),
                     ],
                   ),
@@ -1923,11 +1939,11 @@ class _RecordsPageState extends State<RecordsPage> {
                                       ),
                                     ),
                                     const SizedBox(width: 10),
-                                    SizedBox(
-                                      width: 65,
+                                    Flexible(
                                       child: Text(
                                         'tep:${record.averageBPM}',
                                         textAlign: TextAlign.left,
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
@@ -1935,7 +1951,7 @@ class _RecordsPageState extends State<RecordsPage> {
                                         ),
                                       ),
                                     ),
-                                    _buildQualityChip(record),
+                                    Flexible(child: _buildQualityChip(record)),
                                     IconButton(
                                       icon: const Icon(
                                         Icons.arrow_forward_ios,
@@ -1958,15 +1974,16 @@ class _RecordsPageState extends State<RecordsPage> {
                     if (_selectionMode && _selectedKeys.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: _deleteSelected,
-                              icon: const Icon(Icons.delete_forever),
-                              label: Text(
-                                  'Smazat vybrané (${_selectedKeys.length})'),
+                        child: Center(
+                          child: ElevatedButton.icon(
+                            onPressed: _deleteSelected,
+                            icon: const Icon(Icons.delete_forever),
+                            label: Text(
+                              'Smazat vybrané (${_selectedKeys.length})',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                   ],

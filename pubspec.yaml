@@ -80,10 +80,12 @@ flutter:
       fonts:
         - asset: assets/fonts/Roboto-Regular.ttf
 
-flutter_icons:
-  android: false
+flutter_launcher_icons:
+  android: true
   ios: true
-  image_path_ios: "assets/tepovka.png"
+  image_path: "assets/tepovka_icon.png"
+  image_path_ios: "assets/tepovka_icon_ios.png"
+  remove_alpha_ios: true
 
 flutter_native_splash:
   image: assets/ppg.png

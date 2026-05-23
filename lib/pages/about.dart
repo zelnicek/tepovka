@@ -50,6 +50,10 @@ class _AboutState extends State<About> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final double screenHeight = MediaQuery.sizeOf(context).height;
+    final double swiperHeight = (screenHeight * 0.48).clamp(220.0, 500.0);
+
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
@@ -69,98 +73,102 @@ class _AboutState extends State<About> {
           ],
         ),
       ),
-      body: Scrollbar(
-        thumbVisibility:
-            true, // Zajistí, že je posuvník viditelný při posouvání
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: SizedBox(
-                  height: 600, // Nastavení výšky Swiperu
-                  child: Swiper(
-                    itemBuilder: (BuildContext context, int index) {
-                      return Image.asset(
-                        'assets/swipe/Quide${index + 1}.png', // Cesta k obrázkům
-                        fit: BoxFit.scaleDown,
-                      );
-                    },
-                    itemCount: 7, // Počet obrázků
-                    pagination: const SwiperPagination(
-                      alignment: Alignment.bottomCenter, // Zarovnání teček
-                      builder: DotSwiperPaginationBuilder(
-                        activeColor: Colors.blue,
-                        color: Color.fromARGB(255, 202, 202, 202),
-                        size: 8.0,
-                        activeSize: 12.0,
+      body: SafeArea(
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: SizedBox(
+                    width: screenWidth,
+                    height: swiperHeight,
+                    child: Swiper(
+                      itemBuilder: (BuildContext context, int index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Image.asset(
+                            'assets/swipe/Quide${index + 1}.png',
+                            fit: BoxFit.contain,
+                          ),
+                        );
+                      },
+                      itemCount: 7,
+                      pagination: const SwiperPagination(
+                        alignment: Alignment.bottomCenter,
+                        builder: DotSwiperPaginationBuilder(
+                          activeColor: Colors.blue,
+                          color: Color.fromARGB(255, 202, 202, 202),
+                          size: 8.0,
+                          activeSize: 12.0,
+                        ),
                       ),
-                    ), // Zobrazení teček pro stránkování
-                    control: const SwiperControl(
-                      color: Colors.black, // Navigační šipky
+                      control: const SwiperControl(
+                        color: Colors.black,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Jak funguje PPG měření?",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+                const SizedBox(height: 20),
+                const Text(
+                  'Jak funguje PPG měření?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Fotopletysmografie (PPG) měří změny objemu krve v cévách pod pokožkou. "
-                "Kamera telefonu snímá intenzitu zeleného světla, které je pohlcováno krví, a analyzuje tyto změny v průběhu času.",
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Jak správně přiložit prst?",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+                const SizedBox(height: 10),
+                const Text(
+                  'Fotopletysmografie (PPG) měří změny objemu krve v cévách pod pokožkou. Kamera telefonu snímá intenzitu zeleného světla, které je pohlcováno krví, a analyzuje tyto změny v průběhu času.',
+                  style: TextStyle(fontSize: 16),
                 ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "1. Ujistěte se, že máte čistý prst bez nečistot.\n"
-                "2. Jemně přiložte prst na kameru tak, aby ji zcela zakrýval.\n"
-                "3. Nepřikládejte prst příliš silně, aby nedošlo ke zkreslení signálu.\n"
-                "4. Aktivujte blesk pro lepší průchod světla pokožkou.",
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Jak se vypočítá tepová frekvence?",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Algoritmus zpracuje zachycený signál následujícím způsobem:\n"
-                "1. Detekuje špičky (peaky) v signálu odpovídající srdečním tepům.\n"
-                "2. Spočítá časové rozdíly mezi špičkami (intervaly RR).\n"
-                "3. Z těchto intervalů vypočítá tepovou frekvenci (BPM) podle vzorce:\n"
-                "   BPM = 60 ÷ průměrný interval RR (v sekundách).",
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Proč zelený kanál?",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+                const SizedBox(height: 20),
+                const Text(
+                  'Jak správně přiložit prst?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Zelené světlo je nejlépe absorbováno hemoglobinem v krvi, díky čemuž poskytuje nejpřesnější data pro analýzu průtoku krve.",
-                style: TextStyle(fontSize: 16),
-              ),
-            ],
+                const SizedBox(height: 10),
+                const Text(
+                  '1. Ujistěte se, že máte čistý prst bez nečistot.\n'
+                  '2. Jemně přiložte prst na kameru tak, aby ji zcela zakrýval.\n'
+                  '3. Nepřikládejte prst příliš silně, aby nedošlo ke zkreslení signálu.\n'
+                  '4. Aktivujte blesk pro lepší průchod světla pokožkou.',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Jak se vypočítá tepová frekvence?',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Algoritmus zpracuje zachycený signál následujícím způsobem:\n'
+                  '1. Detekuje špičky (peaky) v signálu odpovídající srdečním tepům.\n'
+                  '2. Spočítá časové rozdíly mezi špičkami (intervaly RR).\n'
+                  '3. Z těchto intervalů vypočítá tepovou frekvenci (BPM) podle vzorce:\n'
+                  '   BPM = 60 ÷ průměrný interval RR (v sekundách).',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Proč zelený kanál?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Zelené světlo je nejlépe absorbováno hemoglobinem v krvi, díky čemuž poskytuje nejpřesnější data pro analýzu průtoku krve.',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
           ),
         ),
       ),

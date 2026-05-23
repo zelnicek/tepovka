@@ -716,7 +716,7 @@ class _HomeState extends State<Home>
         screenWidth * 0.25; // 25% of screen width for camera
     final double sideWidth = screenWidth * 0.2; // 20% for BPM and quality
     final double graphHeight =
-        screenHeight * 0.25; // 25% of screen height for graph
+        screenHeight * 0.225; // 10% smaller than before (25% -> 22.5%)
     final double paddingSmall = screenHeight * 0.01; // Small dynamic padding
     final double paddingMedium = screenHeight * 0.02; // Medium dynamic padding
     final double iconSizeMedium = screenWidth * 0.08; // Medium icon size
@@ -923,7 +923,7 @@ class _HomeState extends State<Home>
                   ],
                 ),
               ),
-              SizedBox(height: paddingMedium),
+              SizedBox(height: paddingMedium * 2.2),
               Container(
                 padding: EdgeInsets.only(top: paddingSmall),
                 width: double.infinity,
@@ -1056,138 +1056,178 @@ class _HomeState extends State<Home>
               if (_isRecording)
                 Padding(
                   padding: EdgeInsets.only(top: paddingSmall),
-                  child: Text(
-                    '$_remainingTime s',
-                    style: TextStyle(
-                      fontSize: fontSizeMedium,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black,
+                  child: Center(
+                    child: Text(
+                      '$_remainingTime s',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: fontSizeMedium,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
                 ),
-              SizedBox(height: paddingMedium),
-              // NumberPicker uprostřed a torch na pravo s paddingem
+              SizedBox(height: paddingMedium * 1.2),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: iconSizeMedium),
-                child: Row(
-                  children: [
-                    // Camera switch button zleva
-                    SizedBox(
-                      width: sideWidth,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            onPressed:
-                                (_backCameras.length < 2 || _isSwitchingCamera)
-                                    ? null
-                                    : _switchBackCamera,
-                            icon: Icon(
-                              Icons.cameraswitch,
-                              color: Colors.grey,
-                              size: iconSizeMedium,
-                            ),
-                            tooltip: 'Přepnout kameru',
-                          ),
-                          Text(
-                            'Změnit kameru',
-                            style: TextStyle(
-                              fontSize: fontSizeSmall,
-                              color: Colors.grey,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+                padding: EdgeInsets.symmetric(horizontal: paddingSmall),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: (screenWidth * 0.92).clamp(300.0, 420.0),
                     ),
-                    const Spacer(),
-                    // Time picker vycentrovaný uprostřed
-                    Column(
-                      children: [
-                        Text(
-                          'Doba měření (sekundy)',
-                          style: TextStyle(
-                            fontSize: fontSizeSmall,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        Opacity(
-                          opacity: _isRecording ? 0.5 : 1.0,
-                          child: IgnorePointer(
-                            ignoring: _isRecording,
-                            child: NumberPicker(
-                              value: _recordingDuration,
-                              minValue: 10,
-                              maxValue: 300,
-                              step: 10, // Increment by 10 seconds
-                              itemWidth:
-                                  screenWidth * 0.15, // Dynamic item width
-                              onChanged: (value) {
-                                setState(() {
-                                  _recordingDuration = value;
-                                  _remainingTime = value; // Sync remaining time
-                                });
-                              },
-                              textStyle: TextStyle(
-                                fontSize: fontSizeSmall,
-                                color: Colors.grey,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final controlsHeight =
+                            (screenWidth * 0.45).clamp(170.0, 220.0).toDouble();
+                        final sideOffset = constraints.maxWidth * 0.05;
+                        final sideControlsTop = (controlsHeight * 0.45)
+                            .clamp(72.0, 102.0)
+                            .toDouble();
+                        return SizedBox(
+                          height: controlsHeight,
+                          child: Stack(
+                            alignment: Alignment.topCenter,
+                            children: [
+                              Align(
+                                alignment: Alignment.topCenter,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: (screenWidth * 0.34)
+                                        .clamp(120.0, 152.0),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Doba měření (sekundy)',
+                                        style: TextStyle(
+                                          fontSize: fontSizeSmall * 0.9,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      Opacity(
+                                        opacity: _isRecording ? 0.5 : 1.0,
+                                        child: IgnorePointer(
+                                          ignoring: _isRecording,
+                                          child: NumberPicker(
+                                            value: _recordingDuration,
+                                            minValue: 10,
+                                            maxValue: 300,
+                                            step: 10,
+                                            itemWidth: (screenWidth * 0.11)
+                                                .clamp(38.0, 54.0),
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _recordingDuration = value;
+                                                _remainingTime = value;
+                                              });
+                                            },
+                                            textStyle: TextStyle(
+                                              fontSize: fontSizeSmall * 0.9,
+                                              color: Colors.grey,
+                                            ),
+                                            selectedTextStyle: TextStyle(
+                                              fontSize: fontSizeMedium * 0.92,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                  color: Colors.grey, width: 1),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              selectedTextStyle: TextStyle(
-                                fontSize: fontSizeMedium,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                              Positioned(
+                                left: sideOffset,
+                                top: sideControlsTop,
+                                child: SizedBox(
+                                  width:
+                                      (screenWidth * 0.22).clamp(82.0, 102.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: (_backCameras.length < 2 ||
+                                                _isSwitchingCamera)
+                                            ? null
+                                            : _switchBackCamera,
+                                        icon: Icon(
+                                          Icons.cameraswitch,
+                                          color: Colors.grey,
+                                          size: iconSizeMedium * 0.9,
+                                        ),
+                                        tooltip: 'Přepnout kameru',
+                                      ),
+                                      Text(
+                                        'Změnit kameru',
+                                        style: TextStyle(
+                                          fontSize: fontSizeSmall * 0.9,
+                                          color: Colors.grey,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: Colors.grey, width: 1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    // Torch button napravo
-                    SizedBox(
-                      width: sideWidth,
-                      child: Center(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.3),
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
+                              Positioned(
+                                right: sideOffset,
+                                top: sideControlsTop,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.withOpacity(0.3),
+                                        spreadRadius: 1,
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: _toggleFlashlight,
+                                    icon: Icon(
+                                      _isFlashOn
+                                          ? CupertinoIcons.bolt_fill
+                                          : CupertinoIcons.bolt_slash_fill,
+                                      color: _isFlashOn
+                                          ? const Color.fromARGB(255, 0, 0, 0)
+                                          : Colors.grey,
+                                      size: iconSizeMedium * 0.9,
+                                    ),
+                                    tooltip: _isFlashOn
+                                        ? 'Vypnout blesk'
+                                        : 'Zapnout blesk',
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          child: IconButton(
-                            onPressed: _toggleFlashlight,
-                            icon: Icon(
-                              _isFlashOn
-                                  ? CupertinoIcons.bolt_fill
-                                  : CupertinoIcons.bolt_slash_fill,
-                              color: _isFlashOn
-                                  ? const Color.fromARGB(255, 0, 0, 0)
-                                  : Colors.grey,
-                              size: iconSizeMedium,
-                            ),
-                            tooltip:
-                                _isFlashOn ? 'Vypnout blesk' : 'Zapnout blesk',
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                  ],
+                  ),
                 ),
               ),
-              SizedBox(height: paddingMedium),
+              SizedBox(height: paddingMedium * 0.9),
               ElevatedButton(
                 onPressed: _isCountdownRunning
                     ? null
