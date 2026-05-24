@@ -38,6 +38,8 @@
 		<string>Aplikace potřebuje přístup k HealthKit pro ukládání tepové frekvence.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Tato aplikace potřebuje přístup k mikrofonu pro použití blesku při měření.</string>
+		<key>NSMotionUsageDescription</key>
+		<string>Tato aplikace potřebuje přístup k pohybovým senzorům pro potlačení pohybových artefaktů během měření.</string>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>

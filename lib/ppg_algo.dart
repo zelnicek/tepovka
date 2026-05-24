@@ -91,6 +91,13 @@ class PPGAlgorithm {
   /// Motion artifact scores (0-1, where 1 is maximum artifact)
   final List<double> _motionArtifactScores = [];
 
+  /// NLMS motion reference from the accelerometer.
+  double _latestMotionReference = 0.0;
+  bool _hasMotionReference = false;
+  double _nlmsWeight = 0.0;
+  static const double _nlmsStepSize = 0.05;
+  static const double _nlmsEpsilon = 1e-3;
+
   /// Display smoothing buffer for extra stability in plot
   final List<double> _displayBuffer = [];
   static const int _displaySmoothWindow =
@@ -150,6 +157,17 @@ class PPGAlgorithm {
     _processRgbMeans(RgbMeans(red: red, green: green, blue: blue));
   }
 
+  /// Updates the accelerometer reference used by the NLMS motion canceller.
+  void processAccelerometerSample({
+    required double x,
+    required double y,
+    required double z,
+  }) {
+    final double magnitude = sqrt(x * x + y * y + z * z);
+    _latestMotionReference = magnitude;
+    _hasMotionReference = true;
+  }
+
   void _processRgbMeans(final RgbMeans rgbMeans) {
     final int currentTime = DateTime.now().millisecondsSinceEpoch;
 
@@ -174,17 +192,22 @@ class PPGAlgorithm {
       primarySignal = rgbMeans.red;
     }
 
-    final double motionScore = _detectMotionArtifacts(primarySignal, rgbMeans);
+    final double motionCancelledSignal =
+        _applyNlmsMotionCancellation(primarySignal);
+
+    final double motionScore =
+        _detectMotionArtifacts(motionCancelledSignal, rgbMeans);
     if (_motionArtifactScores.length > 50) {
       _motionArtifactScores.removeAt(0);
     }
     _motionArtifactScores.add(motionScore);
 
-    _intensityValues.add(primarySignal);
-    _ppgSignal.add(primarySignal);
-    _fullRecordBuffer.add(primarySignal);
+    _intensityValues.add(motionCancelledSignal);
+    _ppgSignal.add(motionCancelledSignal);
+    _fullRecordBuffer.add(motionCancelledSignal);
 
-    final List<double> currentProcessed = _processRawSignal(primarySignal);
+    final List<double> currentProcessed =
+        _processRawSignal(motionCancelledSignal);
     for (double sample in currentProcessed) {
       _filteredIntensities.add(sample);
     }
@@ -327,6 +350,22 @@ class PPGAlgorithm {
             .clamp(0.0, 1.0);
 
     return motionScore;
+  }
+
+  /// Simple one-tap NLMS motion canceller driven by accelerometer magnitude.
+  /// Step size starts conservatively at 0.05.
+  double _applyNlmsMotionCancellation(double sample) {
+    if (!_hasMotionReference) return sample;
+
+    final double reference = _latestMotionReference;
+    final double estimate = _nlmsWeight * reference;
+    final double error = sample - estimate;
+    final double norm = _nlmsEpsilon + reference * reference;
+
+    _nlmsWeight += (_nlmsStepSize * error * reference) / norm;
+    _nlmsWeight = _nlmsWeight.clamp(-10.0, 10.0).toDouble();
+
+    return error;
   }
 
   /// Calculate LOCAL frame rate for current batch (not running average).
@@ -1203,6 +1242,9 @@ class PPGAlgorithm {
     _frameRate = 0.0;
     _localFrameRate = 0.0;
     _currentBpmConfidence = 0.0;
+    _latestMotionReference = 0.0;
+    _hasMotionReference = false;
+    _nlmsWeight = 0.0;
     _yAxisMax = 2.0;
     _yAxisMin = -2.0;
     _smoothedYAxisMax = 2.0;

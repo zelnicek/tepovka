@@ -17,6 +17,7 @@ import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/services/tts_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 class TimeLabel {
   double x;
@@ -37,6 +38,7 @@ class _HomeState extends State<Home>
   Timer? _graphUpdateTimer;
   Timer? _navigationTimer;
   Timer? _countdownTimer; // Timer for countdown display
+  StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
   List<FlSpot> _data = [];
   List<FlSpot> _smoothedData = [];
   List<FlSpot> _fullRecordData =
@@ -204,6 +206,19 @@ class _HomeState extends State<Home>
         }
       });
     }
+  }
+
+  void _startAccelerometerStream() {
+    _accelerometerSubscription?.cancel();
+    _accelerometerSubscription =
+        userAccelerometerEventStream().listen((UserAccelerometerEvent event) {
+      if (!_isRecording || _ppgAlgorithm == null) return;
+      _ppgAlgorithm!.processAccelerometerSample(
+        x: event.x,
+        y: event.y,
+        z: event.z,
+      );
+    });
   }
 
   void _updateLiveData() {
@@ -420,6 +435,8 @@ class _HomeState extends State<Home>
       _graphUpdateTimer?.cancel();
       _navigationTimer?.cancel();
       _countdownTimer?.cancel();
+      await _accelerometerSubscription?.cancel();
+      _accelerometerSubscription = null;
       _progressController.stop();
       _heartAnimationController.stop();
       if (_hasInitializedCameraController) {
@@ -526,6 +543,7 @@ class _HomeState extends State<Home>
       _fullRecordData = [];
     });
     _initializeTimers();
+    _startAccelerometerStream();
     _progressController.forward();
   }
 
@@ -670,6 +688,7 @@ class _HomeState extends State<Home>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _accelerometerSubscription?.cancel();
     if (_isStreamingImages) {
       _cameraController.stopImageStream();
     }
