@@ -137,6 +137,18 @@ class _InfoAppState extends State<InfoApp> {
                 runSpacing: socialSpacing,
                 spacing: socialSpacing,
                 children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final Uri url = Uri.parse('https://www.mojetepovka.cz');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url);
+                      } else {
+                        throw 'Could not launch $url';
+                      }
+                    },
+                    icon: const Icon(Icons.language),
+                    label: const Text('Web'),
+                  ),
                   IconButton(
                     icon: Icon(
                       FontAwesomeIcons.linkedin,
