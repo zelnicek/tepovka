@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tepovka/elements/create_pdf.dart'; // Import the PDF creation function
+import 'package:tepovka/elements/unified_peak_detector.dart';
 import 'dart:math';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
@@ -1011,10 +1012,10 @@ class _RecordsPageState extends State<RecordsPage> {
     if (trimmedData.length > expectedLength) {
       trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
     }
-    // Create spots with time x and inverted y
+    // Create spots with time x in the stored signal polarity.
     List<FlSpot> spots = [];
     for (int i = 0; i < trimmedData.length; i++) {
-      spots.add(FlSpot(i / sampleRate, -trimmedData[i]));
+      spots.add(FlSpot(i / sampleRate, trimmedData[i]));
     }
     // Moving average smoothing
     int windowSize = 7;
@@ -1099,21 +1100,18 @@ class _RecordsPageState extends State<RecordsPage> {
       double avg = count > 0 ? sum / count : spots[i].y;
       smoothedData.add(FlSpot(spots[i].x, avg));
     }
-    // Detect peaks on smoothed
-    List<double> yValues = smoothedData.map((s) => s.y).toList();
-    List<int> peaks = _findPeaks(yValues);
-    peakSpots = peaks.map((i) => smoothedData[i]).toList();
-    // Calculate average BPM from peaks
-    if (peakSpots.length > 1) {
-      double sumIntervals = 0.0;
-      for (int i = 1; i < peakSpots.length; i++) {
-        sumIntervals += peakSpots[i].x - peakSpots[i - 1].x;
-      }
-      double averageInterval = sumIntervals / (peakSpots.length - 1);
-      calculatedAverageBPM = 60.0 / averageInterval;
-    } else {
-      calculatedAverageBPM = 0.0;
-    }
+    // Detect peaks on the same smoothed waveform that is actually plotted.
+    final detector = UnifiedPpgPeakDetector(fs: sampleRate);
+    final plottedSignal = smoothedData.map((spot) => spot.y).toList();
+    final detectedPeaks = detector.detect(plottedSignal, zeroPhase: true);
+    peakSpots = detectedPeaks.map((peak) {
+      final int nearestIndex =
+          (peak.timeSec * sampleRate).round().clamp(0, smoothedData.length - 1);
+      final visibleSpot = smoothedData[nearestIndex];
+      return FlSpot(visibleSpot.x, visibleSpot.y);
+    }).toList();
+    // Keep the detail BPM identical to the list view.
+    calculatedAverageBPM = record.averageBPM.toDouble();
     // Generate time labels every 5 seconds to avoid overlap
     double totalTime = trimmedData.length / sampleRate;
     for (int i = 0; i <= totalTime.floor(); i += 5) {
