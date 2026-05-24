@@ -10,10 +10,9 @@ import 'package:tepovka/ppg_algo.dart';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:health/health.dart';
-import 'package:fftea/fftea.dart';
-import 'dart:typed_data';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/elements/peak_detector.dart';
+import 'package:tepovka/elements/hrv_calculator.dart';
 // Cloud sync disabled for local-only mode
 
 enum PatientStatus { normal, rest }
@@ -420,102 +419,22 @@ class _SummaryState extends State<Summary> {
       rrIntervals.add(interval);
     }
     if (rrIntervals.isEmpty) return;
+    final hrv = HrvCalculator.compute(rrIntervals);
 
-    // Mean RR (for LF/HF calculation and stress index)
-    _meanRR = rrIntervals.reduce((a, b) => a + b) / rrIntervals.length;
+    _meanRR = hrv.meanRrMs;
+    _sdnn = hrv.sdnn;
+    _rmssd = hrv.rmssd;
+    _pnn50 = hrv.pnn50;
+    _sd1 = hrv.sd1;
+    _sd2 = hrv.sd2;
+    _sd2sd1 = hrv.sd1Sd2Ratio > 0 ? hrv.sd2 / hrv.sd1 : 0.0;
+    _stressIndex = hrv.baevskySi;
+    _lf = hrv.lfNorm;
+    _hf = hrv.hfNorm;
+    _lfhf = hrv.lfHfRatio;
 
-    // If PPGAlgorithm did not return HRV metrics, recompute from RR intervals.
-    if (_sdnn == 0.0 && rrIntervals.length >= 3) {
-      final mean = _meanRR;
-
-      // SDNN
-      final sdnn = sqrt(
-        rrIntervals
-                .map((v) => (v - mean) * (v - mean))
-                .reduce((a, b) => a + b) /
-            rrIntervals.length,
-      );
-      _sdnn = sdnn;
-
-      // RMSSD and pNN50
-      double sumSqDiff = 0.0;
-      int nn50count = 0;
-      for (int i = 1; i < rrIntervals.length; i++) {
-        final diff = rrIntervals[i] - rrIntervals[i - 1];
-        sumSqDiff += diff * diff;
-        if (diff.abs() > 50) nn50count++;
-      }
-      _rmssd = sqrt(sumSqDiff / (rrIntervals.length - 1));
-      _pnn50 = (nn50count / (rrIntervals.length - 1)) * 100.0;
-
-      // SD1 and SD2 (Poincare)
-      final sd1 = sqrt(sumSqDiff / (2.0 * (rrIntervals.length - 1)));
-      final variance = rrIntervals
-              .map((v) => (v - mean) * (v - mean))
-              .reduce((a, b) => a + b) /
-          rrIntervals.length;
-      final sd2 =
-          sqrt((2 * variance) - (sd1 * sd1)).clamp(0.0, double.infinity);
-      _sd1 = sd1;
-      _sd2 = sd2;
-      _sd2sd1 = sd1 > 0 ? sd2 / sd1 : 0.0;
-
-      print(
-          'DEBUG HRV recomputed: sdnn=$_sdnn, rmssd=$_rmssd, pnn50=$_pnn50, sd1=$_sd1, sd2=$_sd2');
-    }
-
-    // Stress Index (Baevsky approximation) - recomputed after SDNN fallback.
-    _stressIndex = _sdnn == 0 ? 0.0 : pow(_meanRR / (2 * _sdnn), 2).toDouble();
-
-    // Frequency domain using FFT - requires more data, but proceed if possible
-    if (rrIntervals.length < 3) {
-      _lf = 0.0;
-      _hf = 0.0;
-      _lfhf = 0.0;
-      return;
-    }
-    // Build beat times
-    List<double> beatTimes = [0.0];
-    for (double rr in rrIntervals) {
-      beatTimes.add(beatTimes.last + rr / 1000.0);
-    }
-    // Times for interpolation: beatTimes.sublist(1), values: rrIntervals
-    List<double> interpTimes = beatTimes.sublist(1);
-    double totalDuration = beatTimes.last;
-    // Resample to 4 Hz
-    double targetFreq = 4.0;
-    double dt = 1.0 / targetFreq;
-    int numSamples = (totalDuration / dt).floor() + 1;
-    List<double> newTimes = List.generate(numSamples, (i) => i * dt);
-    List<double> resampledRR = _interpolate(interpTimes, rrIntervals, newTimes);
-    // Detrend (subtract mean)
-    resampledRR = resampledRR.map((v) => v - _meanRR).toList();
-    // Apply Hanning window
-    final hannWindow = Window.hanning(resampledRR.length);
-    for (int i = 0; i < resampledRR.length; i++) {
-      resampledRR[i] *= hannWindow[i];
-    }
-    // Pad to next power of 2
-    int originalLength = resampledRR.length;
-    int paddedLength = _nextPowerOf2(originalLength);
-    Float64List paddedSignal = Float64List(paddedLength);
-    paddedSignal.setRange(0, originalLength, Float64List.fromList(resampledRR));
-    // Compute FFT
-    final fft = FFT(paddedLength);
-    final freq = fft.realFft(paddedSignal);
-    // Compute powers (PSD)
-    List<double> powers = freq.map((c) => c.x * c.x + c.y * c.y).toList();
-    // Frequency resolution
-    double freqResolution = targetFreq / paddedLength;
-    // Integrate bands
-    _lf = _integrateBand(powers, freqResolution, 0.04, 0.15);
-    _hf = _integrateBand(powers, freqResolution, 0.15, 0.4);
-    double total = _lf + _hf;
-    if (total > 0) {
-      _lf = (_lf / total) * 100;
-      _hf = (_hf / total) * 100;
-    }
-    _lfhf = _hf == 0.0 ? 0.0 : _lf / _hf;
+    print(
+        'DEBUG HRV recomputed: sdnn=$_sdnn, rmssd=$_rmssd, pnn50=$_pnn50, sd1=$_sd1, sd2=$_sd2, duration=${hrv.durationSec.toStringAsFixed(1)}s, freqOk=${hrv.canComputeFrequency}');
 
     // Fallback RR estimate from RR-interval modulation when algo RR is unavailable.
     if (_respiratoryRate == 0.0 && rrIntervals.length >= 10) {
@@ -551,51 +470,6 @@ class _SummaryState extends State<Summary> {
         }
       }
     }
-  }
-
-  List<double> _interpolate(
-      List<double> times, List<double> values, List<double> newTimes) {
-    List<double> result = [];
-    if (times.isEmpty || values.isEmpty || newTimes.isEmpty) return result;
-    int idx = 0;
-    for (double t in newTimes) {
-      if (t <= times.first) {
-        result.add(values.first);
-        continue;
-      }
-      while (idx < times.length - 1 && t > times[idx + 1]) {
-        idx++;
-      }
-      if (idx >= times.length - 1) {
-        result.add(values.last);
-        continue;
-      }
-      final t0 = times[idx];
-      final t1 = times[idx + 1];
-      final v0 = values[idx];
-      final v1 = values[idx + 1];
-      final frac = (t - t0) / (t1 - t0);
-      result.add(v0 + frac * (v1 - v0));
-    }
-    return result;
-  }
-
-  int _nextPowerOf2(int n) {
-    if (n <= 0) return 1;
-    return pow(2, (log(n) / log(2)).ceil()).toInt();
-  }
-
-  double _integrateBand(
-      List<double> psd, double freqResolution, double startHz, double endHz) {
-    if (psd.isEmpty || freqResolution <= 0) return 0.0;
-    int startIdx = (startHz / freqResolution).floor().clamp(0, psd.length - 1);
-    int endIdx =
-        (endHz / freqResolution).ceil().clamp(startIdx, psd.length - 1);
-    double sum = 0.0;
-    for (int i = startIdx; i <= endIdx; i++) {
-      sum += psd[i];
-    }
-    return sum;
   }
 
   Color _getStressColor(double index) {
