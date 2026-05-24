@@ -509,6 +509,305 @@ class _RecordsPageState extends State<RecordsPage> {
     );
   }
 
+  Widget _buildTrendsSection() {
+    if (_visible.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    final sorted = List<Record>.from(_visible)
+      ..sort(
+          (a, b) => _parseRecordDateTime(a).compareTo(_parseRecordDateTime(b)));
+
+    List<FlSpot> seriesFor(double Function(Record r) extractor) {
+      final spots = <FlSpot>[];
+      for (int i = 0; i < sorted.length; i++) {
+        final value = extractor(sorted[i]);
+        if (value.isNaN || value.isInfinite) continue;
+        spots.add(FlSpot(i.toDouble(), value));
+      }
+      return spots;
+    }
+
+    final bpmSpots = seriesFor((r) => r.averageBPM.toDouble());
+    final sdnnSpots = seriesFor((r) => (r.hrv['sdnn'] ?? 0.0).toDouble());
+    final rmssdSpots = seriesFor((r) => (r.hrv['rmssd'] ?? 0.0).toDouble());
+    final stressSpots =
+        seriesFor((r) => (r.hrv['stressIndex'] ?? 0.0).toDouble());
+
+    double mean(Iterable<double> values) =>
+        values.isEmpty ? 0.0 : values.reduce((a, b) => a + b) / values.length;
+    double minV(Iterable<double> values) =>
+        values.isEmpty ? 0.0 : values.reduce(min);
+    double maxV(Iterable<double> values) =>
+        values.isEmpty ? 0.0 : values.reduce(max);
+
+    final List<double> bpmValues =
+        sorted.map<double>((r) => r.averageBPM.toDouble()).toList();
+    final List<double> sdnnValues = sorted
+        .map<double>((r) => (r.hrv['sdnn'] ?? 0.0).toDouble())
+        .where((value) => value > 0)
+        .toList();
+    final List<double> rmssdValues = sorted
+        .map<double>((r) => (r.hrv['rmssd'] ?? 0.0).toDouble())
+        .where((value) => value > 0)
+        .toList();
+
+    double trendDelta(List<double> values) {
+      if (values.length < 4) return 0.0;
+      final headEnd = (values.length * 0.3).ceil();
+      final tailStart = values.length - headEnd;
+      final head = values.sublist(0, headEnd);
+      final tail = values.sublist(tailStart);
+      return mean(tail) - mean(head);
+    }
+
+    final bpmTrend = trendDelta(bpmValues);
+
+    int good = 0;
+    int medium = 0;
+    int poor = 0;
+    for (final record in sorted) {
+      switch (_qualityFor(record)) {
+        case 'good':
+          good++;
+          break;
+        case 'medium':
+          medium++;
+          break;
+        default:
+          poor++;
+      }
+    }
+
+    final total = sorted.length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Card(
+        color: Colors.white,
+        elevation: 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
+        ),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          title: const Row(
+            children: [
+              Icon(Icons.insights, color: Colors.blue, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Dlouhodobé trendy',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          subtitle: Text(
+            '$total měření • průměr ${mean(bpmValues).toStringAsFixed(0)} bpm'
+            '${bpmTrend.abs() < 0.5 ? '' : '  •  ${bpmTrend > 0 ? '↑' : '↓'} ${bpmTrend.abs().toStringAsFixed(1)} bpm'}',
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          children: [
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              childAspectRatio: 1.35,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              children: [
+                _buildTrendTile(
+                  title: 'Tepová frekvence',
+                  unit: 'bpm',
+                  spots: bpmSpots,
+                  color: const Color.fromARGB(255, 246, 41, 0),
+                  avg: mean(bpmValues),
+                  lo: minV(bpmValues),
+                  hi: maxV(bpmValues),
+                ),
+                _buildTrendTile(
+                  title: 'SDNN',
+                  unit: 'ms',
+                  spots: sdnnSpots,
+                  color: Colors.blue,
+                  avg: mean(sdnnValues),
+                  lo: sdnnValues.isEmpty ? 0 : minV(sdnnValues),
+                  hi: sdnnValues.isEmpty ? 0 : maxV(sdnnValues),
+                ),
+                _buildTrendTile(
+                  title: 'RMSSD',
+                  unit: 'ms',
+                  spots: rmssdSpots,
+                  color: Colors.teal,
+                  avg: mean(rmssdValues),
+                  lo: rmssdValues.isEmpty ? 0 : minV(rmssdValues),
+                  hi: rmssdValues.isEmpty ? 0 : maxV(rmssdValues),
+                ),
+                _buildTrendTile(
+                  title: 'Index stresu',
+                  unit: '',
+                  spots: stressSpots,
+                  color: Colors.deepOrange,
+                  avg: mean(stressSpots.map((spot) => spot.y)),
+                  lo: stressSpots.isEmpty
+                      ? 0
+                      : minV(stressSpots.map((spot) => spot.y)),
+                  hi: stressSpots.isEmpty
+                      ? 0
+                      : maxV(stressSpots.map((spot) => spot.y)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: good,
+                  child: _qualityBar(Colors.green, 'Dobrá', good),
+                ),
+                if (medium > 0)
+                  Expanded(
+                    flex: medium,
+                    child: _qualityBar(Colors.orange, 'Střední', medium),
+                  ),
+                if (poor > 0)
+                  Expanded(
+                    flex: poor,
+                    child: _qualityBar(Colors.red, 'Špatná', poor),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrendTile({
+    required String title,
+    required String unit,
+    required List<FlSpot> spots,
+    required Color color,
+    required double avg,
+    required double lo,
+    required double hi,
+  }) {
+    final hasData = spots.length >= 2;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color.fromARGB(120, 158, 158, 158)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                hasData ? avg.toStringAsFixed(1) : '—',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              if (unit.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: Text(
+                    unit,
+                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                  ),
+                ),
+            ],
+          ),
+          Expanded(
+            child: hasData
+                ? LineChart(
+                    LineChartData(
+                      gridData: const FlGridData(show: false),
+                      titlesData: const FlTitlesData(show: false),
+                      borderData: FlBorderData(show: false),
+                      lineTouchData: const LineTouchData(enabled: false),
+                      minY: lo - ((hi - lo).abs() * 0.1 + 1),
+                      maxY: hi + ((hi - lo).abs() * 0.1 + 1),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          curveSmoothness: 0.25,
+                          color: color,
+                          barWidth: 2,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: color.withOpacity(0.12),
+                          ),
+                        ),
+                      ],
+                    ),
+                    duration: Duration.zero,
+                  )
+                : const Center(
+                    child: Text(
+                      '—',
+                      style: TextStyle(color: Colors.black38, fontSize: 12),
+                    ),
+                  ),
+          ),
+          if (hasData)
+            Text(
+              'min ${lo.toStringAsFixed(0)} • max ${hi.toStringAsFixed(0)}',
+              style: const TextStyle(fontSize: 10, color: Colors.black45),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _qualityBar(Color color, String label, int count) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 14,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: color.withOpacity(0.9)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQualityChip(Record record) {
     final q = _qualityFor(record);
     Color color;
@@ -1884,6 +2183,8 @@ class _RecordsPageState extends State<RecordsPage> {
                   children: [
                     _buildFilterBar(context),
                     const SizedBox(height: 8),
+                    _buildTrendsSection(),
+                    if (_visible.isNotEmpty) const SizedBox(height: 8),
                     ...List.generate(_visible.length, (index) {
                       final record = _visible[index];
                       final recordKey = '${record.date}_${record.time}';
