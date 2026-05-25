@@ -11,6 +11,9 @@ class QrCodePage extends StatelessWidget {
     final uid = LocalProfileService.userId ?? 'not-signed-in';
     // Encode local-only ID
     final data = 'tepovka:local:$uid';
+    final qrSize = (MediaQuery.sizeOf(context).width * 0.78)
+        .clamp(200.0, 360.0)
+        .toDouble();
     return Scaffold(
       appBar: AppBar(title: const Text('Můj QR kód')),
       body: Center(
@@ -19,7 +22,7 @@ class QrCodePage extends StatelessWidget {
             : QrImageView(
                 data: data,
                 version: QrVersions.auto,
-                size: 240,
+                size: qrSize,
               ),
       ),
     );

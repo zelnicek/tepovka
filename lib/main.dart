@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:tepovka/widgets/privacy_consent.dart';
@@ -12,6 +13,11 @@ import 'package:tepovka/services/local_profile_service.dart';
 Future<void> main() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    // App je dělaná pro iPhone (TARGETED_DEVICE_FAMILY = 1) a portrait.
+    // Lock orientace zde slouží jako pojistka i pro Android.
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     await AppSettings.init();
     await LocalProfileService.init();
 

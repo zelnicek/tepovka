@@ -15,6 +15,7 @@ import 'package:flutter/rendering.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tepovka/elements/create_pdf.dart'; // Import the PDF creation function
 import 'package:tepovka/elements/unified_peak_detector.dart';
+import 'package:tepovka/elements/responsive.dart';
 import 'dart:math';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
@@ -582,8 +583,9 @@ class _RecordsPageState extends State<RecordsPage> {
 
     final total = sorted.length;
 
+    final r = Responsive.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: r.spaceSm),
       child: Card(
         color: Colors.white,
         elevation: 1,
@@ -593,33 +595,36 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
         child: ExpansionTile(
           initiallyExpanded: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-          title: const Row(
+          tilePadding: EdgeInsets.symmetric(horizontal: r.spaceMd + 2),
+          title: Row(
             children: [
-              Icon(Icons.insights, color: Colors.blue, size: 20),
-              SizedBox(width: 8),
+              Icon(Icons.insights, color: Colors.blue, size: r.iconMd),
+              SizedBox(width: r.spaceSm),
               Text(
                 'Dlouhodobé trendy',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: r.fontBodyLg, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           subtitle: Text(
             '$total měření • průměr ${mean(bpmValues).toStringAsFixed(0)} bpm'
             '${bpmTrend.abs() < 0.5 ? '' : '  •  ${bpmTrend > 0 ? '↑' : '↓'} ${bpmTrend.abs().toStringAsFixed(1)} bpm'}',
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
+            style: TextStyle(fontSize: r.fontSmall, color: Colors.black54),
           ),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          childrenPadding: EdgeInsets.fromLTRB(
+              r.spaceMd, 0, r.spaceMd, r.spaceMd),
           children: [
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              childAspectRatio: 1.35,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+              crossAxisCount: r.gridColumns,
+              childAspectRatio: r.gridColumns == 1 ? 2.6 : 1.35,
+              crossAxisSpacing: r.spaceSm + 2,
+              mainAxisSpacing: r.spaceSm + 2,
               children: [
                 _buildTrendTile(
+                  r: r,
                   title: 'Tepová frekvence',
                   unit: 'bpm',
                   spots: bpmSpots,
@@ -629,6 +634,7 @@ class _RecordsPageState extends State<RecordsPage> {
                   hi: maxV(bpmValues),
                 ),
                 _buildTrendTile(
+                  r: r,
                   title: 'SDNN',
                   unit: 'ms',
                   spots: sdnnSpots,
@@ -638,6 +644,7 @@ class _RecordsPageState extends State<RecordsPage> {
                   hi: sdnnValues.isEmpty ? 0 : maxV(sdnnValues),
                 ),
                 _buildTrendTile(
+                  r: r,
                   title: 'RMSSD',
                   unit: 'ms',
                   spots: rmssdSpots,
@@ -647,6 +654,7 @@ class _RecordsPageState extends State<RecordsPage> {
                   hi: rmssdValues.isEmpty ? 0 : maxV(rmssdValues),
                 ),
                 _buildTrendTile(
+                  r: r,
                   title: 'Index stresu',
                   unit: '',
                   spots: stressSpots,
@@ -661,22 +669,22 @@ class _RecordsPageState extends State<RecordsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: r.spaceMd),
             Row(
               children: [
                 Expanded(
                   flex: good,
-                  child: _qualityBar(Colors.green, 'Dobrá', good),
+                  child: _qualityBar(r, Colors.green, 'Dobrá', good),
                 ),
                 if (medium > 0)
                   Expanded(
                     flex: medium,
-                    child: _qualityBar(Colors.orange, 'Střední', medium),
+                    child: _qualityBar(r, Colors.orange, 'Střední', medium),
                   ),
                 if (poor > 0)
                   Expanded(
                     flex: poor,
-                    child: _qualityBar(Colors.red, 'Špatná', poor),
+                    child: _qualityBar(r, Colors.red, 'Špatná', poor),
                   ),
               ],
             ),
@@ -687,6 +695,7 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   Widget _buildTrendTile({
+    required Responsive r,
     required String title,
     required String unit,
     required List<FlSpot> spots,
@@ -697,7 +706,7 @@ class _RecordsPageState extends State<RecordsPage> {
   }) {
     final hasData = spots.length >= 2;
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: EdgeInsets.all(r.spaceSm + 2),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -708,13 +717,13 @@ class _RecordsPageState extends State<RecordsPage> {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 12,
+            style: TextStyle(
+              fontSize: r.fontSmall,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: r.spaceXs / 2),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
@@ -722,17 +731,18 @@ class _RecordsPageState extends State<RecordsPage> {
               Text(
                 hasData ? avg.toStringAsFixed(1) : '—',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: r.fontTitle,
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
               ),
               if (unit.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(left: 2),
+                  padding: EdgeInsets.only(left: r.spaceXs / 2),
                   child: Text(
                     unit,
-                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                    style: TextStyle(
+                        fontSize: r.fontCaption, color: Colors.black54),
                   ),
                 ),
             ],
@@ -764,27 +774,28 @@ class _RecordsPageState extends State<RecordsPage> {
                     ),
                     duration: Duration.zero,
                   )
-                : const Center(
+                : Center(
                     child: Text(
                       '—',
-                      style: TextStyle(color: Colors.black38, fontSize: 12),
+                      style: TextStyle(
+                          color: Colors.black38, fontSize: r.fontSmall),
                     ),
                   ),
           ),
           if (hasData)
             Text(
               'min ${lo.toStringAsFixed(0)} • max ${hi.toStringAsFixed(0)}',
-              style: const TextStyle(fontSize: 10, color: Colors.black45),
+              style: TextStyle(fontSize: r.fontCaption - 1, color: Colors.black45),
             ),
         ],
       ),
     );
   }
 
-  Widget _qualityBar(Color color, String label, int count) {
+  Widget _qualityBar(Responsive r, Color color, String label, int count) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      margin: EdgeInsets.symmetric(horizontal: r.spaceXs / 2),
+      padding: EdgeInsets.symmetric(vertical: r.spaceXs + 2),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(6),
@@ -797,12 +808,13 @@ class _RecordsPageState extends State<RecordsPage> {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: color,
-              fontSize: 14,
+              fontSize: r.fontBody,
             ),
           ),
           Text(
             label,
-            style: TextStyle(fontSize: 10, color: color.withOpacity(0.9)),
+            style: TextStyle(
+                fontSize: r.fontCaption - 1, color: color.withOpacity(0.9)),
           ),
         ],
       ),
@@ -1251,9 +1263,9 @@ class _RecordsPageState extends State<RecordsPage> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        final r = Responsive.of(context);
         return AlertDialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          insetPadding: r.dialogInsetPadding,
           backgroundColor: const Color.fromARGB(255, 242, 242, 242),
           contentPadding: const EdgeInsets.all(0),
           title: Text(
@@ -2113,6 +2125,7 @@ class _RecordsPageState extends State<RecordsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final r = Responsive.of(context);
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
@@ -2120,14 +2133,14 @@ class _RecordsPageState extends State<RecordsPage> {
         backgroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
-        title: const Column(
+        title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'HISTORIE MĚŘENÍ',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: r.fontTitleLg,
               ),
             ),
           ],
@@ -2296,10 +2309,10 @@ class _RecordsPageState extends State<RecordsPage> {
                   ],
                 )),
       bottomNavigationBar: GNav(
-        tabMargin: const EdgeInsets.symmetric(horizontal: 10),
+        tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
         gap: 0,
         activeColor: Colors.black,
-        iconSize: 24,
+        iconSize: r.iconMd,
         backgroundColor: Colors.white,
         color: Colors.grey,
         selectedIndex: _selectedIndex,

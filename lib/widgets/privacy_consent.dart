@@ -35,52 +35,86 @@ class _PrivacyConsentPageState extends State<PrivacyConsentPage> {
       appBar: AppBar(
         title: const Text('Souhlas se zpracováním dat'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: Image.asset(
-                  'assets/Text_loading.png',
-                  height: 72,
-                  fit: BoxFit.contain,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Image.asset(
+                            'assets/Text_loading.png',
+                            height: 72,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Provoz aplikace vyžaduje zpracování obrazových snímků z fotoaparátu k výpočtu srdeční frekvence a souvisejících metrik.\n\nAplikace neodesílá vaše snímky na servery a data ukládá pouze lokálně, pokud s tím výslovně souhlasíte.\n\nDůležité: tato aplikace není lékařský přístroj. Hodnoty jako SpO2 jsou orientační a nemusí být ihned dostupné nebo přesné. Nepoužívejte aplikaci jako náhradu lékařského zařízení — při obavách vyhledejte odbornou lékařskou pomoc.',
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Co aplikace dělá:'),
+                      const SizedBox(height: 8),
+                      const Text(
+                          '- Zpracování snímků z fotoaparátu pro PPG analýzu.'),
+                      const Text('- Ukládání souhrnných výsledků lokálně.'),
+                      const Text(
+                          '- Neodesílání surových obrazových dat bez souhlasu.'),
+                      const SizedBox(height: 16),
+                      const Text(
+                          'Souhlasíte se zpracováním dat potřebných pro měření?'),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const Text(
-              'Provoz aplikace vyžaduje zpracování obrazových snímků z fotoaparátu k výpočtu srdeční frekvence a souvisejících metrik.\n\nAplikace neodesílá vaše snímky na servery a data ukládá pouze lokálně, pokud s tím výslovně souhlasíte.\n\nDůležité: tato aplikace není lékařský přístroj. Hodnoty jako SpO2 jsou orientační a nemusí být ihned dostupné nebo přesné. Nepoužívejte aplikaci jako náhradu lékařského zařízení — při obavách vyhledejte odbornou lékařskou pomoc.',
-            ),
-            const SizedBox(height: 16),
-            const Text('Co aplikace dělá:'),
-            const SizedBox(height: 8),
-            const Text('- Zpracování snímků z fotoaparátu pro PPG analýzu.'),
-            const Text('- Ukládání souhrnných výsledků lokálně.'),
-            const Text('- Neodesílání surových obrazových dat bez souhlasu.'),
-            const SizedBox(height: 16),
-            const Text('Souhlasíte se zpracováním dat potřebných pro měření?'),
-            const Spacer(),
-            if (_saving) const Center(child: CircularProgressIndicator()),
-            if (!_saving)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: _accept,
-                    child: const Text('Souhlasím'),
+              if (_saving) const Center(child: CircularProgressIndicator()),
+              if (!_saving)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0, top: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _accept,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 28, vertical: 12),
+                          textStyle: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Souhlasím'),
+                      ),
+                      ElevatedButton(
+                        onPressed: _decline,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade400,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 28, vertical: 12),
+                          textStyle: const TextStyle(fontSize: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Nechci'),
+                      ),
+                    ],
                   ),
-                  ElevatedButton(
-                    onPressed: _decline,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
-                    ),
-                    child: const Text('Nechci'),
-                  ),
-                ],
-              )
-          ],
+                )
+            ],
+          ),
         ),
       ),
     );

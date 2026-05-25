@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tepovka/pages/settings.dart';
+import 'package:tepovka/elements/responsive.dart';
 
 class InfoApp extends StatefulWidget {
   const InfoApp({super.key});
@@ -46,14 +47,13 @@ class _InfoAppState extends State<InfoApp> {
 
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.sizeOf(context).width;
-    final double socialIconSize = screenWidth < 400 ? 32 : 40;
-    final double coffeeWidth = (screenWidth < 400 ? screenWidth * 0.34 : 170)
-        .clamp(120.0, 180.0)
-        .toDouble();
+    final r = Responsive.of(context);
+    final double socialIconSize = r.isCompact ? 30.0 : 38.0;
+    final double coffeeWidth =
+        (r.width * 0.42).clamp(130.0, 180.0).toDouble();
     final double coffeeHeight = coffeeWidth * 0.53;
-    final double socialSpacing = screenWidth < 400 ? 12 : 20;
-    final double vutLogoWidth = screenWidth.clamp(160.0, 220.0).toDouble();
+    final double socialSpacing = r.isCompact ? 10.0 : 16.0;
+    final double vutLogoWidth = (r.width * 0.55).clamp(160.0, 220.0).toDouble();
     final double vutLogoHeight = vutLogoWidth * 0.5;
 
     return Scaffold(
@@ -62,15 +62,13 @@ class _InfoAppState extends State<InfoApp> {
         automaticallyImplyLeading: false,
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
         centerTitle: true,
-        title: const Column(
+        title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'O NÁS',
               style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
+                  fontWeight: FontWeight.bold, fontSize: r.fontTitleLg),
             ),
           ],
         ),
@@ -88,49 +86,46 @@ class _InfoAppState extends State<InfoApp> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: r.pagePadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'O projektu Tepovka',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+                    fontWeight: FontWeight.bold, fontSize: r.fontTitle),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: r.spaceSm),
+              Text(
                 'Ahoj!\n'
                 'S radostí Vám představujeme naši aplikaci s názvem Tepovka, která vzniká v rámci soutěže organizované Fakultou elektrotechniky a komunikačních technologií na Vysokém učení technickém v Brně. '
                 'Tento projekt je výsledkem naší spolupráce v týmu, který spojuje nadšení pro biomedicínské inženýrství a snahu přinášet inovativní řešení do každodenního života.\n\n'
                 'Naším cílem je vytvořit aplikaci, která umožní měření srdeční frekvence jednoduše pomocí smartphonu s kamerou a bleskem. Tato funkce je pouhým začátkem. V budoucnu plánujeme rozšířit aplikaci o pokročilejší funkce, jako je měření saturace kyslíku v krvi (oximetrie), detekce srdečních arytmií nebo dokonce měření krevního tlaku – pokud výzkumy ukáží, že je tato technologie proveditelná.\n\n'
                 'Aplikace vzniká za podpory VUT, které poskytuje nejen technologické zázemí, ale také odborné vedení, díky kterému můžeme naše nápady realizovat.',
-                style: TextStyle(fontSize: 16),
+                style: TextStyle(fontSize: r.fontBodyLg),
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: r.spaceXl),
+              Text(
                 'Náš tým',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+                    fontWeight: FontWeight.bold, fontSize: r.fontTitle),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: r.spaceSm),
+              Text(
                 'Jsme studenti biomedicínského inženýrství a spojuje nás vášeň pro vývoj zdravotnických technologií. Náš tým tvoří:\n'
                 '- Štěpán Zelníček\n'
                 '- David Vavroušek\n'
                 '- Jakub Kovář\n\n'
                 'Každý z nás přispívá svými specifickými dovednostmi – od programování, přes design aplikací až po analýzu biologických dat. Naším hlavním cílem je vytvořit uživatelsky přívětivou a zároveň technologicky pokročilou aplikaci, která bude sloužit široké veřejnosti.',
-                style: TextStyle(fontSize: 16),
+                style: TextStyle(fontSize: r.fontBodyLg),
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: r.spaceXl),
+              Text(
                 'Sledujte a podpořte nás',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: r.fontTitle),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: r.spaceSm),
               Wrap(
                 alignment: WrapAlignment.start,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -200,12 +195,13 @@ class _InfoAppState extends State<InfoApp> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: r.spaceXl),
+              Text(
                 'Jsme nadšeni z možnosti sdílet naši cestu s Vámi a budeme rádi, když nás podpoříte a budete sledovat naše pokroky. Těšíme se na společné objevování nových možností v oblasti digitálního zdravotnictví!',
-                style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                    fontSize: r.fontBodyLg, fontStyle: FontStyle.italic),
               ),
-              const SizedBox(height: 30),
+              SizedBox(height: r.spaceXxl),
               GestureDetector(
                 onTap: () async {
                   final Uri url = Uri.parse('https://www.vut.cz');
@@ -221,9 +217,10 @@ class _InfoAppState extends State<InfoApp> {
                   height: vutLogoHeight,
                 ),
               ),
-              const Text(
+              Text(
                 'Za podpory VUT. Děkujeme',
-                style: TextStyle(fontStyle: FontStyle.italic),
+                style: TextStyle(
+                    fontStyle: FontStyle.italic, fontSize: r.fontBody),
               ),
             ],
           ),
@@ -232,7 +229,7 @@ class _InfoAppState extends State<InfoApp> {
       bottomNavigationBar: GNav(
         gap: 0,
         activeColor: Colors.black,
-        iconSize: 24,
+        iconSize: r.iconMd,
         backgroundColor: Colors.white,
         color: Colors.grey,
         selectedIndex: _selectedIndex,

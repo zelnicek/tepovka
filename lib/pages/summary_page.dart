@@ -13,6 +13,7 @@ import 'package:health/health.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:tepovka/elements/hrv_calculator.dart';
+import 'package:tepovka/elements/responsive.dart';
 // Cloud sync disabled for local-only mode
 
 enum PatientStatus { normal, rest }
@@ -119,9 +120,10 @@ class _SummaryState extends State<Summary> {
 
   int _responsiveGridColumns(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width < 380) return 1;
-    if (width < 700) return 2;
-    return 3;
+    // Ensure at least two columns on small phones (e.g. iPhone SE ~320dp)
+    if (width < 320) return 1; // extremely narrow (unlikely)
+    if (width < 700) return 2; // phones and small tablets -> 2 columns
+    return 3; // larger tablets -> 3 columns
   }
 
   @override
@@ -744,6 +746,7 @@ class _SummaryState extends State<Summary> {
   @override
   Widget build(BuildContext context) {
     final settings = AppSettings.value;
+    final r = Responsive.of(context);
     double totalTime = _smoothedData.length / sampleRate;
     double chartWidth = totalTime * pixelsPerSecond;
     final minY = _getDynamicMinY();
@@ -876,10 +879,10 @@ class _SummaryState extends State<Summary> {
                 ],
               )),
         bottomNavigationBar: GNav(
-          tabMargin: const EdgeInsets.symmetric(horizontal: 10),
+          tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
           gap: 0,
           activeColor: Colors.black,
-          iconSize: 24,
+          iconSize: r.iconMd,
           backgroundColor: Colors.white,
           color: Colors.grey,
           selectedIndex: _selectedIndex,

@@ -57,15 +57,16 @@ class _IntroPageState extends State<IntroPage> {
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.sizeOf(context).width;
     final double screenHeight = MediaQuery.sizeOf(context).height;
-    final double cardWidthFull = screenWidth * 0.9;
-    final double cardHeight = screenHeight * 0.18;
-    final double paddingSmall = screenWidth * 0.02;
-    final double paddingMedium = screenWidth * 0.04;
-    final double fontSizeMedium = screenWidth * 0.045;
-    final double fontSizeSmall = screenWidth * 0.04;
-    final double imageScaleFull = screenWidth * 0.0015;
-    final double imageScaleHalf = screenWidth * 0.0018;
-    final double iconSize = screenWidth * 0.06;
+    // iPhone-only: clamp pro konzistentní vzhled napříč SE → Pro Max.
+    final double cardWidthFull = (screenWidth * 0.9).clamp(280.0, 420.0).toDouble();
+    final double cardHeight = (screenHeight * 0.18).clamp(130.0, 180.0).toDouble();
+    final double paddingSmall = (screenWidth * 0.02).clamp(6.0, 10.0).toDouble();
+    final double paddingMedium = (screenWidth * 0.04).clamp(12.0, 18.0).toDouble();
+    final double fontSizeMedium = (screenWidth * 0.045).clamp(16.0, 20.0).toDouble();
+    final double fontSizeSmall = (screenWidth * 0.04).clamp(14.0, 18.0).toDouble();
+    final double imageScaleFull = (screenWidth * 0.0015).clamp(0.5, 0.72);
+    final double imageScaleHalf = (screenWidth * 0.0018).clamp(0.55, 0.8);
+    final double iconSize = (screenWidth * 0.06).clamp(22.0, 30.0).toDouble();
     final double cardWidthHalf =
         ((cardWidthFull - paddingSmall) / 2) - paddingSmall;
 

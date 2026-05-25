@@ -737,16 +737,22 @@ class _HomeState extends State<Home>
     final double screenWidth = MediaQuery.sizeOf(context).width;
     final double screenHeight = MediaQuery.sizeOf(context).height;
     final double cameraSize =
-        screenWidth * 0.25; // 25% of screen width for camera
-    final double sideWidth = screenWidth * 0.2; // 20% for BPM and quality
+        (screenWidth * 0.22).clamp(88.0, 130.0).toDouble();
+    final double sideWidth = (screenWidth * 0.18).clamp(64.0, 100.0).toDouble();
     final double graphHeight =
-        screenHeight * 0.225; // 10% smaller than before (25% -> 22.5%)
-    final double paddingSmall = screenHeight * 0.01; // Small dynamic padding
-    final double paddingMedium = screenHeight * 0.02; // Medium dynamic padding
-    final double iconSizeMedium = screenWidth * 0.08; // Medium icon size
-    final double fontSizeLarge = screenWidth * 0.09; // Large font (e.g., BPM)
-    final double fontSizeMedium = screenWidth * 0.04; // Medium font
-    final double fontSizeSmall = screenWidth * 0.035; // Small font
+        (screenHeight * 0.18).clamp(120.0, 180.0).toDouble();
+    final double paddingSmall =
+        (screenHeight * 0.009).clamp(6.0, 10.0).toDouble();
+    final double paddingMedium =
+        (screenHeight * 0.017).clamp(10.0, 18.0).toDouble();
+    final double iconSizeMedium =
+        (screenWidth * 0.08).clamp(26.0, 36.0).toDouble();
+    final double fontSizeLarge =
+        (screenWidth * 0.085).clamp(28.0, 40.0).toDouble();
+    final double fontSizeMedium =
+        (screenWidth * 0.038).clamp(13.0, 17.0).toDouble();
+    final double fontSizeSmall =
+        (screenWidth * 0.033).clamp(11.0, 15.0).toDouble();
 
     double currentBPM = _liveBPM; // Always use live BPM from peaks
     if (currentBPM != _lastBPM) {
@@ -893,10 +899,7 @@ class _HomeState extends State<Home>
                           ),
                         ),
                         child: const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(),
                         ),
                       ),
                     // Quality control vpravo od kamery
@@ -1103,7 +1106,7 @@ class _HomeState extends State<Home>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final controlsHeight =
-                            (screenWidth * 0.45).clamp(170.0, 220.0).toDouble();
+                            (screenWidth * 0.45).clamp(140.0, 180.0).toDouble();
                         final sideOffset = constraints.maxWidth * 0.05;
                         final sideControlsTop = (controlsHeight * 0.45)
                             .clamp(72.0, 102.0)
@@ -1115,13 +1118,11 @@ class _HomeState extends State<Home>
                             children: [
                               Align(
                                 alignment: Alignment.topCenter,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: (screenWidth * 0.34)
-                                        .clamp(120.0, 152.0),
-                                  ),
+                                child: SizedBox(
+                                  width:
+                                      (screenWidth * 0.34).clamp(120.0, 152.0),
                                   child: Column(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisSize: MainAxisSize.max,
                                     children: [
                                       Text(
                                         'Doba měření (sekundy)',
@@ -1132,37 +1133,41 @@ class _HomeState extends State<Home>
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
-                                      Opacity(
-                                        opacity: _isRecording ? 0.5 : 1.0,
+                                      Flexible(
+                                        fit: FlexFit.loose,
                                         child: IgnorePointer(
                                           ignoring: _isRecording,
-                                          child: NumberPicker(
-                                            value: _recordingDuration,
-                                            minValue: 10,
-                                            maxValue: 300,
-                                            step: 10,
-                                            itemWidth: (screenWidth * 0.11)
-                                                .clamp(38.0, 54.0),
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _recordingDuration = value;
-                                                _remainingTime = value;
-                                              });
-                                            },
-                                            textStyle: TextStyle(
-                                              fontSize: fontSizeSmall * 0.9,
-                                              color: Colors.grey,
-                                            ),
-                                            selectedTextStyle: TextStyle(
-                                              fontSize: fontSizeMedium * 0.92,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                  color: Colors.grey, width: 1),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
+                                          child: Opacity(
+                                            opacity: _isRecording ? 0.5 : 1.0,
+                                            child: NumberPicker(
+                                              value: _recordingDuration,
+                                              minValue: 10,
+                                              maxValue: 300,
+                                              step: 10,
+                                              itemWidth: (screenWidth * 0.11)
+                                                  .clamp(38.0, 54.0),
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _recordingDuration = value;
+                                                  _remainingTime = value;
+                                                });
+                                              },
+                                              textStyle: TextStyle(
+                                                fontSize: fontSizeSmall * 0.9,
+                                                color: Colors.grey,
+                                              ),
+                                              selectedTextStyle: TextStyle(
+                                                fontSize: fontSizeMedium * 0.92,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: Colors.grey,
+                                                    width: 1),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
                                             ),
                                           ),
                                         ),
