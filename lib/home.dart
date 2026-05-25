@@ -785,14 +785,18 @@ class _HomeState extends State<Home>
           automaticallyImplyLeading: false,
           backgroundColor: const Color.fromARGB(255, 242, 242, 242),
           centerTitle: true,
+          toolbarHeight: 76,
           title: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                appbar_text,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: fontSizeMedium,
+              Padding(
+                padding: EdgeInsets.only(top: paddingSmall * 0.6),
+                child: Text(
+                  appbar_text,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: fontSizeMedium,
+                  ),
                 ),
               ),
             ],
@@ -917,22 +921,26 @@ class _HomeState extends State<Home>
                             ),
                           ),
                           SizedBox(height: paddingSmall),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                _signalQuality == 'Dobrá'
-                                    ? Icons.check_circle
-                                    : Icons.error,
-                                color: _signalQuality == 'Dobrá'
-                                    ? Colors.green
-                                    : Colors.red,
-                                size: iconSizeMedium * 0.5,
-                              ),
-                              SizedBox(width: paddingSmall * 0.5),
-                              Flexible(
-                                child: Text(
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _signalQuality == 'Dobrá'
+                                      ? Icons.check_circle
+                                      : Icons.error,
+                                  color: _signalQuality == 'Dobrá'
+                                      ? Colors.green
+                                      : Colors.red,
+                                  size: iconSizeMedium * 0.5,
+                                ),
+                                SizedBox(width: paddingSmall * 0.5),
+                                Text(
                                   _signalQuality,
+                                  maxLines: 1,
+                                  softWrap: false,
                                   style: TextStyle(
                                     fontSize: fontSizeSmall,
                                     fontWeight: FontWeight.w500,
@@ -941,8 +949,8 @@ class _HomeState extends State<Home>
                                         : Colors.red,
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),

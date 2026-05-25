@@ -56,17 +56,16 @@ class _IntroPageState extends State<IntroPage> {
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.sizeOf(context).width;
-    final double screenHeight = MediaQuery.sizeOf(context).height;
-    // iPhone-only: clamp pro konzistentní vzhled napříč SE → Pro Max.
-    final double cardWidthFull = (screenWidth * 0.9).clamp(280.0, 420.0).toDouble();
-    final double cardHeight = (screenHeight * 0.18).clamp(130.0, 180.0).toDouble();
-    final double paddingSmall = (screenWidth * 0.02).clamp(6.0, 10.0).toDouble();
-    final double paddingMedium = (screenWidth * 0.04).clamp(12.0, 18.0).toDouble();
-    final double fontSizeMedium = (screenWidth * 0.045).clamp(16.0, 20.0).toDouble();
-    final double fontSizeSmall = (screenWidth * 0.04).clamp(14.0, 18.0).toDouble();
-    final double imageScaleFull = (screenWidth * 0.0015).clamp(0.5, 0.72);
-    final double imageScaleHalf = (screenWidth * 0.0018).clamp(0.55, 0.8);
-    final double iconSize = (screenWidth * 0.06).clamp(22.0, 30.0).toDouble();
+    // Šířkové konstanty – nezávislé na výšce.
+    final double cardWidthFull =
+        (screenWidth * 0.9).clamp(260.0, 420.0).toDouble();
+    final double paddingSmall =
+        (screenWidth * 0.02).clamp(4.0, 10.0).toDouble();
+    final double fontSizeMedium =
+        (screenWidth * 0.045).clamp(15.0, 20.0).toDouble();
+    final double fontSizeSmall =
+        (screenWidth * 0.04).clamp(13.0, 18.0).toDouble();
+    final double iconSize = (screenWidth * 0.06).clamp(20.0, 30.0).toDouble();
     final double cardWidthHalf =
         ((cardWidthFull - paddingSmall) / 2) - paddingSmall;
 
@@ -85,368 +84,406 @@ class _IntroPageState extends State<IntroPage> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Center(
-              child: Column(children: [
-            GestureDetector(
-              onTapDown: (_) {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  _isTapped = true;
-                });
-              },
-              onTapUp: (_) {
-                setState(() {
-                  _isTapped = false;
-                });
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // DOSTUPNÁ VÝŠKA BODY (po odečtení AppBaru, BottomNavu a SafeAreas).
+            // Tohle je skutečné místo, které máme – nezávisí to na screenHeight.
+            final double availH = constraints.maxHeight;
 
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => Home()),
-                );
-              },
-              onTapCancel: () {
-                setState(() {
-                  _isTapped = false;
-                });
-              },
-              child: AnimatedScale(
-                scale: _isTapped ? 0.9 : 1.0,
-                duration: const Duration(milliseconds: 100),
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.all(paddingSmall),
-                      child: Container(
-                        margin: EdgeInsets.only(top: paddingSmall),
-                        padding: const EdgeInsets.only(top: 0),
-                        width: cardWidthFull,
-                        height: cardHeight,
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 255, 255, 255),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 3,
-                          ),
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(15),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              spreadRadius: 0,
-                              blurRadius: 10,
-                              offset: const Offset(0, 0),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              'ZAČÍT MĚŘENÍ',
-                              style: TextStyle(
-                                fontSize: fontSizeMedium,
-                                color: Color.fromARGB(255, 0, 0, 0),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      right: -5,
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding:
-                              EdgeInsets.only(top: 0, bottom: paddingMedium),
-                          child: Transform.scale(
-                            scale: imageScaleFull,
-                            child: Image.asset(
-                              'assets/ppg.png',
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTapDown: (_) {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  _isTapped2 = true;
-                });
-              },
-              onTapUp: (_) {
-                setState(() {
-                  _isTapped2 = false;
-                });
+            // Layout: 4 řádky (3 karty + logo).
+            // Karty dostávají 22 % availH (každá), logo 12 %, zbytek jsou
+            // mezery. Clamp chrání před extrémy.
+            final double cardHeight =
+                (availH * 0.22).clamp(78.0, 180.0).toDouble();
+            final double logoHeight =
+                (availH * 0.12).clamp(40.0, 100.0).toDouble();
+            // Velikost obrázku loga (Image.asset bere natural ratio,
+            // kontrolujeme přes width).
+            final double logoWidth = (availH < 480)
+                ? (screenWidth * 0.32).clamp(100.0, 140.0).toDouble()
+                : (screenWidth * 0.5).clamp(150.0, 220.0).toDouble();
+            final double paddingMedium = (availH < 480)
+                ? (screenWidth * 0.025).clamp(6.0, 12.0).toDouble()
+                : (screenWidth * 0.04).clamp(12.0, 18.0).toDouble();
+            final double imageScaleFull = (availH < 480)
+                ? (screenWidth * 0.0012).clamp(0.36, 0.55)
+                : (screenWidth * 0.0015).clamp(0.5, 0.72);
+            final double imageScaleHalf = (availH < 480)
+                ? (screenWidth * 0.0014).clamp(0.4, 0.6)
+                : (screenWidth * 0.0018).clamp(0.55, 0.8);
 
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RecordsPage()),
-                );
-              },
-              onTapCancel: () {
-                setState(() {
-                  _isTapped2 = false;
-                });
-              },
-              child: AnimatedScale(
-                scale: _isTapped2 ? 0.9 : 1.0,
-                duration: const Duration(milliseconds: 100),
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.all(paddingSmall),
-                      child: Container(
-                        margin: EdgeInsets.only(top: paddingSmall),
-                        padding: const EdgeInsets.only(top: 0),
-                        width: cardWidthFull,
-                        height: cardHeight,
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 255, 255, 255),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 3,
-                          ),
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(15),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              spreadRadius: 0,
-                              blurRadius: 10,
-                              offset: const Offset(0, 0),
-                            ),
-                          ],
-                        ),
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              'ZÁZNAMY',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Color.fromARGB(255, 0, 0, 0),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      right: 0,
-                      bottom: paddingMedium,
-                      child: Transform.scale(
-                        scale: imageScaleFull * 0.95,
-                        child: Image.asset(
-                          'assets/folder.png',
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Wrap(
-              alignment: WrapAlignment.spaceEvenly,
-              runSpacing: paddingSmall,
-              spacing: paddingSmall,
-              children: [
-                GestureDetector(
-                  onTapDown: (_) {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _isTapped3 = true;
-                    });
-                  },
-                  onTapUp: (_) {
-                    setState(() {
-                      _isTapped3 = false;
-                    });
-                    // Navigate to the next page
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const About()),
-                    );
-                  },
-                  onTapCancel: () {
-                    setState(() {
-                      _isTapped3 = false;
-                    });
-                  },
-                  child: AnimatedScale(
-                    scale: _isTapped3 ? 0.9 : 1.0,
-                    duration: const Duration(milliseconds: 100),
-                    child: Stack(
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.all(paddingSmall),
-                          child: Container(
-                            margin: EdgeInsets.only(top: paddingSmall),
-                            padding: const EdgeInsets.only(top: 0),
-                            width: cardWidthHalf,
-                            height: cardHeight,
-                            decoration: BoxDecoration(
-                              color: const Color.fromARGB(255, 255, 255, 255),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 3,
-                              ),
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(15),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
-                                  spreadRadius: 0,
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 0),
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(vertical: paddingSmall / 2),
+              child: Center(
+                child: Column(children: [
+                  GestureDetector(
+                    onTapDown: (_) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _isTapped = true;
+                      });
+                    },
+                    onTapUp: (_) {
+                      setState(() {
+                        _isTapped = false;
+                      });
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => Home()),
+                      );
+                    },
+                    onTapCancel: () {
+                      setState(() {
+                        _isTapped = false;
+                      });
+                    },
+                    child: AnimatedScale(
+                      scale: _isTapped ? 0.9 : 1.0,
+                      duration: const Duration(milliseconds: 100),
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.all(paddingSmall),
+                            child: Container(
+                              margin: EdgeInsets.only(top: paddingSmall),
+                              padding: const EdgeInsets.only(top: 0),
+                              width: cardWidthFull,
+                              height: cardHeight,
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 255, 255, 255),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
                                 ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'JAK TO FUNGUJE?',
-                                  style: TextStyle(
-                                    fontSize: fontSizeSmall,
-                                    color: Color.fromARGB(255, 0, 0, 0),
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(15),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    spreadRadius: 0,
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 0),
                                   ),
-                                  textAlign: TextAlign.center,
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'ZAČÍT MĚŘENÍ',
+                                    style: TextStyle(
+                                      fontSize: fontSizeMedium,
+                                      color: Color.fromARGB(255, 0, 0, 0),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Positioned.fill(
+                            right: -5,
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                    top: 0, bottom: paddingMedium),
+                                child: Transform.scale(
+                                  scale: imageScaleFull,
+                                  child: Image.asset(
+                                    'assets/ppg.png',
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                        Positioned.fill(
-                          right: 0,
-                          bottom: paddingMedium,
-                          child: Transform.scale(
-                            scale: imageScaleHalf,
-                            child: Image.asset(
-                              'assets/Help2.png',
-                              fit: BoxFit.fitWidth,
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                GestureDetector(
-                  onTapDown: (_) {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _isTapped4 = true;
-                    });
-                  },
-                  onTapUp: (_) {
-                    setState(() {
-                      _isTapped4 = false;
-                    });
+                  GestureDetector(
+                    onTapDown: (_) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _isTapped2 = true;
+                      });
+                    },
+                    onTapUp: (_) {
+                      setState(() {
+                        _isTapped2 = false;
+                      });
 
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const InfoApp()),
-                    );
-                  },
-                  onTapCancel: () {
-                    setState(() {
-                      _isTapped4 = false;
-                    });
-                  },
-                  child: AnimatedScale(
-                    scale: _isTapped4 ? 0.9 : 1.0,
-                    duration: const Duration(milliseconds: 100),
-                    child: Stack(
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.all(paddingSmall),
-                          child: Container(
-                            margin: EdgeInsets.only(top: paddingSmall),
-                            padding: const EdgeInsets.only(top: 0),
-                            width: cardWidthHalf,
-                            height: cardHeight,
-                            decoration: BoxDecoration(
-                              color: const Color.fromARGB(255, 255, 255, 255),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 3,
-                              ),
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(15),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
-                                  spreadRadius: 0,
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 0),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RecordsPage()),
+                      );
+                    },
+                    onTapCancel: () {
+                      setState(() {
+                        _isTapped2 = false;
+                      });
+                    },
+                    child: AnimatedScale(
+                      scale: _isTapped2 ? 0.9 : 1.0,
+                      duration: const Duration(milliseconds: 100),
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.all(paddingSmall),
+                            child: Container(
+                              margin: EdgeInsets.only(top: paddingSmall),
+                              padding: const EdgeInsets.only(top: 0),
+                              width: cardWidthFull,
+                              height: cardHeight,
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 255, 255, 255),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
                                 ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'O APLIKACI',
-                                  style: TextStyle(
-                                    fontSize: fontSizeSmall,
-                                    color: Color.fromARGB(255, 0, 0, 0),
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(15),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    spreadRadius: 0,
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 0),
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                                ],
+                              ),
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'ZÁZNAMY',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Color.fromARGB(255, 0, 0, 0),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        Positioned.fill(
-                          right: 0,
-                          bottom: paddingMedium,
-                          child: Transform.scale(
-                            scale: imageScaleHalf * 0.7,
-                            child: Image.asset(
-                              'assets/tepovka.png',
-                              fit: BoxFit.fitHeight,
+                          Positioned.fill(
+                            right: 0,
+                            bottom: paddingMedium,
+                            child: Transform.scale(
+                              scale: imageScaleFull * 0.95,
+                              child: Image.asset(
+                                'assets/folder.png',
+                                fit: BoxFit.fitHeight,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            Container(
-              margin: EdgeInsets.only(top: paddingSmall),
-              width: screenWidth * 0.5,
-              child: Padding(
-                padding:
-                    EdgeInsets.only(top: paddingMedium, bottom: paddingMedium),
-                child: Image.asset(
-                  'assets/Text_loading.png',
-                  opacity: const AlwaysStoppedAnimation(.5),
-                ),
+                  Wrap(
+                    alignment: WrapAlignment.spaceEvenly,
+                    runSpacing: paddingSmall,
+                    spacing: paddingSmall,
+                    children: [
+                      GestureDetector(
+                        onTapDown: (_) {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _isTapped3 = true;
+                          });
+                        },
+                        onTapUp: (_) {
+                          setState(() {
+                            _isTapped3 = false;
+                          });
+                          // Navigate to the next page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const About()),
+                          );
+                        },
+                        onTapCancel: () {
+                          setState(() {
+                            _isTapped3 = false;
+                          });
+                        },
+                        child: AnimatedScale(
+                          scale: _isTapped3 ? 0.9 : 1.0,
+                          duration: const Duration(milliseconds: 100),
+                          child: Stack(
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(paddingSmall),
+                                child: Container(
+                                  margin: EdgeInsets.only(top: paddingSmall),
+                                  padding: const EdgeInsets.only(top: 0),
+                                  width: cardWidthHalf,
+                                  height: cardHeight,
+                                  decoration: BoxDecoration(
+                                    color: const Color.fromARGB(
+                                        255, 255, 255, 255),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(15),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        spreadRadius: 0,
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 0),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'JAK TO FUNGUJE?',
+                                        style: TextStyle(
+                                          fontSize: fontSizeSmall,
+                                          color: Color.fromARGB(255, 0, 0, 0),
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned.fill(
+                                right: 0,
+                                bottom: paddingMedium,
+                                child: Transform.scale(
+                                  scale: imageScaleHalf,
+                                  child: Image.asset(
+                                    'assets/Help2.png',
+                                    fit: BoxFit.fitWidth,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTapDown: (_) {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _isTapped4 = true;
+                          });
+                        },
+                        onTapUp: (_) {
+                          setState(() {
+                            _isTapped4 = false;
+                          });
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const InfoApp()),
+                          );
+                        },
+                        onTapCancel: () {
+                          setState(() {
+                            _isTapped4 = false;
+                          });
+                        },
+                        child: AnimatedScale(
+                          scale: _isTapped4 ? 0.9 : 1.0,
+                          duration: const Duration(milliseconds: 100),
+                          child: Stack(
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(paddingSmall),
+                                child: Container(
+                                  margin: EdgeInsets.only(top: paddingSmall),
+                                  padding: const EdgeInsets.only(top: 0),
+                                  width: cardWidthHalf,
+                                  height: cardHeight,
+                                  decoration: BoxDecoration(
+                                    color: const Color.fromARGB(
+                                        255, 255, 255, 255),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(15),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        spreadRadius: 0,
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 0),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'O APLIKACI',
+                                        style: TextStyle(
+                                          fontSize: fontSizeSmall,
+                                          color: Color.fromARGB(255, 0, 0, 0),
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned.fill(
+                                right: 0,
+                                bottom: paddingMedium,
+                                child: Transform.scale(
+                                  scale: imageScaleHalf * 0.7,
+                                  child: Image.asset(
+                                    'assets/tepovka.png',
+                                    fit: BoxFit.fitHeight,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(top: paddingSmall * 2.0),
+                    child: SizedBox(
+                      height: logoHeight,
+                      width: logoWidth,
+                      child: Image.asset(
+                        'assets/Text_loading.png',
+                        fit: BoxFit.contain,
+                        opacity: const AlwaysStoppedAnimation(.5),
+                      ),
+                    ),
+                  ),
+                ]),
               ),
-            ),
-          ])),
+            );
+          },
         ),
       ),
       bottomNavigationBar: GNav(
