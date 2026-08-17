@@ -12,12 +12,15 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/pages/about.dart';
 import 'package:flutter/services.dart';
 import 'package:numberpicker/numberpicker.dart';
+import 'package:tepovka/elements/research_metadata_dialog.dart';
+import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/services/tts_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:collection';
 
 class TimeLabel {
   double x;
@@ -35,7 +38,6 @@ class _HomeState extends State<Home>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late CameraController _cameraController; // Definice proměnné pro kameru
   PPGAlgorithm? _ppgAlgorithm;
-  Timer? _graphUpdateTimer;
   Timer? _navigationTimer;
   Timer? _countdownTimer; // Timer for countdown display
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
@@ -47,7 +49,6 @@ class _HomeState extends State<Home>
   List<FlSpot> _peakSpots = []; // FlSpot instances for detected peaks
   bool _isPlottingStarted = false;
   int _selectedIndex = 1;
-  double _lastBPM = 0;
   late AnimationController _progressController;
   bool _isRecording = false; // Tracks whether recording is active
   bool _showBPM = true; // Determines whether BPM is displayed
@@ -70,14 +71,75 @@ class _HomeState extends State<Home>
       0.5; // Buffer time for left overflow (in seconds)
   bool _isCountdownRunning = false;
   String _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
-  double _liveBPM = 70.0; // New: Live BPM from UI peaks
   double _lastBpmUpdateTime = 0.0; // New: Time of last BPM update
   double _yAxisHalfRange =
       1.5; // Symmetric Y axis around 0 for stable oscilloscope view
   int _samplesSinceLastScaleUpdate = 0;
-  double _emaState = 0.0; // Persistent EMA state across timer ticks
+  double _emaState = 0.0; // Persistent EMA state across samples
   bool _isTeardown = false;
   bool _isSwitchingCamera = false;
+
+  // --- Live pipeline state -------------------------------------------------
+  // The graph is now driven by real camera frames instead of a blind 33 ms
+  // timer. The old timer resampled whatever the last value happened to be, so
+  // whenever the camera ran below 30 FPS the plot (and every time-based BPM
+  // derived from it) silently stretched.
+  bool _isProcessingFrame = false;
+
+  /// Wall-clock instant the current measurement started. This — not the moment
+  /// the user taps save on the summary — is what stamps the stored record.
+  DateTime? _measurementStartedAt;
+  final Stopwatch _elapsed = Stopwatch();
+  int _lastChartRepaintMs = 0;
+  int _samplesSinceLastPeakScan = 0;
+  int _lastConsumedSampleCount = 0;
+
+  /// Bezici priprava kamery a analyzy, spustena behem odpoctu.
+  Future<void>? _preparation;
+
+  /// Metadata vyplnena ve vyzkumnem rezimu pred merenim.
+  Map<String, String> _measurementMetadata = const {};
+
+  /// Jak dlouho se ceka, nez se po zapnuti svetla ustali automatika kamery.
+  /// Merenim 2026 se ukazalo, ze zapnout svetlo az v okamziku startu zaznamu
+  /// vyrobi na zacatku kazdeho zaznamu velky prechodovy jev.
+  static const Duration _torchSettleDelay = Duration(milliseconds: 900);
+
+  /// Kratsi cekani, kdyz uz svitilna sviti a jde jen o to, aby se expozice
+  /// dorovnala na prave prilozeny prst.
+  static const Duration _fingerSettleDelay = Duration(milliseconds: 400);
+
+  /// Doba na ustaleni filtru v analyze po jejim resetu, jeste pred zaznamem.
+  static const Duration _analysisWarmupDelay = Duration(milliseconds: 700);
+
+  /// Incremental filter state, so each new sample is O(1) instead of
+  /// re-filtering the whole visible window on every update.
+  final ListQueue<double> _medianRing = ListQueue<double>();
+  final ListQueue<double> _baselineRing = ListQueue<double>();
+  double _baselineSum = 0.0;
+  static const int _medianWindowSize = 5;
+
+  /// Delka okna pro odecteni baseline v sekundach. Musi zustat delsi nez
+  /// jeden tep, jinak by filtr ukrajoval z pulzu; drzi se casu, ne poctu
+  /// vzorku, aby prezila zmenu snimkovaci frekvence.
+  static const double _baselineWindowSeconds = 2.5;
+  int get _baselineWindow =>
+      (_baselineWindowSeconds * _effectiveSampleRate).round().clamp(20, 600);
+
+  /// Repaint triggers. Bumping these rebuilds only the chart / BPM / quality
+  /// subtrees instead of the whole Scaffold (camera preview, NumberPicker,
+  /// nav bar and buttons were all being rebuilt 30x per second).
+  final ValueNotifier<int> _chartRevision = ValueNotifier<int>(0);
+  final ValueNotifier<double> _bpmNotifier = ValueNotifier<double>(0.0);
+  final ValueNotifier<String> _qualityNotifier =
+      ValueNotifier<String>('Špatná');
+  final ValueNotifier<int> _remainingTimeNotifier = ValueNotifier<int>(30);
+
+  /// Effective sample rate, measured from the camera rather than assumed.
+  double get _effectiveSampleRate {
+    final double measured = _ppgAlgorithm?.measuredFrameRate ?? 0.0;
+    return measured >= 5.0 ? measured : _sampleRate;
+  }
 
   bool get _hasInitializedCameraController {
     try {
@@ -105,6 +167,8 @@ class _HomeState extends State<Home>
     _initializeBackCameras();
     // Initialize camera and algorithm
     _ppgAlgorithm = PPGAlgorithm();
+    // Spawn the analysis isolate now, not on the first analysis run mid-measurement.
+    _ppgAlgorithm!.warmUp();
     // Set up animation controllers
     _progressController = AnimationController(
       vsync: this,
@@ -155,7 +219,7 @@ class _HomeState extends State<Home>
       if (_isStreamingImages) {
         await _cameraController.stopImageStream();
       }
-      _graphUpdateTimer?.cancel();
+      _elapsed.stop();
       if (_hasInitializedCameraController) {
         await _cameraController.dispose();
       }
@@ -200,9 +264,20 @@ class _HomeState extends State<Home>
   void _startImageStream() {
     if (_hasInitializedCameraController && !_isStreamingImages) {
       _cameraController.startImageStream((image) {
-        if (_ppgAlgorithm != null) {
-          _ppgAlgorithm!.processImage(image);
-          // Neaktualizujeme UI zde, timer se postará o live efekt
+        final PPGAlgorithm? algorithm = _ppgAlgorithm;
+        if (algorithm == null) return;
+        // Drop frames instead of queueing them: if we ever fall behind, a
+        // backlog of stale frames is worse than a slightly lower sample rate.
+        if (_isProcessingFrame) return;
+        _isProcessingFrame = true;
+        try {
+          algorithm.processImage(image);
+          if (algorithm.sampleCount != _lastConsumedSampleCount) {
+            _lastConsumedSampleCount = algorithm.sampleCount;
+            _appendSample(algorithm);
+          }
+        } finally {
+          _isProcessingFrame = false;
         }
       });
     }
@@ -221,151 +296,190 @@ class _HomeState extends State<Home>
     });
   }
 
-  void _updateLiveData() {
-    if (_ppgAlgorithm == null) return;
-    final ppgPlot = _ppgAlgorithm!.getPpgPlot();
-    if (ppgPlot.isEmpty) return;
-    final double rawValue = ppgPlot.last;
-    final double newValue =
-        -rawValue * 1.0; // Inverze: surový signál se invertuje pro zobrazení
-    // Keep a fixed oscilloscope-like window from the very first frame.
-    // This prevents horizontal stretching while the signal history grows.
+  /// Called once per accepted camera frame. Everything here is O(1) in the
+  /// window length except the throttled peak scan, so it can safely run inside
+  /// the image-stream callback.
+  void _appendSample(PPGAlgorithm algorithm) {
+    final double? latest = algorithm.lastPpgSample;
+    if (latest == null) return;
+
+    // Real elapsed time, not an assumed 1/30 s step.
+    _currentTime = _elapsed.elapsedMicroseconds / 1e6;
     final double minX = _currentTime - _windowTime;
-    // Append new data point with time as x
-    final double newX = _currentTime;
-    _data.add(FlSpot(newX, newValue));
-    // Remove old data points (keep buffer for smooth left exit)
-    _data.removeWhere((spot) => spot.x < minX - _bufferTime);
 
-    // IMPROVED FILTERING PIPELINE:
-    // 1. Median filter (spike removal) → 2. Baseline removal → 3. Light EMA smoothing
-    // This preserves waveform morphology while removing noise and drift.
+    // Inverze: surový signál se invertuje pro zobrazení
+    final double newValue = -latest;
+    _data.add(FlSpot(_currentTime, newValue));
+    _pruneLeading(_data, minX - _bufferTime);
 
-    List<double> yValues = _data.map((spot) => spot.y).toList();
+    // FILTERING PIPELINE (incremental, causal):
+    // 1. Median filter (spike removal) → 2. Baseline removal → 3. EMA smoothing
+    // Step 1: causal median over the last _medianWindowSize raw samples.
+    _medianRing.addLast(newValue);
+    if (_medianRing.length > _medianWindowSize) _medianRing.removeFirst();
+    final List<double> sortWindow = _medianRing.toList()..sort();
+    final double medianValue = sortWindow[sortWindow.length ~/ 2];
 
-    // Step 1: Median filter for spike/outlier removal (window=5)
-    List<double> medianFiltered = List<double>.from(yValues);
-    const int medianWindowSize = 5;
-    for (int i = 0; i < yValues.length; i++) {
-      List<double> window = [];
-      for (int j = i - medianWindowSize ~/ 2;
-          j <= i + medianWindowSize ~/ 2;
-          j++) {
-        if (j >= 0 && j < yValues.length) {
-          window.add(yValues[j]);
-        }
-      }
-      window.sort();
-      medianFiltered[i] = window[window.length ~/ 2];
+    // Step 2: causal baseline removal via a running-sum moving average.
+    _baselineRing.addLast(medianValue);
+    _baselineSum += medianValue;
+    if (_baselineRing.length > _baselineWindow) {
+      _baselineSum -= _baselineRing.removeFirst();
     }
+    final double detrended =
+        medianValue - (_baselineSum / _baselineRing.length);
 
-    // Step 2: Causal baseline removal using backward-only moving average
-    // Only uses past samples so already-plotted values don't change
-    const int baselineWindow = 60; // ~2 seconds at 30 FPS
-    List<double> detrended = List<double>.filled(medianFiltered.length, 0.0);
-    for (int i = 0; i < medianFiltered.length; i++) {
-      double sum = 0.0;
-      int count = 0;
-      final int start = max(0, i - baselineWindow + 1);
-      for (int j = start; j <= i; j++) {
-        sum += medianFiltered[j];
-        count++;
-      }
-      detrended[i] = medianFiltered[i] - (count > 0 ? sum / count : 0.0);
-    }
-
-    // Step 3: Causal EMA - apply only to the new sample and keep history unchanged.
+    // Step 3: causal EMA on the newest sample only.
     const double emaAlpha = 0.4;
-    final double latestDetrended = detrended.last;
-    _emaState = _emaState * (1 - emaAlpha) + latestDetrended * emaAlpha;
+    _emaState = _emaState * (1 - emaAlpha) + detrended * emaAlpha;
 
-    // Append only the newest smoothed point to avoid historical Y deformation.
-    _smoothedData.add(FlSpot(_data.last.x, _emaState));
+    _smoothedData.add(FlSpot(_currentTime, _emaState));
     if (_isRecording) {
-      _fullRecordData.add(FlSpot(_data.last.x, _emaState));
+      _fullRecordData.add(FlSpot(_currentTime, _emaState));
     }
-
-    // Keep the same visible/pruned time window as _data.
-    _smoothedData.removeWhere(
-        (spot) => spot.x < _currentTime - _windowTime - _bufferTime);
+    _pruneLeading(_smoothedData, minX - _bufferTime);
     _updateYAxisScale();
 
-    // Peak detection on detrended+smoothed signal
-    List<double> smoothedYValues = _smoothedData.map((spot) => spot.y).toList();
-    List<int> allPeaks =
-        PeakDetector.findPeaks(smoothedYValues, sampleRate: _sampleRate);
-
-    double rightThresh = minX + (_currentTime - minX) * 0.7;
-    double minDistTime = 60.0 / 150.0; // 0.4s min spacing for max HR 150
-
-    // Filter peaks by prominence and time position
-    final double mean = smoothedYValues.isEmpty
-        ? 0
-        : smoothedYValues.reduce((a, b) => a + b) / smoothedYValues.length;
-    final double std = smoothedYValues.isEmpty
-        ? 1
-        : sqrt(smoothedYValues
-                .map((v) => (v - mean) * (v - mean))
-                .reduce((a, b) => a + b) /
-            smoothedYValues.length);
-    final double prominenceThreshold =
-        0.5 * std; // Slightly lower for detrended signal
-
-    for (int idx in allPeaks) {
-      FlSpot newPeak = _smoothedData[idx];
-      double peakProminence = smoothedYValues[idx] - mean;
-
-      if (peakProminence > prominenceThreshold &&
-          newPeak.x > rightThresh &&
-          !_peakSpots.any((ex) => (ex.x - newPeak.x).abs() < minDistTime)) {
-        _peakSpots.add(newPeak);
-      }
+    _samplesSinceLastPeakScan++;
+    if (_samplesSinceLastPeakScan >= 3) {
+      _samplesSinceLastPeakScan = 0;
+      _detectDisplayPeaks(minX);
     }
+    _pruneLeading(_peakSpots, minX - _bufferTime);
 
-    // Remove old peaks
-    _peakSpots.removeWhere((spot) => spot.x < minX - _bufferTime);
+    _updateLiveBpm(algorithm);
 
-    // Sort peaks by time
-    _peakSpots.sort((a, b) => a.x.compareTo(b.x));
-
-    // New: Calculate live BPM from recent peaks if 5 seconds have passed
-    if (_currentTime - _lastBpmUpdateTime >= 5.0 && _peakSpots.length >= 3) {
-      // Need at least 2 intervals
-      List<double> intervals = [];
-      for (int i = 1; i < _peakSpots.length; i++) {
-        intervals.add(_peakSpots[i].x - _peakSpots[i - 1].x);
-      }
-      double avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
-      _liveBPM = 60.0 / avgInterval;
-      // Clamp to reasonable range
-      if (_liveBPM < 40 || _liveBPM > 200) _liveBPM = 70.0;
-      _lastBpmUpdateTime = _currentTime; // Update last time
-      print(
-          'DEBUG: ${_peakSpots.length} peaks detected, intervals: ${intervals.map((i) => i.toStringAsFixed(2)).toList()}, avgInterval: ${avgInterval.toStringAsFixed(3)}s, BPM: ${_liveBPM.toStringAsFixed(1)}'); // For debug
-    }
     // Posuň časové značky – no shift needed, remove old
-    _labels.removeWhere((label) => label.x < minX);
-    // Přidej novou značku každou sekundu
-    final currentSecond = _currentTime.floor();
+    _pruneLeading(_labels, minX, keyOf: (TimeLabel l) => l.x);
+    final int currentSecond = _currentTime.floor();
     if (currentSecond > _lastLabelSecond) {
-      final now = DateTime.now();
-      final formattedTime =
+      final DateTime now = DateTime.now();
+      final String formattedTime =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
       _labels.add(TimeLabel(_currentTime, formattedTime));
       _lastLabelSecond = currentSecond;
     }
+
     // Aktualizuj kvalitu signálu pomocí samostatné třídy
-    final rgbMeans = _ppgAlgorithm?.getLastRgbMeans();
+    final RgbMeans rgbMeans = algorithm.getLastRgbMeans();
     _signalQuality =
         _signalQualityChecker.calculateQuality(_data, rgbMeans: rgbMeans);
-    // Announce quality changes in senior mode (Czech TTS)
-    TtsService.instance.announceQuality(_signalQuality);
-    // Aktualizuj kumulativní čas
-    _currentTime += 1.0 / _sampleRate;
-    if (_data.length >= 500 && !_isPlottingStarted) {
+    if (_qualityNotifier.value != _signalQuality) {
+      _qualityNotifier.value = _signalQuality;
+      // Announce quality changes in senior mode (Czech TTS)
+      TtsService.instance.announceQuality(_signalQuality);
+    }
+
+    if (!_isPlottingStarted && _data.length >= 30) {
       _isPlottingStarted = true;
     }
-    setState(() {}); // Aktualizuj UI
+
+    // Repaint the chart at ~25 Hz at most, and only the chart subtree.
+    final int nowMs = _elapsed.elapsedMilliseconds;
+    if (nowMs - _lastChartRepaintMs >= 40) {
+      _lastChartRepaintMs = nowMs;
+      _chartRevision.value++;
+    }
+  }
+
+  /// Drops leading entries whose x is below [minX]. The lists are always
+  /// time-ordered, so this is O(dropped) instead of removeWhere's O(n).
+  static void _pruneLeading<T>(List<T> items, double minX,
+      {double Function(T)? keyOf}) {
+    int drop = 0;
+    while (drop < items.length) {
+      final T item = items[drop];
+      final double x = keyOf != null ? keyOf(item) : (item as FlSpot).x;
+      if (x >= minX) break;
+      drop++;
+    }
+    if (drop > 0) items.removeRange(0, drop);
+  }
+
+  void _detectDisplayPeaks(double minX) {
+    if (_smoothedData.length < 3) return;
+    final List<double> smoothedYValues = [
+      for (final FlSpot spot in _smoothedData) spot.y
+    ];
+    final List<int> allPeaks = PeakDetector.findPeaks(smoothedYValues,
+        sampleRate: _effectiveSampleRate);
+    if (allPeaks.isEmpty) return;
+
+    final double rightThresh = minX + (_currentTime - minX) * 0.7;
+    const double minDistTime = 60.0 / 150.0; // 0.4 s min spacing for max HR 150
+
+    double sum = 0.0;
+    for (final double v in smoothedYValues) {
+      sum += v;
+    }
+    final double mean = sum / smoothedYValues.length;
+    double sumSq = 0.0;
+    for (final double v in smoothedYValues) {
+      sumSq += (v - mean) * (v - mean);
+    }
+    final double std = sqrt(sumSq / smoothedYValues.length);
+    final double prominenceThreshold = 0.5 * std;
+
+    for (final int idx in allPeaks) {
+      final FlSpot newPeak = _smoothedData[idx];
+      if (newPeak.x <= rightThresh) continue;
+      if (smoothedYValues[idx] - mean <= prominenceThreshold) continue;
+      if (_peakSpots.isNotEmpty) {
+        // A peak can surface late: PeakDetector's local threshold needs about a
+        // second of following data to settle, so a candidate older than the
+        // last accepted one may only now qualify. Appending it would leave
+        // _peakSpots out of chronological order, and the fallback BPM would
+        // then compute negative inter-beat intervals.
+        if (newPeak.x <= _peakSpots.last.x) continue;
+        if (newPeak.x - _peakSpots.last.x < minDistTime) continue;
+      }
+      _peakSpots.add(newPeak);
+    }
+  }
+
+  /// Live BPM: prefer the FFT/autocorrelation estimate from PPGAlgorithm once
+  /// it is confident, and fall back to counting displayed peaks. Previously the
+  /// screen only ever showed the peak count, and silently displayed a
+  /// hard-coded 70 whenever that failed.
+  void _updateLiveBpm(PPGAlgorithm algorithm) {
+    final double algoBpm = algorithm.getCurrentHeartRate();
+    if (algoBpm >= 40 &&
+        algoBpm <= 200 &&
+        algorithm.currentBpmConfidence >= 0.3) {
+      _publishBpm(algoBpm);
+      return;
+    }
+
+    if (_currentTime - _lastBpmUpdateTime >= 3.0 && _peakSpots.length >= 4) {
+      final List<double> intervals = [
+        for (int i = 1; i < _peakSpots.length; i++)
+          _peakSpots[i].x - _peakSpots[i - 1].x
+      ];
+      final double avgInterval =
+          intervals.reduce((a, b) => a + b) / intervals.length;
+      final double candidate = avgInterval > 0 ? 60.0 / avgInterval : 0.0;
+      // Out-of-range means the peaks were noise; report "no reading" rather
+      // than substituting a plausible-looking number.
+      _lastBpmUpdateTime = _currentTime;
+      _publishBpm((candidate >= 40 && candidate <= 200) ? candidate : 0.0);
+    }
+  }
+
+  void _publishBpm(double bpm) {
+    if (_bpmNotifier.value.round() == bpm.round()) return;
+    _bpmNotifier.value = bpm;
+
+    // Haptics and the heartbeat animation used to be driven from build(), so
+    // they fired on every unrelated rebuild. They belong here, where the value
+    // actually changes.
+    if (bpm > 0) {
+      HapticFeedback.selectionClick();
+      final double heartRateFactor = (bpm - 30) / (220 - 30);
+      if (heartRateFactor > 0) {
+        _heartAnimationController.duration =
+            Duration(milliseconds: max(300, (600 / heartRateFactor).round()));
+      }
+    }
   }
 
   Future<void> _stopRecording() async {
@@ -380,16 +494,22 @@ class _HomeState extends State<Home>
       _remainingTime = _recordingDuration;
       _signalQuality = 'Špatná'; // Reset kvality
       _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
-      _liveBPM = 70.0; // Reset live BPM
-      _lastBpmUpdateTime = 0.0; // Reset update time
       _yAxisHalfRange = 1.5;
       _samplesSinceLastScaleUpdate = 0;
-      _emaState = 0.0;
-      _fullRecordData = [];
     });
+    _qualityNotifier.value = 'Špatná';
+    _resetLiveBuffers();
 
     // Ensure camera stream and torch are stopped when user manually stops measuring
     await _stopAllActivity(disposeCamera: false);
+
+    // A hned obrazovku vratit do stavu, v jakem je po prichodu: bezici nahled
+    // a rozsvicena svitilna. Bez toho zustane stream zastaveny, graf zamrzly
+    // a dalsi spustene mereni by nedostalo ani jeden snimek.
+    if (!mounted || _selectedIndex != 1) return;
+    _startImageStream();
+    _startGraphUpdates();
+    await _setTorch(true);
   }
 
   void _onItemTapped(int index) async {
@@ -432,7 +552,7 @@ class _HomeState extends State<Home>
     if (_isTeardown) return;
     _isTeardown = true;
     try {
-      _graphUpdateTimer?.cancel();
+      _elapsed.stop();
       _navigationTimer?.cancel();
       _countdownTimer?.cancel();
       await _accelerometerSubscription?.cancel();
@@ -442,6 +562,7 @@ class _HomeState extends State<Home>
       if (_hasInitializedCameraController) {
         await _cameraController.setFlashMode(FlashMode.off);
         _isFlashOn = false;
+        await _unlockCaptureSettings();
       }
       if (_isStreamingImages) {
         await _cameraController.stopImageStream();
@@ -457,44 +578,143 @@ class _HomeState extends State<Home>
     }
   }
 
-  void _startGraphUpdateTimer() {
-    // Ensure previous timer is cancelled
-    _graphUpdateTimer?.cancel();
+  /// Starts the live plot clock. Updates themselves are driven by the camera
+  /// image stream (see [_startImageStream]) rather than a fixed timer.
+  void _startGraphUpdates() {
+    _elapsed
+      ..reset()
+      ..start();
+    _lastChartRepaintMs = 0;
     setState(() {
       _isPlottingStarted = true;
     });
-    // Timer pro live aktualizace každých ~33ms pro plynulý osciloskopový efekt (blízko 30fps)
-    _graphUpdateTimer =
-        Timer.periodic(const Duration(milliseconds: 33), (timer) {
-      _updateLiveData();
-    });
+  }
+
+  /// Freezes focus and exposure so auto-adjustment cannot track the pulse.
+  /// Failures are non-fatal: not every device exposes these controls.
+  /// Zapne nebo zhasne svitilnu a udrzi [_isFlashOn] v souladu se skutecnosti.
+  Future<void> _setTorch(bool on) async {
+    if (!_hasInitializedCameraController || _isTeardown) return;
+    if (_isFlashOn == on) return;
+    try {
+      await _cameraController
+          .setFlashMode(on ? FlashMode.torch : FlashMode.off);
+      if (mounted) {
+        setState(() {
+          _isFlashOn = on;
+        });
+      } else {
+        _isFlashOn = on;
+      }
+    } catch (e) {
+      debugPrint('Torch ${on ? 'enable' : 'disable'} failed: $e');
+    }
+  }
+
+  Future<void> _lockCaptureSettings() async {
+    if (!_hasInitializedCameraController) return;
+    try {
+      await _cameraController.setFocusMode(FocusMode.locked);
+    } catch (e) {
+      debugPrint('Focus lock unavailable: $e');
+    }
+    try {
+      await _cameraController.setExposureMode(ExposureMode.locked);
+    } catch (e) {
+      debugPrint('Exposure lock unavailable: $e');
+    }
+  }
+
+  /// Restores auto focus/exposure once a measurement ends.
+  Future<void> _unlockCaptureSettings() async {
+    if (!_hasInitializedCameraController) return;
+    try {
+      await _cameraController.setFocusMode(FocusMode.auto);
+    } catch (_) {}
+    try {
+      await _cameraController.setExposureMode(ExposureMode.auto);
+    } catch (_) {}
+  }
+
+  /// Clears the incremental filter/plot state between measurements.
+  void _resetLiveBuffers() {
+    _data = [];
+    _smoothedData = [];
+    _peakSpots = [];
+    _labels = [];
+    _fullRecordData = [];
+    _medianRing.clear();
+    _baselineRing.clear();
+    _baselineSum = 0.0;
+    _emaState = 0.0;
+    _currentTime = 0.0;
+    _lastLabelSecond = 0;
+    _samplesSinceLastPeakScan = 0;
+    _lastConsumedSampleCount = 0;
+    _lastBpmUpdateTime = 0.0;
+    _bpmNotifier.value = 0.0;
+    _elapsed
+      ..reset()
+      ..start();
   }
 
   void _initializeTimers() {
     _navigationTimer = Timer(Duration(seconds: _recordingDuration), () {
       _navigateToSummaryPage();
     });
-    // Countdown timer for display
-    setState(() {
-      _remainingTime = _recordingDuration;
-    });
+    // Countdown timer for display. This used to call setState once a second,
+    // rebuilding the whole Scaffold — NumberPicker, nav bar, camera preview and
+    // chart included — which produced a visible 1 Hz hitch during measurement.
+    _remainingTime = _recordingDuration;
+    _remainingTimeNotifier.value = _recordingDuration;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_remainingTime > 0) {
-          _remainingTime--;
-        } else {
-          timer.cancel();
-        }
-      });
+      if (_remainingTime > 0) {
+        _remainingTime--;
+        _remainingTimeNotifier.value = _remainingTime;
+      } else {
+        timer.cancel();
+      }
     });
+  }
+
+  /// Připraví kameru a analýzu ještě před začátkem záznamu.
+  ///
+  /// Tohle všechno se dřív dělo až v okamžiku startu měření: reset analýzy,
+  /// rozsvícení světla a zamknutí expozice. Kamera na to reaguje skokem jasu
+  /// a filtry se rozjíždějí od nuly, takže na začátku každého záznamu vznikl
+  /// velký přechodový jev — v datech z měření 2026 mělo 68 % záznamů v první
+  /// sekundě víc než dvojnásobný rozkmit a ustálení trvalo 2–4 s. Teď to celé
+  /// proběhne během odpočtu, takže záznam začíná na ustáleném signálu.
+  Future<void> _prepareCapture() async {
+    _signalQualityChecker.reset();
+    _ppgAlgorithm?.reset();
+
+    // Pojistka pro pripad, ze stream neni v chodu - jinak by zaznam bezel
+    // naprazdno a vysledkem by byl prazdny soubor.
+    if (_hasInitializedCameraController && !_isStreamingImages) {
+      _startImageStream();
+    }
+
+    // Svitilna uz obvykle sviti od prichodu na obrazovku mereni. Kdyz ji
+    // uzivatel zhasnul, rozsviti se tady a da se automatice kamery cas;
+    // jinak staci kratke doladeni na prst, ktery uzivatel prave prilozil.
+    if (_hasInitializedCameraController && !_isFlashOn) {
+      await _setTorch(true);
+      await Future.delayed(_torchSettleDelay);
+    } else {
+      await Future.delayed(_fingerSettleDelay);
+    }
+
+    // Lock focus/exposure now that the torch is on and the finger is in place.
+    // Auto-exposure otherwise keeps chasing the pulse-driven brightness change
+    // and cancels out the very modulation we are trying to measure. Locking at
+    // camera init instead would freeze the settings of the empty scene.
+    await _lockCaptureSettings();
+    await Future.delayed(_analysisWarmupDelay);
   }
 
   void _startRecording() async {
     if (_isRecording) return; // Prevent multiple recordings
-    // Reset kvality na začátku měření pro čistý start
-    _signalQualityChecker.reset();
-    // Reset PPG algorithm for new measurement
-    _ppgAlgorithm?.reset();
     // Validate recording duration
     if (_recordingDuration < 10 || _recordingDuration > 300) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -516,43 +736,56 @@ class _HomeState extends State<Home>
       );
     }
 
-    if (_hasInitializedCameraController && !_isFlashOn) {
-      try {
-        await _cameraController.setFlashMode(FlashMode.torch);
-        if (mounted) {
-          setState(() {
-            _isFlashOn = true;
-          });
-        }
-      } catch (e) {
-        debugPrint('Auto torch enable failed: $e');
-      }
-    }
+    // Příprava normálně doběhla během odpočtu; když se sem přijde jinudy,
+    // dožene se tady.
+    await (_preparation ??= _prepareCapture());
+    _preparation = null;
+    if (!mounted || _isRecording) return;
 
+    _measurementStartedAt = DateTime.now();
     setState(() {
       _progressController.duration = Duration(seconds: _recordingDuration);
       _isRecording = true;
       appbar_text = 'PROBÍHÁ MĚŘENÍ...';
       _remainingTime = _recordingDuration;
       _buttonLabel = 'ZASTAVIT MĚŘENÍ';
-      _liveBPM = 70.0; // Initial during recording
-      _lastBpmUpdateTime = 0.0; // Reset update time
-      _yAxisHalfRange = 1.5;
-      _samplesSinceLastScaleUpdate = 0;
-      _emaState = 0.0;
-      _fullRecordData = [];
     });
+    _startRecordBuffer();
     _initializeTimers();
     _startAccelerometerStream();
     _progressController.forward();
   }
 
-  void _startCountdown() {
+  /// Otevře buffer nového záznamu. Zobrazovací pipeline i stav filtrů zůstávají
+  /// běžet: kdyby se tu čistilo všechno jako dřív, graf by na okamžik zmizel
+  /// a do začátku záznamu by se propsal náběh mediánu, baseline a EMA od nuly
+  /// (proto starší exporty začínají nulami a hned za nimi velkým výkyvem).
+  void _startRecordBuffer() {
+    _fullRecordData = [];
+  }
+
+  Future<void> _startCountdown() async {
+    // Ve vyzkumnem rezimu se nejdriv vyplni udaje k mereni. Zrusenim dialogu
+    // se mereni nespusti, aby zaznam nikdy nezustal bez identifikace.
+    if (AppSettings.value.researchMode) {
+      final values = await ResearchMetadataDialog.show(
+        context,
+        fields: AppSettings.value.researchFields,
+        initialValues: _measurementMetadata,
+      );
+      if (values == null || !mounted) return;
+      _measurementMetadata = values;
+    } else {
+      _measurementMetadata = const {};
+    }
+
     setState(() {
       _isCountdownRunning = true;
       appbar_text = 'PŘIPRAVTE SE...';
       _buttonLabel = '3';
     });
+    // Kamera i analýza se připraví na pozadí, zatímco běží odpočet.
+    _preparation = _prepareCapture();
     // Voice announcement for seniors
     TtsService.instance.announceCountdown();
     int count = 3;
@@ -640,6 +873,8 @@ class _HomeState extends State<Home>
           frames: frames_list,
           recordingDuration:
               _recordingDuration, // Přidáno: Předání délky měření
+          startedAt: _measurementStartedAt ??
+              DateTime.now().subtract(Duration(seconds: _recordingDuration)),
           respiratoryRate: averageRR, // Přidáno: Předání RR
           sdnn: _ppgAlgorithm?.getSdnn() ?? 0.0,
           rmssd: _ppgAlgorithm?.getRmssd() ?? 0.0,
@@ -649,6 +884,8 @@ class _HomeState extends State<Home>
           spo2: _ppgAlgorithm?.getSummarySpO2() ?? 0.0,
           bpmHistory: _ppgAlgorithm?.getBpmHistory() ?? const [],
           rawRgbSamples: _ppgAlgorithm?.getRawRgbSamples() ?? const [],
+          frameTimestampsMs: _ppgAlgorithm?.getFrameTimestamps() ?? const [],
+          metadata: _measurementMetadata,
           bpmConfidence: _ppgAlgorithm?.currentBpmConfidence ?? 0.0,
           bpmSnrScore: _ppgAlgorithm?.currentBpmSnrScore ?? 0.0,
           bpmHarmonicScore: _ppgAlgorithm?.currentBpmHarmonicScore ?? 0.0,
@@ -695,11 +932,16 @@ class _HomeState extends State<Home>
     if (_hasInitializedCameraController) {
       _cameraController.dispose();
     }
-    _graphUpdateTimer?.cancel();
+    _elapsed.stop();
     _navigationTimer?.cancel();
     _countdownTimer?.cancel();
     _heartAnimationController.dispose();
     _progressController.dispose();
+    _ppgAlgorithm?.dispose();
+    _chartRevision.dispose();
+    _bpmNotifier.dispose();
+    _qualityNotifier.dispose();
+    _remainingTimeNotifier.dispose();
     super.dispose();
   }
 
@@ -719,11 +961,13 @@ class _HomeState extends State<Home>
         if (_isStreamingImages) {
           _cameraController.stopImageStream();
         }
+        // Svitilna sviti uz od prichodu na obrazovku, takze se v pozadi musi
+        // zhasnout - jinak by telefon svitil uzivateli v kapse.
+        _setTorch(false);
       } else if (state == AppLifecycleState.resumed) {
-        if (_hasInitializedCameraController &&
-            !_isStreamingImages &&
-            _isRecording) {
+        if (_hasInitializedCameraController && !_isStreamingImages) {
           _startImageStream();
+          _setTorch(true);
         }
       }
     } catch (e) {
@@ -754,23 +998,6 @@ class _HomeState extends State<Home>
     final double fontSizeSmall =
         (screenWidth * 0.033).clamp(11.0, 15.0).toDouble();
 
-    double currentBPM = _liveBPM; // Always use live BPM from peaks
-    if (currentBPM != _lastBPM) {
-      HapticFeedback.heavyImpact();
-      _lastBPM = currentBPM;
-    }
-    if (currentBPM > 0) {
-      double heartRateFactor = (currentBPM - 30) / (220 - 30);
-      _heartAnimationController.duration =
-          Duration(milliseconds: max(300, (600 / heartRateFactor).round()));
-    }
-    final minY = -_yAxisHalfRange;
-    final maxY = _yAxisHalfRange;
-    final double minX = _currentTime - _windowTime;
-    final double maxX = _currentTime;
-
-    final List<FlSpot> scaledSmoothedData = _smoothedData;
-    final List<FlSpot> scaledPeakSpots = _peakSpots;
     final currentCamera =
         _backCameras.isNotEmpty ? _backCameras[_currentBackCameraIndex] : null;
     return WillPopScope(
@@ -820,92 +1047,109 @@ class _HomeState extends State<Home>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              currentBPM.round().toString(),
-                              style: TextStyle(
-                                fontSize: fontSizeLarge, // Dynamic large font
-                                fontWeight: FontWeight.bold,
-                              ),
+                            ValueListenableBuilder<double>(
+                              valueListenable: _bpmNotifier,
+                              builder: (context, bpm, _) {
+                                // Three digits at the full font size overflow
+                                // this column and wrap onto a second line, so
+                                // scale down instead of wrapping.
+                                return FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    // No reading yet: say so instead of showing
+                                    // a placeholder number.
+                                    bpm > 0 ? bpm.round().toString() : '--',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: TextStyle(
+                                      fontSize: fontSizeLarge,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                ScaleTransition(
-                                  scale: _heartAnimationController.drive(
-                                    Tween<double>(begin: 0.9, end: 1.3),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ScaleTransition(
+                                    scale: _heartAnimationController.drive(
+                                      Tween<double>(begin: 0.9, end: 1.3),
+                                    ),
+                                    child: Icon(
+                                      Icons.favorite,
+                                      color: Colors.red,
+                                      size:
+                                          iconSizeMedium * 0.6, // Smaller heart
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.favorite,
-                                    color: Colors.red,
-                                    size: iconSizeMedium * 0.6, // Smaller heart
+                                  SizedBox(width: paddingSmall),
+                                  Text(
+                                    'bpm',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: TextStyle(fontSize: fontSizeSmall),
                                   ),
-                                ),
-                                SizedBox(width: paddingSmall),
-                                Text(
-                                  'bpm',
-                                  style: TextStyle(fontSize: fontSizeSmall),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ],
-                    // Camera preview v kruhu
-                    if (currentCamera != null)
-                      Container(
+                    // Camera preview v kruhu. Only the border colour depends on
+                    // signal quality, so the preview itself stays out of the
+                    // rebuild path.
+                    ValueListenableBuilder<String>(
+                      valueListenable: _qualityNotifier,
+                      builder: (context, quality, child) => Container(
                         width: cameraSize,
                         height: cameraSize,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.black, // Background pro kruh
+                          color: currentCamera != null
+                              ? Colors.black
+                              : Colors.grey, // Background pro kruh
                           border: Border.all(
-                            color: _signalQuality == 'Dobrá'
-                                ? Colors.green
-                                : Colors.red,
+                            color:
+                                quality == 'Dobrá' ? Colors.green : Colors.red,
                             width: 4,
                           ),
                         ),
-                        child: ClipOval(
-                          child: SizedBox(
-                            width: cameraSize,
-                            height: cameraSize,
-                            child: CameraBody(
-                              key: ValueKey(
-                                  _currentBackCameraIndex), // Force rebuild on switch
-                              cameraDescription: currentCamera,
-                              onCameraReady: (controller) {
-                                setState(() {
-                                  _cameraController = controller;
-                                });
-                                _startImageStream();
-                                _startGraphUpdateTimer();
-                              },
-                              onImageAvailable: (image) {
-                                // Nepoužíváme, protože stream je v _startImageStream
-                              },
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        width: cameraSize,
-                        height: cameraSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey,
-                          border: Border.all(
-                            color: _signalQuality == 'Dobrá'
-                                ? Colors.green
-                                : Colors.red,
-                            width: 4,
-                          ),
-                        ),
-                        child: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
+                        child: child,
                       ),
+                      child: currentCamera != null
+                          ? ClipOval(
+                              child: SizedBox(
+                                width: cameraSize,
+                                height: cameraSize,
+                                child: CameraBody(
+                                  key: ValueKey(
+                                      _currentBackCameraIndex), // Force rebuild on switch
+                                  cameraDescription: currentCamera,
+                                  onCameraReady: (controller) {
+                                    setState(() {
+                                      _cameraController = controller;
+                                    });
+                                    _startImageStream();
+                                    _startGraphUpdates();
+                                    // Bez svetla se merit neda, takze se
+                                    // rozsviti hned po prichodu na obrazovku
+                                    // mereni. Automatika kamery se tim stihne
+                                    // ustalit jeste pred odpoctem.
+                                    _setTorch(true);
+                                  },
+                                  onImageAvailable: (image) {
+                                    // Nepoužíváme, protože stream je v _startImageStream
+                                  },
+                                ),
+                              ),
+                            )
+                          : const Center(child: CircularProgressIndicator()),
+                    ),
                     // Quality control vpravo od kamery
                     Container(
                       width: sideWidth,
@@ -921,35 +1165,38 @@ class _HomeState extends State<Home>
                             ),
                           ),
                           SizedBox(height: paddingSmall),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _signalQuality == 'Dobrá'
-                                      ? Icons.check_circle
-                                      : Icons.error,
-                                  color: _signalQuality == 'Dobrá'
-                                      ? Colors.green
-                                      : Colors.red,
-                                  size: iconSizeMedium * 0.5,
-                                ),
-                                SizedBox(width: paddingSmall * 0.5),
-                                Text(
-                                  _signalQuality,
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  style: TextStyle(
-                                    fontSize: fontSizeSmall,
-                                    fontWeight: FontWeight.w500,
-                                    color: _signalQuality == 'Dobrá'
+                          ValueListenableBuilder<String>(
+                            valueListenable: _qualityNotifier,
+                            builder: (context, quality, _) => FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    quality == 'Dobrá'
+                                        ? Icons.check_circle
+                                        : Icons.error,
+                                    color: quality == 'Dobrá'
                                         ? Colors.green
                                         : Colors.red,
+                                    size: iconSizeMedium * 0.5,
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: paddingSmall * 0.5),
+                                  Text(
+                                    quality,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: TextStyle(
+                                      fontSize: fontSizeSmall,
+                                      fontWeight: FontWeight.w500,
+                                      color: quality == 'Dobrá'
+                                          ? Colors.green
+                                          : Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -967,106 +1214,117 @@ class _HomeState extends State<Home>
                   builder: (context, constraints) {
                     final chartWidth = constraints.maxWidth;
                     return RepaintBoundary(
-                      // Added this for performance optimization
-                      child: Stack(
-                        clipBehavior:
-                            Clip.none, // Allow overflow (e.g., beyond left)
-                        children: [
-                          LineChart(
-                            LineChartData(
-                              clipData: const FlClipData(
-                                // Allow beyond left, clip others
-                                left: false,
-                                right: true,
-                                top: true,
-                                bottom: true,
-                              ),
-                              gridData: const FlGridData(
-                                show: false, // Mřížka je vypnutá
-                              ),
-                              titlesData: const FlTitlesData(
-                                show: false, // Skryté pro čistý vzhled
-                              ),
-                              borderData: FlBorderData(
-                                show: true,
-                                border: Border.all(
-                                    color: Colors.grey.withOpacity(0.3)),
-                              ),
-                              minX: minX,
-                              maxX: maxX,
-                              minY: minY,
-                              maxY: maxY,
-                              lineBarsData: [
-                                LineChartBarData(
-                                  spots: scaledSmoothedData,
-                                  isCurved: false, // Přímá čára pro signál
-                                  color: const Color.fromARGB(255, 246, 41, 0),
-                                  barWidth: 2.0,
-                                  isStrokeCapRound: true,
-                                  dotData: const FlDotData(show: false),
-                                  belowBarData: BarAreaData(
-                                    show: false,
+                      // Only this subtree repaints on new samples; the rest of
+                      // the screen is rebuilt only on real state changes.
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: _chartRevision,
+                        builder: (context, _, __) {
+                          final double minX = _currentTime - _windowTime;
+                          final double maxX = _currentTime;
+                          final double minY = -_yAxisHalfRange;
+                          final double maxY = _yAxisHalfRange;
+                          return Stack(
+                            clipBehavior:
+                                Clip.none, // Allow overflow (e.g., beyond left)
+                            children: [
+                              LineChart(
+                                LineChartData(
+                                  clipData: const FlClipData(
+                                    // Allow beyond left, clip others
+                                    left: false,
+                                    right: true,
+                                    top: true,
+                                    bottom: true,
                                   ),
-                                ),
-                                // Peak markers as a separate series (dots only)
-                                LineChartBarData(
-                                  spots: scaledPeakSpots,
-                                  isCurved: false,
-                                  color: Colors.transparent,
-                                  barWidth: 0,
-                                  dotData: FlDotData(
+                                  gridData: const FlGridData(
+                                    show: false, // Mřížka je vypnutá
+                                  ),
+                                  titlesData: const FlTitlesData(
+                                    show: false, // Skryté pro čistý vzhled
+                                  ),
+                                  borderData: FlBorderData(
                                     show: true,
-                                    getDotPainter:
-                                        (spot, percent, barData, index) =>
-                                            FlDotCirclePainter(
-                                      radius: 3,
-                                      color: Colors.blue,
-                                      strokeWidth: 0,
+                                    border: Border.all(
+                                        color: Colors.grey.withOpacity(0.3)),
+                                  ),
+                                  minX: minX,
+                                  maxX: maxX,
+                                  minY: minY,
+                                  maxY: maxY,
+                                  lineBarsData: [
+                                    LineChartBarData(
+                                      spots: _smoothedData,
+                                      isCurved: false, // Přímá čára pro signál
+                                      color:
+                                          const Color.fromARGB(255, 246, 41, 0),
+                                      barWidth: 2.0,
+                                      isStrokeCapRound: true,
+                                      dotData: const FlDotData(show: false),
+                                      belowBarData: BarAreaData(
+                                        show: false,
+                                      ),
+                                    ),
+                                    // Peak markers as a separate series (dots only)
+                                    LineChartBarData(
+                                      spots: _peakSpots,
+                                      isCurved: false,
+                                      color: Colors.transparent,
+                                      barWidth: 0,
+                                      dotData: FlDotData(
+                                        show: true,
+                                        getDotPainter:
+                                            (spot, percent, barData, index) =>
+                                                FlDotCirclePainter(
+                                          radius: 3,
+                                          color: Colors.blue,
+                                          strokeWidth: 0,
+                                        ),
+                                      ),
+                                      belowBarData: BarAreaData(show: false),
+                                    ),
+                                  ],
+                                ),
+                                duration: Duration
+                                    .zero, // No animation to avoid "sucked" transform
+                                // Removed curve since no duration
+                              ),
+                              // Vertikální čáry pro časové značky
+                              ..._labels.map((label) {
+                                final posX =
+                                    ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                        chartWidth;
+                                return Positioned(
+                                  left: posX,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 1.0,
+                                    color: Colors.grey.withOpacity(0.5),
+                                  ),
+                                );
+                              }),
+                              // Texty pro časové značky (pod čarami)
+                              ..._labels.map((label) {
+                                final posX =
+                                    ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                        chartWidth;
+                                return Positioned(
+                                  left: posX,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4),
+                                    child: Text(
+                                      label.time,
+                                      style: const TextStyle(
+                                          fontSize: 10, color: Colors.black),
                                     ),
                                   ),
-                                  belowBarData: BarAreaData(show: false),
-                                ),
-                              ],
-                            ),
-                            duration: Duration
-                                .zero, // No animation to avoid "sucked" transform
-                            // Removed curve since no duration
-                          ),
-                          // Vertikální čáry pro časové značky
-                          ..._labels.map((label) {
-                            final posX =
-                                ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                    chartWidth;
-                            return Positioned(
-                              left: posX,
-                              top: 0,
-                              bottom: 0,
-                              child: Container(
-                                width: 1.0,
-                                color: Colors.grey.withOpacity(0.5),
-                              ),
-                            );
-                          }).toList(),
-                          // Texty pro časové značky (pod čarami)
-                          ..._labels.map((label) {
-                            final posX =
-                                ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                    chartWidth;
-                            return Positioned(
-                              left: posX,
-                              bottom: 0,
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  label.time,
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Colors.black),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ],
+                                );
+                              }),
+                            ],
+                          );
+                        },
                       ),
                     );
                   },
@@ -1092,13 +1350,16 @@ class _HomeState extends State<Home>
                 Padding(
                   padding: EdgeInsets.only(top: paddingSmall),
                   child: Center(
-                    child: Text(
-                      '$_remainingTime s',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: fontSizeMedium,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black,
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _remainingTimeNotifier,
+                      builder: (context, remaining, _) => Text(
+                        '$remaining s',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: fontSizeMedium,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
                   ),

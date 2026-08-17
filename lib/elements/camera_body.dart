@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 
@@ -27,22 +29,54 @@ class _CameraBodyState extends State<CameraBody> {
     _initializeCamera();
   }
 
+  /// Pozadovana snimkovaci frekvence, od nejlepsi po nouzovou.
+  ///
+  /// Bez explicitniho pozadavku si iOS pri tmave scene — a prst pritisknuty
+  /// na objektiv tmava scena je — prodlouzi expozici a spadne na nejnizsi
+  /// snimkovaci frekvenci formatu. V merenich z leta 2026 to bylo shodne
+  /// 23,96–24,00 fps u vsech telefonu a zaznamu. Nastaveni fps zamkne na iOS
+  /// minimalni i maximalni delku snimku, takze expozice nemuze byt delsi nez
+  /// 1/fps a frekvence se prestane propadat.
+  ///
+  /// Vyssi fps znamena jemnejsi intervaly mezi tepy (pri 60 fps krok 17 ms
+  /// misto 42 ms), coz je rozdil mezi orientacnim a pouzitelnym HRV.
+  static const List<int?> _preferredFps = [60, 30, null];
+
   Future<void> _initializeCamera() async {
-    _cameraController = CameraController(
-      widget.cameraDescription,
-      ResolutionPreset.max, // Use highest resolution as requested
-    );
+    for (final int? fps in _preferredFps) {
+      // PPG only needs the mean intensity of a small ROI, so the stream runs at
+      // the lowest preset. High presets (e.g. 12 MP on iPhone 12) make every
+      // frame cost millions of per-pixel operations on the UI isolate, which is
+      // what caused the dropped frames.
+      final controller = CameraController(
+        widget.cameraDescription,
+        ResolutionPreset.low,
+        enableAudio: false,
+        fps: fps,
+        imageFormatGroup: Platform.isIOS
+            ? ImageFormatGroup.bgra8888
+            : ImageFormatGroup.yuv420,
+      );
 
-    try {
-      _initializeControllerFuture = _cameraController!.initialize();
-      await _initializeControllerFuture;
+      try {
+        _cameraController = controller;
+        _initializeControllerFuture = controller.initialize();
+        await _initializeControllerFuture;
 
-      if (mounted) {
-        setState(() {});
-        widget.onCameraReady(_cameraController!);
+        if (mounted) {
+          setState(() {});
+          widget.onCameraReady(controller);
+        }
+        return;
+      } catch (e) {
+        // Ne kazdy telefon zvladne kazdy format; zkusi se nizsi frekvence
+        // a nakonec puvodni chovani bez pozadavku.
+        debugPrint('Camera init at ${fps ?? 'default'} fps failed: $e');
+        _cameraController = null;
+        try {
+          await controller.dispose();
+        } catch (_) {}
       }
-    } catch (e) {
-      debugPrint('Error initializing camera: $e');
     }
   }
 
@@ -82,11 +116,19 @@ class _CameraBodyState extends State<CameraBody> {
         if (snapshot.connectionState == ConnectionState.done) {
           if (_cameraController != null &&
               _cameraController!.value.isInitialized) {
-            return SizedBox(
-              width: 100,
-              height: 100,
-              child: ClipOval(
-                child: CameraPreview(_cameraController!),
+            // Fill whatever circular slot the parent gives us instead of a
+            // hard-coded 100x100 box (which overflowed on smaller phones).
+            final Size previewSize =
+                _cameraController!.value.previewSize ?? const Size(720, 1280);
+            return ClipOval(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox(
+                  width: previewSize.height,
+                  height: previewSize.width,
+                  child: CameraPreview(_cameraController!),
+                ),
               ),
             );
           } else {

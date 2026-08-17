@@ -49,9 +49,6 @@ class _InfoAppState extends State<InfoApp> {
   Widget build(BuildContext context) {
     final r = Responsive.of(context);
     final double socialIconSize = r.isCompact ? 30.0 : 38.0;
-    final double coffeeWidth =
-        (r.width * 0.42).clamp(130.0, 180.0).toDouble();
-    final double coffeeHeight = coffeeWidth * 0.53;
     final double socialSpacing = r.isCompact ? 10.0 : 16.0;
     final double vutLogoWidth = (r.width * 0.55).clamp(160.0, 220.0).toDouble();
     final double vutLogoHeight = vutLogoWidth * 0.5;
@@ -176,22 +173,6 @@ class _InfoAppState extends State<InfoApp> {
                         throw 'Could not launch $url';
                       }
                     },
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      final Uri url =
-                          Uri.parse('https://www.buymeacoffee.com/tepovka');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
-                      } else {
-                        throw 'Could not launch $url';
-                      }
-                    },
-                    child: Image.asset(
-                      'assets/bmc.png',
-                      width: coffeeWidth,
-                      height: coffeeHeight,
-                    ),
                   ),
                 ],
               ),

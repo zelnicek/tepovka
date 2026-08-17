@@ -26,6 +26,9 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _highContrast;
   late double _textScale;
   late UserMode _userMode;
+  late bool _researchMode;
+  late ExportFormat _exportFormat;
+  late List<String> _researchFields;
   int _measurementsCount = 0;
   String _lastMeasurement = '-';
 
@@ -39,6 +42,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _userMode = s.userMode;
     _haptics = s.haptics;
     _saveRecords = s.saveRecords;
+    _researchMode = s.researchMode;
+    _exportFormat = s.exportFormat;
+    _researchFields = s.researchFields;
     _loadLocalStats();
   }
 
@@ -105,6 +111,64 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Chyba při mazání logu: $e')));
     }
+  }
+
+  Future<void> _pickExportFormat() async {
+    final picked = await showDialog<ExportFormat>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Formát exportu'),
+        children: [
+          for (final format in ExportFormat.values)
+            RadioListTile<ExportFormat>(
+              value: format,
+              groupValue: _exportFormat,
+              title: Text(format.label),
+              onChanged: (v) => Navigator.of(context).pop(v),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    setState(() => _exportFormat = picked);
+    AppSettings.setExportFormat(picked);
+  }
+
+  Future<void> _editResearchFields() async {
+    final controller = TextEditingController(text: _researchFields.join('\n'));
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Údaje před měřením'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Každý řádek je jedno pole formuláře.',
+                style: TextStyle(fontSize: 12)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLines: 6,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Zrušit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Uložit'),
+          ),
+        ],
+      ),
+    );
+    if (saved != true) return;
+    AppSettings.setResearchFields(controller.text.split('\n'));
+    setState(() => _researchFields = AppSettings.value.researchFields);
   }
 
   @override
@@ -200,6 +264,36 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const Divider(height: 24),
+          // ─── Apple Health transparency (Apple Review 2.5.1) ─────
+          const ListTile(
+            title: Text(
+              'Apple Health',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ListTile(
+            leading: Image.asset(
+              'assets/Icon - Apple Health.png',
+              width: 28,
+              height: 28,
+            ),
+            title: const Text('Propojení s Apple Health'),
+            subtitle: const Text(
+              'Po dokončení měření můžete tepovou frekvenci uložit '
+              'do aplikace Zdraví. Aplikace zapisuje pouze typ '
+              '„Tepová frekvence". Žádná další data se neodesílají '
+              'ani nečtou.',
+            ),
+            isThreeLine: true,
+          ),
+          ListTile(
+            leading: const Icon(Symbols.settings),
+            title: const Text('Spravovat oprávnění'),
+            subtitle: const Text(
+              'Otevřete Nastavení → Soukromí → Zdraví → Tepovka',
+            ),
+          ),
+          const Divider(height: 24),
           const ListTile(
             title: Text(
               'Obecné',
@@ -227,6 +321,41 @@ class _SettingsPageState extends State<SettingsPage> {
               AppSettings.setHaptics(v);
             },
           ),
+          const Divider(height: 1),
+          const ListTile(
+            dense: true,
+            title: Text(
+              'VÝZKUMNÝ REŽIM',
+              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.6),
+            ),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Symbols.science),
+            title: const Text('Režim pro výzkum'),
+            subtitle: const Text(
+                'Před měřením se vyplní údaje k záznamu a export je podrobnější'),
+            value: _researchMode,
+            onChanged: (v) {
+              setState(() => _researchMode = v);
+              AppSettings.setResearchMode(v);
+            },
+          ),
+          if (_researchMode) ...[
+            ListTile(
+              leading: const Icon(Symbols.description),
+              title: const Text('Formát exportu'),
+              subtitle: Text(_exportFormat.label),
+              trailing: const Icon(Symbols.chevron_right),
+              onTap: _pickExportFormat,
+            ),
+            ListTile(
+              leading: const Icon(Symbols.list_alt),
+              title: const Text('Údaje vyplňované před měřením'),
+              subtitle: Text(_researchFields.join(' · ')),
+              trailing: const Icon(Symbols.chevron_right),
+              onTap: _editResearchFields,
+            ),
+          ],
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Symbols.login),

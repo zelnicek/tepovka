@@ -30,9 +30,18 @@ class Summary extends StatefulWidget {
   final List<int> bpm_list;
   final List<double> frames;
   final int recordingDuration; // Přidáno: Délka měření
+  /// Wall-clock start of the measurement itself, so the stored timestamp does
+  /// not drift with however long the user spends on this summary screen.
+  final DateTime startedAt;
   final double respiratoryRate; // Přidáno: Dechová frekvence
   final List<double> bpmHistory; // HR time series for Recovery metrics
   final List<RgbMeans> rawRgbSamples; // Raw RGB samples for export
+  /// Wall-clock razítka jednotlivých snímků (ms). Prázdné u starších cest,
+  /// pak se frekvence odvodí z počtu vzorků a délky měření.
+  final List<int> frameTimestampsMs;
+
+  /// Udaje vyplnene ve vyzkumnem rezimu pred merenim (ID probanda apod.).
+  final Map<String, String> metadata;
   final double sdnn; // HRV: SDNN
   final double rmssd; // HRV: RMSSD
   final double pnn50; // HRV: pNN50
@@ -50,9 +59,12 @@ class Summary extends StatefulWidget {
     required this.bpm_list,
     required this.frames,
     required this.recordingDuration,
+    required this.startedAt,
     required this.respiratoryRate, // Přidáno: RR
     required this.bpmHistory,
     required this.rawRgbSamples,
+    this.frameTimestampsMs = const [],
+    this.metadata = const {},
     required this.sdnn,
     required this.rmssd,
     required this.pnn50,
@@ -80,7 +92,30 @@ class _SummaryState extends State<Summary> {
   List<TimeLabel> _labels = [];
   final ScrollController _signalScrollController = ScrollController();
   double _calculatedAverageBPM = 0.0;
-  static const double sampleRate = 30.0;
+
+  /// Nominální frekvence z konfigurace kamery. Skutečná bývá nižší (~24 fps),
+  /// proto se všude počítá s [_fs], ne s touto konstantou.
+  static const double nominalSampleRate = 30.0;
+
+  /// Změřená vzorkovací frekvence tohoto měření.
+  double get _fs => _effectiveFs();
+
+  double _effectiveFs() {
+    final ts = widget.frameTimestampsMs;
+    if (ts.length >= 10) {
+      final span = ts.last - ts.first;
+      if (span > 0) {
+        final fs = (ts.length - 1) * 1000.0 / span;
+        if (fs >= 5 && fs <= 120) return fs;
+      }
+    }
+    if (widget.recordingDuration > 0 && widget.data.length >= 10) {
+      final fs = widget.data.length / widget.recordingDuration;
+      if (fs >= 5 && fs <= 120) return fs;
+    }
+    return nominalSampleRate;
+  }
+
   static const double pixelsPerSecond =
       40.0; // Reduced for better fit, adjust as needed
   // HRV metrics
@@ -358,7 +393,7 @@ class _SummaryState extends State<Summary> {
 
   void _computeSmoothedPeaksAndLabels() {
     // Trim data to exactly recording duration (remove initial if extra)
-    int expectedLength = (widget.recordingDuration * sampleRate).toInt();
+    int expectedLength = (widget.recordingDuration * _fs).toInt();
     List<double> trimmedData = widget.data;
     if (trimmedData.length > expectedLength) {
       trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
@@ -366,7 +401,7 @@ class _SummaryState extends State<Summary> {
     // Create spots with time x; signal is already oriented in Home.
     List<FlSpot> spots = [];
     for (int i = 0; i < trimmedData.length; i++) {
-      spots.add(FlSpot(i / sampleRate, trimmedData[i]));
+      spots.add(FlSpot(i / _fs, trimmedData[i]));
     }
     // Moving average smoothing
     int windowSize = 7;
@@ -386,7 +421,7 @@ class _SummaryState extends State<Summary> {
     _smoothedData = smoothed;
     // Detect peaks on smoothed
     List<double> yValues = _smoothedData.map((s) => s.y).toList();
-    List<int> peaks = PeakDetector.findPeaks(yValues, sampleRate: sampleRate);
+    List<int> peaks = PeakDetector.findPeaks(yValues, sampleRate: _fs);
     _peakSpots = peaks.map((i) => _smoothedData[i]).toList();
 
     // Calculate average BPM from peaks
@@ -404,7 +439,7 @@ class _SummaryState extends State<Summary> {
       _calculatedAverageBPM = 0.0;
     }
     // Generate time labels every second
-    double totalTime = trimmedData.length / sampleRate;
+    double totalTime = trimmedData.length / _fs;
     for (int i = 0; i <= totalTime.floor(); i++) {
       int min = i ~/ 60;
       int sec = i % 60;
@@ -543,11 +578,14 @@ class _SummaryState extends State<Summary> {
     try {
       print('Začátek ukládání měření');
       final storage = StorageService();
-      final now = DateTime.now();
+      // Stamp the record with when the measurement was taken, not when the
+      // user got around to tapping save.
+      final started = widget.startedAt;
+      final ended = started.add(Duration(seconds: widget.recordingDuration));
       final formattedDate =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+          '${started.year}-${started.month.toString().padLeft(2, '0')}-${started.day.toString().padLeft(2, '0')}';
       final formattedTime =
-          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+          '${started.hour.toString().padLeft(2, '0')}:${started.minute.toString().padLeft(2, '0')}:${started.second.toString().padLeft(2, '0')}';
       final averageBpm = _effectiveAverageBpm.toInt();
       final dataForPlot = widget.data;
       final notesContent = _notesController.text;
@@ -568,6 +606,11 @@ class _SummaryState extends State<Summary> {
               })
           .toList();
       final peakTimesSec = _peakSpots.map((s) => s.x).toList();
+      // Razítka zarovnaná na uložený signál (data se ořezávají odzadu).
+      final allStamps = widget.frameTimestampsMs;
+      final frameTimestampsMs = allStamps.length >= dataForPlot.length
+          ? allStamps.sublist(allStamps.length - dataForPlot.length)
+          : allStamps;
       final rrIntervalsMs = <double>[];
       for (int i = 1; i < _peakSpots.length; i++) {
         rrIntervalsMs.add((_peakSpots[i].x - _peakSpots[i - 1].x) * 1000.0);
@@ -575,6 +618,10 @@ class _SummaryState extends State<Summary> {
       final record = {
         'date': formattedDate,
         'time': formattedTime,
+        // Unambiguous machine-readable instants for export/analysis.
+        'startedAt': started.toIso8601String(),
+        'endedAt': ended.toIso8601String(),
+        'savedAt': DateTime.now().toIso8601String(),
         'averageBPM': averageBpm,
         'dataForPlot': dataForPlot,
         'notes': notesContent,
@@ -582,6 +629,9 @@ class _SummaryState extends State<Summary> {
         'bpmHistory': widget.bpmHistory,
         'rawRgbSamples': rawRgbSamples,
         'frames': frames,
+        'sampleRateHz': _fs,
+        'metadata': widget.metadata,
+        'frameTimestampsMs': frameTimestampsMs,
         'waveformSmoothed': smoothedWaveform,
         'peakTimesSec': peakTimesSec,
         'rrIntervalsMs': rrIntervalsMs,
@@ -664,14 +714,16 @@ class _SummaryState extends State<Summary> {
       );
       return;
     }
-    final now = DateTime.now();
-    final start = now.subtract(Duration(seconds: widget.recordingDuration));
+    // Use the real measurement interval. Deriving it backwards from "now"
+    // shifted the whole window forward by however long the summary was open.
+    final start = widget.startedAt;
+    final end = start.add(Duration(seconds: widget.recordingDuration));
     final bpmValue = bpm.round().clamp(1, 300); // clamp to a sensible range
     bool success = await _health.writeHealthData(
       value: bpmValue.toDouble(),
       type: HealthDataType.HEART_RATE,
       startTime: start,
-      endTime: now,
+      endTime: end,
     );
     if (success) {
       print('Tepová frekvence byla úspěšně uložena do Apple Health');
@@ -747,7 +799,7 @@ class _SummaryState extends State<Summary> {
   Widget build(BuildContext context) {
     final settings = AppSettings.value;
     final r = Responsive.of(context);
-    double totalTime = _smoothedData.length / sampleRate;
+    double totalTime = _smoothedData.length / _fs;
     double chartWidth = totalTime * pixelsPerSecond;
     final minY = _getDynamicMinY();
     final maxY = _getDynamicMaxY();
@@ -1041,6 +1093,7 @@ class _SummaryState extends State<Summary> {
                 size: 45,
               ),
               color: Colors.blue,
+              tooltip: 'Uložit (zapíše do Apple Health)',
               onPressed: _isSaving
                   ? null
                   : () async {
@@ -1068,13 +1121,28 @@ class _SummaryState extends State<Summary> {
               child: AnimatedScale(
                 duration: const Duration(milliseconds: 100),
                 scale: _isSaving ? 1.0 : 1.1,
-                child: const Text(
-                  'Uložit',
-                  style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
+                // Apple Health transparency (Guideline 2.5.1): malý discrete
+                // badge u tlačítka, ne dominantní – Apple ho vidí, uživatele
+                // neotravuje.
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Uložit',
+                      style: TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Image.asset(
+                      'assets/Icon - Apple Health.png',
+                      width: 22,
+                      height: 22,
+                      semanticLabel: 'Apple Health',
+                    ),
+                  ],
                 ),
               ),
             ),

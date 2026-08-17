@@ -15,20 +15,46 @@ import 'package:flutter/rendering.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tepovka/elements/create_pdf.dart'; // Import the PDF creation function
 import 'package:tepovka/elements/unified_peak_detector.dart';
+import 'package:tepovka/elements/signal_quality_index.dart';
+import 'package:tepovka/services/app_settings.dart';
+import 'dart:convert';
 import 'package:tepovka/elements/responsive.dart';
 import 'dart:math';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
 
+/// Nominální snímkovací frekvence kamery. Skutečná bývá nižší (~24 fps) —
+/// měření proti Faros 180 EKG a oxymetru v srpnu 2026 dalo poměr 1.232
+/// (95% CI 1.222–1.243), takže s pevnými 30 Hz je časová osa o ~25 %
+/// zrychlená a všechno odvozené z intervalů (BPM, HRV) posunuté.
+const double kNominalSampleRate = 30.0;
+
 class Record {
   final String date;
   final String time;
+
+  /// ISO-8601 instants for the measurement itself and for when it was stored.
+  /// Empty on records written before these fields existed.
+  final String startedAt;
+  final String endedAt;
+  final String savedAt;
   final int averageBPM;
   final String notesContent;
   final List<double> dataForPlot;
   final List<int> bpmList;
   final List<double> frames;
   final int duration;
+
+  /// Změřená vzorkovací frekvence měření v Hz. 0 u starších záznamů,
+  /// pak ji odvodí [_RecordsPageState.sampleRateOf] z délky a počtu vzorků.
+  final double sampleRateHz;
+
+  /// Wall-clock razítka snímků (ms), zarovnaná na [dataForPlot].
+  /// Prázdné u záznamů uložených dřív, než se razítka začala ukládat.
+  final List<int> frameTimestampsMs;
+
+  /// Údaje vyplněné ve výzkumném režimu před měřením (ID probanda, protokol…).
+  final Map<String, String> metadata;
   final Map<String, dynamic> hrv; // HRV metrics
   final double respiratoryRate; // RR breaths/min
   final List<double> bpmHistory; // BPM time series for recovery
@@ -39,12 +65,18 @@ class Record {
   Record({
     required this.date,
     required this.time,
+    this.startedAt = '',
+    this.endedAt = '',
+    this.savedAt = '',
     required this.averageBPM,
     required this.notesContent,
     required this.dataForPlot,
     required this.bpmList,
     required this.frames,
     required this.duration,
+    this.sampleRateHz = 0.0,
+    this.frameTimestampsMs = const [],
+    this.metadata = const {},
     required this.hrv,
     required this.respiratoryRate,
     required this.bpmHistory,
@@ -53,17 +85,46 @@ class Record {
     required this.recoveryChart,
   });
 
+  /// Vzorkovací frekvence tohoto záznamu: nejdřív ze skutečných razítek
+  /// snímků, pak z uložené změřené hodnoty, pak z počtu vzorků na délku
+  /// měření. Teprve když nic z toho nedává smysl, vrátí nominálních 30 Hz.
+  double get effectiveSampleRate {
+    if (frameTimestampsMs.length >= 10) {
+      final span = frameTimestampsMs.last - frameTimestampsMs.first;
+      if (span > 0) {
+        final fs = (frameTimestampsMs.length - 1) * 1000.0 / span;
+        if (fs >= 5 && fs <= 120) return fs;
+      }
+    }
+    if (sampleRateHz >= 5 && sampleRateHz <= 120) return sampleRateHz;
+    if (frames.isNotEmpty) {
+      final measured = frames.last; // getFrames() přidává průměr na konec
+      if (measured >= 5 && measured <= 120) return measured;
+    }
+    if (duration > 0 && dataForPlot.length >= 10) {
+      final fs = dataForPlot.length / duration;
+      if (fs >= 5 && fs <= 120) return fs;
+    }
+    return kNominalSampleRate;
+  }
+
   // Convert Record to JSON format
   Map<String, dynamic> toJson() {
     return {
       'date': date,
       'time': time,
+      'startedAt': startedAt,
+      'endedAt': endedAt,
+      'savedAt': savedAt,
       'averageBPM': averageBPM,
       'notes': notesContent,
       'dataForPlot': dataForPlot,
       'bpmList': bpmList,
       'frames': frames,
       'duration': duration,
+      'sampleRateHz': sampleRateHz,
+      'frameTimestampsMs': frameTimestampsMs,
+      'metadata': metadata,
       'hrv': hrv,
       'respiratoryRate': respiratoryRate,
       'bpmHistory': bpmHistory,
@@ -83,6 +144,9 @@ class Record {
     return Record(
       date: json['date'] ?? '', // Default to empty string if null
       time: json['time'] ?? '', // Default to empty string if null
+      startedAt: json['startedAt'] ?? '',
+      endedAt: json['endedAt'] ?? '',
+      savedAt: json['savedAt'] ?? '',
       averageBPM: json['averageBPM'] ?? 0, // Default to 0 if null
       notesContent: json['notes'] ?? '', // Default to empty string if null
       dataForPlot: json['dataForPlot'] != null
@@ -93,6 +157,15 @@ class Record {
           ? List<double>.from(json['frames'])
           : [], // Default to empty list if null
       duration: json['duration'] ?? 30, // Default to 30 if null
+      sampleRateHz: (json['sampleRateHz'] ?? 0.0).toDouble(),
+      frameTimestampsMs: json['frameTimestampsMs'] != null
+          ? List<int>.from(
+              json['frameTimestampsMs'].map((v) => (v as num).toInt()))
+          : const <int>[],
+      metadata: json['metadata'] != null
+          ? Map<String, String>.from((json['metadata'] as Map)
+              .map((k, v) => MapEntry(k.toString(), v.toString())))
+          : const <String, String>{},
       hrv: json['hrv'] ?? {}, // Default to empty map if null
       respiratoryRate: (json['respiratoryRate'] ?? 0.0).toDouble(),
       bpmHistory: json['bpmHistory'] != null
@@ -117,7 +190,6 @@ class RecordsPage extends StatefulWidget {
 }
 
 class _RecordsPageState extends State<RecordsPage> {
-  static const double sampleRate = 30.0; // Define sample rate (Hz)
   static const double pixelsPerSecond = 20.0; // Used for chart width
   List<Record> _records = [];
   final ScrollController _chartScrollController = ScrollController();
@@ -155,12 +227,20 @@ class _RecordsPageState extends State<RecordsPage> {
           updatedRecords.add(Record(
             date: rec.date,
             time: rec.time,
+            // Bez těchto tří polí ztrácel seznam přesný okamžik měření a export
+            // pak spadl na méně přesné date+time.
+            startedAt: rec.startedAt,
+            endedAt: rec.endedAt,
+            savedAt: rec.savedAt,
             averageBPM: calc.toInt(),
             notesContent: rec.notesContent,
             dataForPlot: rec.dataForPlot,
             bpmList: rec.bpmList,
             frames: rec.frames,
             duration: rec.duration,
+            sampleRateHz: rec.sampleRateHz,
+            frameTimestampsMs: rec.frameTimestampsMs,
+            metadata: rec.metadata,
             hrv: rec.hrv,
             respiratoryRate: rec.respiratoryRate,
             bpmHistory: rec.bpmHistory,
@@ -612,8 +692,8 @@ class _RecordsPageState extends State<RecordsPage> {
             '${bpmTrend.abs() < 0.5 ? '' : '  •  ${bpmTrend > 0 ? '↑' : '↓'} ${bpmTrend.abs().toStringAsFixed(1)} bpm'}',
             style: TextStyle(fontSize: r.fontSmall, color: Colors.black54),
           ),
-          childrenPadding: EdgeInsets.fromLTRB(
-              r.spaceMd, 0, r.spaceMd, r.spaceMd),
+          childrenPadding:
+              EdgeInsets.fromLTRB(r.spaceMd, 0, r.spaceMd, r.spaceMd),
           children: [
             GridView.count(
               shrinkWrap: true,
@@ -785,7 +865,8 @@ class _RecordsPageState extends State<RecordsPage> {
           if (hasData)
             Text(
               'min ${lo.toStringAsFixed(0)} • max ${hi.toStringAsFixed(0)}',
-              style: TextStyle(fontSize: r.fontCaption - 1, color: Colors.black45),
+              style:
+                  TextStyle(fontSize: r.fontCaption - 1, color: Colors.black45),
             ),
         ],
       ),
@@ -951,62 +1032,298 @@ class _RecordsPageState extends State<RecordsPage> {
     return Colors.red;
   }
 
+  /// Resolves a record's start instant, falling back to the legacy
+  /// date + time strings for records saved before startedAt existed.
+  static DateTime? _parseRecordStart(Record record) {
+    if (record.startedAt.isNotEmpty) {
+      final DateTime? parsed = DateTime.tryParse(record.startedAt);
+      if (parsed != null) return parsed;
+    }
+    if (record.date.isNotEmpty && record.time.isNotEmpty) {
+      return DateTime.tryParse('${record.date} ${record.time}');
+    }
+    return null;
+  }
+
+  /// Vsechno, co export potrebuje, spocitane jednou pro vsechny formaty.
+  _ExportBundle _prepareExport(Record record) {
+    final double fs = record.effectiveSampleRate;
+    final int expectedLength = (record.duration * fs).toInt();
+    List<double> data = record.dataForPlot;
+    if (data.length > expectedLength) {
+      data = data.sublist(data.length - expectedLength);
+    }
+
+    List<int> stamps = record.frameTimestampsMs;
+    if (stamps.length > data.length) {
+      stamps = stamps.sublist(stamps.length - data.length);
+    }
+    final bool hasStamps = stamps.length == data.length;
+
+    List<Map<String, dynamic>> raws = record.rawRgbSamples;
+    if (raws.length > data.length) {
+      raws = raws.sublist(raws.length - data.length);
+    }
+    final bool hasRaw = raws.length == data.length;
+
+    final sqa = SignalQualityIndex(fs: fs).evaluate(data);
+    final peaks = UnifiedPpgPeakDetector(fs: fs)
+        .detect(data.map((v) => -v).toList(), zeroPhase: true);
+
+    final int? t0Ms = hasStamps ? stamps.first : null;
+    final times = List<double>.generate(
+      data.length,
+      (i) => hasStamps ? (stamps[i] - t0Ms!) / 1000.0 : i / fs,
+    );
+    final peakTimes = peaks.map((peak) {
+      if (!hasStamps) return peak.timeSec;
+      final int i0 = peak.fractionalIndex.floor().clamp(0, stamps.length - 1);
+      final int i1 = (i0 + 1).clamp(0, stamps.length - 1);
+      final double frac = peak.fractionalIndex - i0;
+      return ((stamps[i0] + (stamps[i1] - stamps[i0]) * frac) - t0Ms!) / 1000.0;
+    }).toList();
+
+    return _ExportBundle(
+      fs: fs,
+      data: data,
+      times: times,
+      raws: hasRaw ? raws : const [],
+      peakIndices: peaks.map((p) => p.fractionalIndex.round()).toList(),
+      peakTimes: peakTimes,
+      quality: sqa,
+      sampleRateSource: hasStamps
+          ? 'frame timestamps'
+          : (record.sampleRateHz > 0
+              ? 'measured'
+              : 'derived from sample count'),
+    );
+  }
+
+  /// Ulozi zaznam ve formatu zvolenem v nastaveni. Vraci cestu k souboru.
+  Future<String?> _createExport(Record record) async {
+    switch (AppSettings.value.exportFormat) {
+      case ExportFormat.csv:
+        return _createCsv(record);
+      case ExportFormat.json:
+        return _createJson(record);
+      case ExportFormat.txt:
+        return _createTxt(record);
+    }
+  }
+
+  Future<String?> _createCsv(Record record) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file =
+          File('${directory.path}/record_${record.date}_${record.time}.csv');
+      final b = _prepareExport(record);
+      final startInstant = _parseRecordStart(record);
+      final sb = StringBuffer();
+
+      // Metadata jako komentarova hlavicka - pandas i Excel ji umi preskocit.
+      void meta(String key, Object? value) =>
+          sb.writeln('# $key,${value ?? ''}');
+      meta('date', record.date);
+      meta('time', record.time);
+      meta('started_at', record.startedAt);
+      meta('duration_s', record.duration);
+      meta('average_bpm', record.averageBPM);
+      meta('sample_rate_hz', b.fs.toStringAsFixed(3));
+      meta('sample_rate_source', b.sampleRateSource);
+      meta(
+          'signal_quality',
+          '${b.quality.level.name} '
+              '(${b.quality.score.toStringAsFixed(0)}/100)');
+      meta('notes', record.notesContent.replaceAll(',', ' '));
+      record.metadata.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
+
+      sb.writeln(b.raws.isEmpty
+          ? 'time_s,timestamp,signal,peak'
+          : 'time_s,timestamp,signal,peak,raw_green,raw_red,raw_blue');
+      final peakSet = b.peakIndices.toSet();
+      for (int i = 0; i < b.data.length; i++) {
+        final stamp = startInstant
+                ?.add(Duration(microseconds: (b.times[i] * 1e6).round()))
+                .toIso8601String() ??
+            '';
+        final raw = b.raws.isEmpty
+            ? ''
+            : ',${b.raws[i]['green']},${b.raws[i]['red']},${b.raws[i]['blue']}';
+        sb.writeln('${b.times[i].toStringAsFixed(3)},$stamp,'
+            '${b.data[i]},${peakSet.contains(i) ? 1 : 0}$raw');
+      }
+      await file.writeAsString(sb.toString());
+      return file.path;
+    } catch (e) {
+      print('Error creating CSV: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _createJson(Record record) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file =
+          File('${directory.path}/record_${record.date}_${record.time}.json');
+      final b = _prepareExport(record);
+      final payload = {
+        'schema': 'tepovka.record/1',
+        'date': record.date,
+        'time': record.time,
+        'startedAt': record.startedAt,
+        'endedAt': record.endedAt,
+        'savedAt': record.savedAt,
+        'durationS': record.duration,
+        'averageBpm': record.averageBPM,
+        'notes': record.notesContent,
+        'metadata': record.metadata,
+        'sampleRateHz': b.fs,
+        'sampleRateSource': b.sampleRateSource,
+        'signalPipeline':
+            'median(5) -> baseline removal -> EMA(alpha=0.4), inverted',
+        'quality': {
+          'level': b.quality.level.name,
+          'score': b.quality.score,
+          'snrDb': b.quality.snrDb,
+          'periodicity': b.quality.periodicity,
+          'reason': b.quality.reason,
+        },
+        'hrv': record.hrv,
+        'respiratoryRate': record.respiratoryRate,
+        'timeS': b.times,
+        'signal': b.data,
+        'peakIndices': b.peakIndices,
+        'peakTimesS': b.peakTimes,
+        if (b.raws.isNotEmpty) ...{
+          'rawGreen': b.raws.map((r) => r['green']).toList(),
+          'rawRed': b.raws.map((r) => r['red']).toList(),
+          'rawBlue': b.raws.map((r) => r['blue']).toList(),
+        },
+      };
+      await file
+          .writeAsString(const JsonEncoder.withIndent('  ').convert(payload));
+      return file.path;
+    } catch (e) {
+      print('Error creating JSON: $e');
+      return null;
+    }
+  }
+
   Future<String?> _createTxt(Record record) async {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final file =
           File('${directory.path}/record_${record.date}_${record.time}.txt');
+      // Measurement start as a real instant, so every sample below can carry an
+      // absolute wall-clock time and not just an offset.
+      final DateTime? startInstant = _parseRecordStart(record);
+
       StringBuffer sb = StringBuffer();
       sb.writeln('Date: ${record.date}');
       sb.writeln('Time: ${record.time}');
+      sb.writeln(
+          'Measurement start: ${record.startedAt.isNotEmpty ? record.startedAt : '${record.date} ${record.time}'}');
+      if (record.endedAt.isNotEmpty) {
+        sb.writeln('Measurement end: ${record.endedAt}');
+      }
+      if (record.savedAt.isNotEmpty) {
+        sb.writeln('Saved at: ${record.savedAt}');
+      }
       sb.writeln('Average BPM: ${record.averageBPM}');
       sb.writeln('Notes: ${record.notesContent}');
       sb.writeln('Duration: ${record.duration}');
-      sb.writeln('');
-      sb.writeln('Time (s),Signal Value');
+      record.metadata.forEach((key, value) => sb.writeln('$key: $value'));
 
       // Compute trimmed data
-      int expectedLength = (record.duration * sampleRate).toInt();
+      final double fs = record.effectiveSampleRate;
+      int expectedLength = (record.duration * fs).toInt();
       List<double> trimmedData = record.dataForPlot;
       if (trimmedData.length > expectedLength) {
         trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
       }
 
+      // Razítka snímků zarovnaná na stejný ořez jako signál. Když je záznam
+      // nemá (starší data), doplní se rovnoměrně z měřené frekvence.
+      List<int> stamps = record.frameTimestampsMs;
+      if (stamps.length > trimmedData.length) {
+        stamps = stamps.sublist(stamps.length - trimmedData.length);
+      }
+      final bool hasStamps = stamps.length == trimmedData.length;
+
+      // Kvalita signálu, aby bylo z exportu poznat, kdy je odhad nepoužitelný.
+      final sqa = SignalQualityIndex(fs: fs).evaluate(trimmedData);
+
+      sb.writeln('Sample rate (Hz): ${fs.toStringAsFixed(3)}');
+      sb.writeln('Sample rate source: '
+          '${hasStamps ? 'frame timestamps' : (record.sampleRateHz > 0 ? 'measured' : 'derived from sample count')}');
+      sb.writeln(
+          'Signal quality: ${sqa.level.name} (${sqa.score.toStringAsFixed(0)}/100, SNR ${sqa.snrDb.toStringAsFixed(1)} dB)');
+
+      // Nefiltrované průměry kanálů z ROI, zarovnané na stejný ořez jako signál.
+      // Sloupec Signal Value prošel mediánem, odečtením baseline a EMA, takže
+      // je pro vlastní zpracování dat příliš vyhlazený — proto se vedle něj
+      // ukládá i to, co přišlo z kamery.
+      List<Map<String, dynamic>> raws = record.rawRgbSamples;
+      if (raws.length > trimmedData.length) {
+        raws = raws.sublist(raws.length - trimmedData.length);
+      }
+      final bool hasRaw = raws.length == trimmedData.length;
+      sb.writeln(
+          'Raw channels: ${hasRaw ? 'green,red,blue (ROI mean, unfiltered)' : 'not available'}');
+      sb.writeln(
+          'Signal Value pipeline: median(5) -> baseline removal -> EMA(alpha=0.4), inverted');
+      sb.writeln('');
+      sb.writeln(hasRaw
+          ? 'Time (s),Timestamp,Signal Value,Raw Green,Raw Red,Raw Blue'
+          : 'Time (s),Timestamp,Signal Value');
+
       // Write signal data
+      final int? t0Ms = hasStamps ? stamps.first : null;
+      double rawOf(int i, String channel) =>
+          (raws[i][channel] as num?)?.toDouble() ?? double.nan;
       for (int i = 0; i < trimmedData.length; i++) {
-        double time = i / sampleRate;
-        sb.writeln('${time.toStringAsFixed(3)},${trimmedData[i]}');
+        final double time = hasStamps ? (stamps[i] - t0Ms!) / 1000.0 : i / fs;
+        final String stamp = startInstant != null
+            ? startInstant
+                .add(Duration(microseconds: (time * 1e6).round()))
+                .toIso8601String()
+            : '';
+        final String raw = hasRaw
+            ? ',${rawOf(i, 'green')},${rawOf(i, 'red')},${rawOf(i, 'blue')}'
+            : '';
+        sb.writeln('${time.toStringAsFixed(3)},$stamp,${trimmedData[i]}$raw');
       }
 
-      // Compute peaks
-      List<FlSpot> spots = [];
-      for (int i = 0; i < trimmedData.length; i++) {
-        spots.add(FlSpot(i / sampleRate, -trimmedData[i]));
-      }
-      // Moving average smoothing
-      int windowSize = 7;
-      List<FlSpot> smoothedData = [];
-      for (int i = 0; i < spots.length; i++) {
-        double sum = 0.0;
-        int count = 0;
-        for (int j = i - windowSize + 1; j <= i; j++) {
-          if (j >= 0) {
-            sum += spots[j].y;
-            count++;
-          }
-        }
-        double avg = count > 0 ? sum / count : spots[i].y;
-        smoothedData.add(FlSpot(spots[i].x, avg));
-      }
-      // Detect peaks
-      List<double> yValues = smoothedData.map((s) => s.y).toList();
-      List<int> peaks = _findPeaks(yValues);
+      // Detekce vrcholů jednotným detektorem. Signál je uložený s pulzy dolů,
+      // proto se před detekcí invertuje; zero-phase, protože jde o
+      // retrospektivní zpracování hotového záznamu.
+      final detector = UnifiedPpgPeakDetector(fs: fs);
+      final peaks = detector.detect(
+        trimmedData.map((v) => -v).toList(),
+        zeroPhase: true,
+      );
 
       // Write peak indices
       sb.writeln('');
       sb.writeln('Peak Indices:');
-      for (int p in peaks) {
-        sb.writeln(p.toString());
+      for (final peak in peaks) {
+        sb.writeln(peak.fractionalIndex.round().toString());
+      }
+      sb.writeln('');
+      sb.writeln('Peak Times (s):');
+      for (final peak in peaks) {
+        // Se skutečnými razítky se čas vrcholu interpoluje mezi snímky, aby
+        // seděl na stejnou osu jako signál výše (a nesl i jitter kamery).
+        double t = peak.timeSec;
+        if (hasStamps) {
+          final int i0 =
+              peak.fractionalIndex.floor().clamp(0, stamps.length - 1);
+          final int i1 = (i0 + 1).clamp(0, stamps.length - 1);
+          final double frac = peak.fractionalIndex - i0;
+          t = ((stamps[i0] + (stamps[i1] - stamps[i0]) * frac) - t0Ms!) /
+              1000.0;
+        }
+        sb.writeln(t.toStringAsFixed(4));
       }
 
       await file.writeAsString(sb.toString());
@@ -1019,7 +1336,8 @@ class _RecordsPageState extends State<RecordsPage> {
 
   double _calculateAverageBPM(Record record) {
     // Trim data to exactly recording duration (remove initial if extra)
-    int expectedLength = (record.duration * sampleRate).toInt();
+    final double fs = record.effectiveSampleRate;
+    int expectedLength = (record.duration * fs).toInt();
     List<double> trimmedData = record.dataForPlot;
     if (trimmedData.length > expectedLength) {
       trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
@@ -1027,7 +1345,7 @@ class _RecordsPageState extends State<RecordsPage> {
     // Create spots with time x in the stored signal polarity.
     List<FlSpot> spots = [];
     for (int i = 0; i < trimmedData.length; i++) {
-      spots.add(FlSpot(i / sampleRate, trimmedData[i]));
+      spots.add(FlSpot(i / fs, trimmedData[i]));
     }
     // Moving average smoothing
     int windowSize = 7;
@@ -1044,10 +1362,14 @@ class _RecordsPageState extends State<RecordsPage> {
       double avg = count > 0 ? sum / count : spots[i].y;
       smoothedData.add(FlSpot(spots[i].x, avg));
     }
-    // Detect peaks on smoothed
-    List<double> yValues = smoothedData.map((s) => s.y).toList();
-    List<int> peaks = _findPeaks(yValues);
-    List<FlSpot> peakSpots = peaks.map((i) => smoothedData[i]).toList();
+    // Detect peaks on smoothed — stejný detektor jako v exportu a v detailu,
+    // aby list, detail i export hlásily shodné BPM.
+    final peaks = UnifiedPpgPeakDetector(fs: fs)
+        .detect(smoothedData.map((s) => s.y).toList(), zeroPhase: true);
+    List<FlSpot> peakSpots = peaks
+        .map((peak) => smoothedData[
+            (peak.timeSec * fs).round().clamp(0, smoothedData.length - 1)])
+        .toList();
     // Calculate average BPM from peaks
     double calculatedAverageBPM = 0.0;
     if (peakSpots.length > 1) {
@@ -1088,7 +1410,8 @@ class _RecordsPageState extends State<RecordsPage> {
     double stressIndex = 0.0;
 
     // Trim data to exactly recording duration (remove initial if extra)
-    int expectedLength = (record.duration * sampleRate).toInt();
+    final double fs = record.effectiveSampleRate;
+    int expectedLength = (record.duration * fs).toInt();
     List<double> trimmedData = record.dataForPlot;
     if (trimmedData.length > expectedLength) {
       trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
@@ -1096,7 +1419,7 @@ class _RecordsPageState extends State<RecordsPage> {
     // Create spots with time x and inverted y
     List<FlSpot> spots = [];
     for (int i = 0; i < trimmedData.length; i++) {
-      spots.add(FlSpot(i / sampleRate, -trimmedData[i]));
+      spots.add(FlSpot(i / fs, -trimmedData[i]));
     }
     // Moving average smoothing
     int windowSize = 7;
@@ -1113,19 +1436,19 @@ class _RecordsPageState extends State<RecordsPage> {
       smoothedData.add(FlSpot(spots[i].x, avg));
     }
     // Detect peaks on the same smoothed waveform that is actually plotted.
-    final detector = UnifiedPpgPeakDetector(fs: sampleRate);
+    final detector = UnifiedPpgPeakDetector(fs: fs);
     final plottedSignal = smoothedData.map((spot) => spot.y).toList();
     final detectedPeaks = detector.detect(plottedSignal, zeroPhase: true);
     peakSpots = detectedPeaks.map((peak) {
       final int nearestIndex =
-          (peak.timeSec * sampleRate).round().clamp(0, smoothedData.length - 1);
+          (peak.timeSec * fs).round().clamp(0, smoothedData.length - 1);
       final visibleSpot = smoothedData[nearestIndex];
       return FlSpot(visibleSpot.x, visibleSpot.y);
     }).toList();
     // Keep the detail BPM identical to the list view.
     calculatedAverageBPM = record.averageBPM.toDouble();
     // Generate time labels every 5 seconds to avoid overlap
-    double totalTime = trimmedData.length / sampleRate;
+    double totalTime = trimmedData.length / fs;
     for (int i = 0; i <= totalTime.floor(); i += 5) {
       int min = i ~/ 60;
       int sec = i % 60;
@@ -1665,92 +1988,105 @@ class _RecordsPageState extends State<RecordsPage> {
               ),
             ),
           ),
+          // Tři tlačítka ve Wrapu se na užších displejích lámala tak, že
+          // „Zavřít" zůstalo samo na druhém řádku. Teď je rozvržení záměrné:
+          // dva exporty vedle sebe, zavření pod nimi.
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           actions: <Widget>[
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                TextButton(
-                  onPressed: () async {
-                    final chartImageBytes = await _captureChart(chartKey);
-                    final hrvMetrics = {
-                      'SDNN': '${sdnn.toStringAsFixed(2)} ms',
-                      'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
-                      'pNN50': '${pnn50.toStringAsFixed(2)} %',
-                      'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
-                      'SD1': '${sd1.toStringAsFixed(2)} ms',
-                      'SD2': '${sd2.toStringAsFixed(2)} ms',
-                      'SD2/SD1': '${sd2sd1.toStringAsFixed(2)}',
-                      'LF': '${lf.toStringAsFixed(2)} %',
-                      'HF': '${hf.toStringAsFixed(2)} %',
-                      'LF/HF': '${lfhf.toStringAsFixed(2)}',
-                      'Stress Index': '${stressIndex.toStringAsFixed(2)}',
-                    };
-                    final pdfPath = await createPdf(
-                      averageBPM: calculatedAverageBPM.toInt(),
-                      notes: record.notesContent,
-                      duration: record.duration,
-                      hrvMetrics: hrvMetrics,
-                      chartImageBytes: chartImageBytes,
-                      formattedDate: record.date,
-                      formattedTime: record.time,
-                    );
-                    if (pdfPath != null) {
-                      await OpenFilex.open(pdfPath);
-                    }
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
-                  ),
-                  child: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 5,
-                    children: const [
-                      Icon(
-                        FontAwesomeIcons.filePdf,
-                        size: 18,
-                        color: Colors.red,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () async {
+                          final chartImageBytes = await _captureChart(chartKey);
+                          final hrvMetrics = {
+                            'SDNN': '${sdnn.toStringAsFixed(2)} ms',
+                            'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
+                            'pNN50': '${pnn50.toStringAsFixed(2)} %',
+                            'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
+                            'SD1': '${sd1.toStringAsFixed(2)} ms',
+                            'SD2': '${sd2.toStringAsFixed(2)} ms',
+                            'SD2/SD1': '${sd2sd1.toStringAsFixed(2)}',
+                            'LF': '${lf.toStringAsFixed(2)} %',
+                            'HF': '${hf.toStringAsFixed(2)} %',
+                            'LF/HF': '${lfhf.toStringAsFixed(2)}',
+                            'Stress Index': '${stressIndex.toStringAsFixed(2)}',
+                          };
+                          final pdfPath = await createPdf(
+                            averageBPM: calculatedAverageBPM.toInt(),
+                            notes: record.notesContent,
+                            duration: record.duration,
+                            hrvMetrics: hrvMetrics,
+                            chartImageBytes: chartImageBytes,
+                            formattedDate: record.date,
+                            formattedTime: record.time,
+                          );
+                          if (pdfPath != null) {
+                            await OpenFilex.open(pdfPath);
+                          }
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                        ),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 5,
+                          children: const [
+                            Icon(
+                              FontAwesomeIcons.filePdf,
+                              size: 18,
+                              color: Colors.red,
+                            ),
+                            Text(
+                              'Stáhnout PDF',
+                              style: TextStyle(color: Colors.black),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(
-                        'Stáhnout PDF',
-                        style: TextStyle(color: Colors.black),
+                    ),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () async {
+                          final txtPath = await _createExport(record);
+                          if (txtPath != null) {
+                            await OpenFilex.open(txtPath);
+                          }
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                        ),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 5,
+                          children: const [
+                            Icon(
+                              FontAwesomeIcons.fileLines,
+                              size: 18,
+                              color: Colors.black,
+                            ),
+                            Text(
+                              'Export TXT',
+                              style: TextStyle(color: Colors.black),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () async {
-                    final txtPath = await _createTxt(record);
-                    if (txtPath != null) {
-                      await OpenFilex.open(txtPath);
-                    }
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color.fromARGB(255, 0, 0, 0),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Zavřít'),
                   ),
-                  child: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 5,
-                    children: const [
-                      Icon(
-                        FontAwesomeIcons.fileLines,
-                        size: 18,
-                        color: Colors.black,
-                      ),
-                      Text(
-                        'Export TXT',
-                        style: TextStyle(color: Colors.black),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color.fromARGB(255, 0, 0, 0),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Zavřít'),
                 ),
               ],
             ),
@@ -1773,76 +2109,6 @@ class _RecordsPageState extends State<RecordsPage> {
       print('Error capturing chart: $e');
       return null;
     }
-  }
-
-  List<int> _findPeaks(List<double> signal) {
-    List<int> peaks = [];
-    if (signal.length < 3) return peaks;
-
-    final globalMean = signal.reduce((a, b) => a + b) / signal.length;
-    final globalSumSq = signal
-        .map((v) => (v - globalMean) * (v - globalMean))
-        .reduce((a, b) => a + b);
-    final globalStd = sqrt(globalSumSq / signal.length);
-
-    final int minDistance =
-        (sampleRate * 60 / 200).round().clamp(3, signal.length); // max HR 200
-    final int localWindow = (sampleRate * 1.0).round().clamp(5, 120);
-
-    int lastIndex = -minDistance;
-    for (int i = 1; i < signal.length - 1; i++) {
-      final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-      if (!isPeak) continue;
-
-      final start = (i - localWindow).clamp(0, signal.length - 1);
-      final end = (i + localWindow).clamp(0, signal.length - 1);
-      double localSum = 0.0;
-      double localSumSq = 0.0;
-      int count = 0;
-      for (int j = start; j <= end; j++) {
-        localSum += signal[j];
-        localSumSq += signal[j] * signal[j];
-        count++;
-      }
-      final localMean = localSum / count;
-      final localVar = (localSumSq / count) - (localMean * localMean);
-      final localStd = sqrt(localVar.abs());
-
-      final threshold = localMean + 0.25 * localStd;
-      final prominence = signal[i] - localMean;
-      final aboveThreshold = signal[i] > threshold;
-      final strongEnough = prominence > (0.35 * localStd).clamp(0.01, 999.0);
-      final farEnough = (i - lastIndex) >= minDistance;
-
-      if (!aboveThreshold || !strongEnough) continue;
-
-      if (!farEnough) {
-        if (peaks.isNotEmpty && signal[i] > signal[peaks.last]) {
-          peaks[peaks.length - 1] = i;
-          lastIndex = i;
-        }
-        continue;
-      }
-
-      peaks.add(i);
-      lastIndex = i;
-    }
-
-    if (peaks.isEmpty && globalStd > 0) {
-      final fallbackThreshold = globalMean + 0.15 * globalStd;
-      lastIndex = -minDistance;
-      for (int i = 1; i < signal.length - 1; i++) {
-        final isPeak = signal[i - 1] < signal[i] && signal[i] > signal[i + 1];
-        final aboveThreshold = signal[i] > fallbackThreshold;
-        final farEnough = (i - lastIndex) >= minDistance;
-        if (isPeak && aboveThreshold && farEnough) {
-          peaks.add(i);
-          lastIndex = i;
-        }
-      }
-    }
-
-    return peaks;
   }
 
   Widget _buildRecordRecoveryChart(Record record) {
@@ -2248,39 +2514,53 @@ class _RecordsPageState extends State<RecordsPage> {
                                       color: Colors.black.withOpacity(0.7),
                                     ),
                                     const SizedBox(width: 10),
+                                    // Datum a čas pod sebou. Na jednom řádku se
+                                    // dlouhé datum lámalo do tří řádků a celý
+                                    // řádek se rozjel.
                                     Expanded(
-                                      child: Text(
-                                        '${record.date} ve ${record.time}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            record.date,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.blue,
+                                            ),
+                                          ),
+                                          Text(
+                                            record.time,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.black
+                                                  .withOpacity(0.55),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Flexible(
-                                      child: Text(
-                                        'tep:${record.averageBPM}',
-                                        textAlign: TextAlign.left,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                    ),
-                                    Flexible(child: _buildQualityChip(record)),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.arrow_forward_ios,
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${record.averageBPM} bpm',
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
                                         color: Colors.black,
-                                        size: 20,
                                       ),
-                                      onPressed: () {
-                                        _showRecordDetail(record);
-                                      },
+                                    ),
+                                    _buildQualityChip(record),
+                                    const Icon(
+                                      Icons.arrow_forward_ios,
+                                      color: Colors.black45,
+                                      size: 16,
                                     ),
                                   ],
                                 ),
@@ -2347,4 +2627,27 @@ class TimeLabel {
   final String time;
 
   TimeLabel(this.x, this.time);
+}
+
+/// Predpocitana data pro export ve vsech formatech.
+class _ExportBundle {
+  const _ExportBundle({
+    required this.fs,
+    required this.data,
+    required this.times,
+    required this.raws,
+    required this.peakIndices,
+    required this.peakTimes,
+    required this.quality,
+    required this.sampleRateSource,
+  });
+
+  final double fs;
+  final List<double> data;
+  final List<double> times;
+  final List<Map<String, dynamic>> raws;
+  final List<int> peakIndices;
+  final List<double> peakTimes;
+  final SqaResult quality;
+  final String sampleRateSource;
 }

@@ -49,6 +49,9 @@ class StorageService {
     buffer.writeln('=== Tepovka measurement ===');
     buffer.writeln('date: ${record['date'] ?? ''}');
     buffer.writeln('time: ${record['time'] ?? ''}');
+    buffer.writeln('startedAt: ${record['startedAt'] ?? ''}');
+    buffer.writeln('endedAt: ${record['endedAt'] ?? ''}');
+    buffer.writeln('savedAt: ${record['savedAt'] ?? ''}');
     buffer.writeln('averageBPM: ${record['averageBPM'] ?? ''}');
     buffer.writeln('respiratoryRate: ${record['respiratoryRate'] ?? ''}');
     buffer.writeln('spo2: ${record['spo2'] ?? ''}');
