@@ -72,6 +72,7 @@ flutter:
     - assets/swipe/Quide5.png
     - assets/swipe/Quide6.png
     - assets/swipe/Quide7.png
+    - assets/ppg.mp4
 
   fonts:
     - family: Roboto

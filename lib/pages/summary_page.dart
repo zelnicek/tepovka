@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/pages/intro_page.dart';
@@ -562,6 +563,7 @@ class _SummaryState extends State<Summary> {
   }
 
   Future<void> _authorizeHealth() async {
+    if (kIsWeb) return; // Health API not available on web
     final types = [
       HealthDataType.HEART_RATE,
     ];
@@ -697,6 +699,7 @@ class _SummaryState extends State<Summary> {
   }
 
   Future<void> _saveToAppleHealth(double bpm) async {
+    if (kIsWeb) return; // Skip on web where Health is unsupported
     // Guard against invalid BPM values (Health Connect requires >= 1)
     if (bpm.isNaN || !bpm.isFinite || bpm <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(

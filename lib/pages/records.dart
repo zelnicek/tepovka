@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/pages/intro_page.dart';
@@ -17,6 +18,7 @@ import 'package:tepovka/elements/create_pdf.dart'; // Import the PDF creation fu
 import 'dart:math';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
+import 'package:tepovka/utils/web_download.dart';
 
 class Record {
   final String date;
@@ -621,9 +623,6 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Future<String?> _createTxt(Record record) async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final file =
-          File('${directory.path}/record_${record.date}_${record.time}.txt');
       StringBuffer sb = StringBuffer();
       sb.writeln('Date: ${record.date}');
       sb.writeln('Time: ${record.time}');
@@ -677,8 +676,21 @@ class _RecordsPageState extends State<RecordsPage> {
         sb.writeln(p.toString());
       }
 
-      await file.writeAsString(sb.toString());
-      return file.path;
+      final content = sb.toString();
+      if (kIsWeb) {
+        // Download as a file in browser
+        return await saveText(
+          'record_${record.date}_${record.time}.txt',
+          content,
+        );
+      } else {
+        final directory = await getApplicationDocumentsDirectory();
+        final file = File(
+          '${directory.path}/record_${record.date}_${record.time}.txt',
+        );
+        await file.writeAsString(content);
+        return file.path;
+      }
     } catch (e) {
       print('Error creating TXT: $e');
       return null;
@@ -1367,7 +1379,7 @@ class _RecordsPageState extends State<RecordsPage> {
                           formattedDate: record.date,
                           formattedTime: record.time,
                         );
-                        if (pdfPath != null) {
+                        if (!kIsWeb && pdfPath != null) {
                           await OpenFilex.open(pdfPath);
                         }
                       },
@@ -1398,7 +1410,7 @@ class _RecordsPageState extends State<RecordsPage> {
                     TextButton(
                       onPressed: () async {
                         final txtPath = await _createTxt(record);
-                        if (txtPath != null) {
+                        if (!kIsWeb && txtPath != null) {
                           await OpenFilex.open(txtPath);
                         }
                       },

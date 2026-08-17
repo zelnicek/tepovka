@@ -128,21 +128,31 @@ class PPGAlgorithm {
   /// Extracts RGB means, applies motion detection, updates buffers continuously
   /// with smooth scrolling animation (sliding window).
   void processImage(final CameraImage image) {
-    final int currentTime = DateTime.now().millisecondsSinceEpoch;
+    final RgbMeans rgbMeans = _calculateRgbMeans(image);
+    _processRgbFrame(rgbMeans, DateTime.now().millisecondsSinceEpoch);
+  }
 
+  /// Processes a precomputed RGB sample (used on web where CameraImage is not available).
+  void processRgbFrame(final RgbMeans rgbMeans, {int? timestampMs}) {
+    _processRgbFrame(
+      rgbMeans,
+      timestampMs ?? DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  void _processRgbFrame(final RgbMeans rgbMeans, final int currentTime) {
     // Update frame rate estimate
     if (_timestamps.isNotEmpty) {
       final int intervalMs = currentTime - _timestamps.last;
       if (intervalMs > 0) {
         final double currentFps = 1000.0 / intervalMs;
-        _frameRate =
-            _frameRate == 0.0 ? currentFps : (_frameRate + currentFps) / 2;
+        _frameRate = _frameRate == 0.0
+            ? currentFps
+            : (_frameRate + currentFps) / 2;
       }
     }
     _timestamps.add(currentTime);
 
-    // Extract RGB means from center ROI with optimized cropping
-    final RgbMeans rgbMeans = _calculateRgbMeans(image);
     _lastAverageGreen = rgbMeans.green;
     _lastAverageRed = rgbMeans.red;
     _lastAverageBlue = rgbMeans.blue;
@@ -197,12 +207,16 @@ class PPGAlgorithm {
         _frameRates.add(_localFrameRate);
 
         // Calculate heart rate
-        _currentHeartRate =
-            _calculateHeartRate(analysisWindow, _localFrameRate);
+        _currentHeartRate = _calculateHeartRate(
+          analysisWindow,
+          _localFrameRate,
+        );
 
         // Calculate respiratory rate
-        _currentRespiratoryRate =
-            _calculateRespiratoryRate(analysisWindow, _localFrameRate);
+        _currentRespiratoryRate = _calculateRespiratoryRate(
+          analysisWindow,
+          _localFrameRate,
+        );
         if (_currentRespiratoryRate > 0) {
           _respiratoryRates.add(_currentRespiratoryRate);
         }
@@ -230,8 +244,9 @@ class PPGAlgorithm {
     }
 
     // Stage 1: Exponential smoothing (stronger alpha for stability)
-    final double prevFiltered =
-        _filteredIntensities.isNotEmpty ? _filteredIntensities.last : rawSample;
+    final double prevFiltered = _filteredIntensities.isNotEmpty
+        ? _filteredIntensities.last
+        : rawSample;
 
     // Stronger smoothing (alpha=0.4 for more stable display without lag)
     final double smoothedSample = prevFiltered * 0.6 + rawSample * 0.4;
@@ -281,9 +296,11 @@ class PPGAlgorithm {
     }
 
     // EMA smoothing: gradual update to avoid visual jumps
-    _smoothedYAxisMax = _smoothedYAxisMax * (1 - _yAxisSmoothingAlpha) +
+    _smoothedYAxisMax =
+        _smoothedYAxisMax * (1 - _yAxisSmoothingAlpha) +
         targetMax * _yAxisSmoothingAlpha;
-    _smoothedYAxisMin = _smoothedYAxisMin * (1 - _yAxisSmoothingAlpha) +
+    _smoothedYAxisMin =
+        _smoothedYAxisMin * (1 - _yAxisSmoothingAlpha) +
         targetMin * _yAxisSmoothingAlpha;
 
     // Update actual display bounds
@@ -304,13 +321,15 @@ class PPGAlgorithm {
     final double velocity = (currentSample - prev1).abs();
 
     // Acceleration: change in velocity
-    final double acceleration =
-        ((currentSample - prev1) - (prev1 - prev2)).abs();
+    final double acceleration = ((currentSample - prev1) - (prev1 - prev2))
+        .abs();
 
     // RGB channel consistency (motion causes different changes in R and G)
     final double grRatio = rgb.red > 0 ? rgb.green / rgb.red : 1.0;
-    final double rgbConsistency =
-        ((grRatio - 1.0).abs() * 0.5).clamp(0.0, 1.0); // 0.9-1.1 is good
+    final double rgbConsistency = ((grRatio - 1.0).abs() * 0.5).clamp(
+      0.0,
+      1.0,
+    ); // 0.9-1.1 is good
 
     // High velocity or acceleration indicates motion
     final double velocityScore = (velocity / 10.0).clamp(0.0, 1.0);
@@ -425,15 +444,21 @@ class PPGAlgorithm {
     if (normalized.isEmpty) return 0.0;
 
     // Stage 2: Apply adaptive motion artifact removal
-    final List<double> motionCleaned =
-        _removeMotionArtifacts(normalized, localFrameRate);
+    final List<double> motionCleaned = _removeMotionArtifacts(
+      normalized,
+      localFrameRate,
+    );
 
     // Stage 3: Median filter for outlier rejection
     final List<double> medianFiltered = _medianFilter(motionCleaned, 3);
 
     // Stage 4: Bandpass filter for HR range (0.7–3.5 Hz = 42–210 BPM)
-    final List<double> bandPassed =
-        _applyButterworthBandpass(medianFiltered, 0.7, 3.5, localFrameRate);
+    final List<double> bandPassed = _applyButterworthBandpass(
+      medianFiltered,
+      0.7,
+      3.5,
+      localFrameRate,
+    );
 
     // Stage 5: Skip initial transient (filter settling)
     final int transientSamples = (localFrameRate * 0.5).round();
@@ -477,10 +502,14 @@ class PPGAlgorithm {
     // Stage 9: Extract IBIs from detected peaks in the main HR pipeline.
     if (bpm > 0) {
       final double expectedLagSamples = localFrameRate * 60.0 / bpm;
-      final int minDist =
-          (expectedLagSamples * 0.7).round().clamp(3, zScored.length);
-      final int maxDist =
-          (expectedLagSamples * 1.3).round().clamp(minDist + 1, zScored.length);
+      final int minDist = (expectedLagSamples * 0.7).round().clamp(
+        3,
+        zScored.length,
+      );
+      final int maxDist = (expectedLagSamples * 1.3).round().clamp(
+        minDist + 1,
+        zScored.length,
+      );
 
       final double mean = _calculateAverage(zScored);
       final double std = calculateStandardDeviation(zScored);
@@ -504,8 +533,11 @@ class PPGAlgorithm {
       }
     }
 
-    final double confidence =
-        _calculateBpmConfidence(zScored, localFrameRate, bpm);
+    final double confidence = _calculateBpmConfidence(
+      zScored,
+      localFrameRate,
+      bpm,
+    );
     _currentBpmConfidence = confidence;
 
     // Apply EMA smoothing for stability
@@ -598,7 +630,9 @@ class PPGAlgorithm {
 
   // IMPROVED: Frequency Domain HR estimation with zero-padding and parabolic interpolation
   double _estimateHrFrequencyDomain(
-      List<double> signal, double localFrameRate) {
+    List<double> signal,
+    double localFrameRate,
+  ) {
     final int origN = signal.length;
     if (origN < 30) return 0.0;
 
@@ -657,7 +691,10 @@ class PPGAlgorithm {
 
   /// IMPROVED: Confidence score with SNR + harmonic validation + autocorrelation
   double _calculateBpmConfidence(
-      List<double> signal, double localFrameRate, double bpm) {
+    List<double> signal,
+    double localFrameRate,
+    double bpm,
+  ) {
     if (bpm <= 0 || signal.length < 30) return 0.0;
 
     final int origN = signal.length;
@@ -679,13 +716,17 @@ class PPGAlgorithm {
 
       // 1. SNR score
       final double peakFreqHz = bpm / 60.0;
-      final int peakBin =
-          (peakFreqHz / freqRes).round().clamp(0, magnitudes.length - 1);
+      final int peakBin = (peakFreqHz / freqRes).round().clamp(
+        0,
+        magnitudes.length - 1,
+      );
 
       double peakMag = 0.0;
-      for (int i = max(0, peakBin - 1);
-          i <= min(magnitudes.length - 1, peakBin + 1);
-          i++) {
+      for (
+        int i = max(0, peakBin - 1);
+        i <= min(magnitudes.length - 1, peakBin + 1);
+        i++
+      ) {
         peakMag = max(peakMag, magnitudes[i]);
       }
 
@@ -709,9 +750,11 @@ class PPGAlgorithm {
       final int harmonic2Bin = (2 * peakFreqHz / freqRes).round();
       if (harmonic2Bin > 0 && harmonic2Bin < magnitudes.length) {
         double harm2Mag = 0.0;
-        for (int i = max(0, harmonic2Bin - 1);
-            i <= min(magnitudes.length - 1, harmonic2Bin + 1);
-            i++) {
+        for (
+          int i = max(0, harmonic2Bin - 1);
+          i <= min(magnitudes.length - 1, harmonic2Bin + 1);
+          i++
+        ) {
           harm2Mag = max(harm2Mag, magnitudes[i]);
         }
         if (harm2Mag > noiseMag * 1.5) {
@@ -725,8 +768,10 @@ class PPGAlgorithm {
 
       // Combined confidence
       final double confidence =
-          (0.5 * snrScore + 0.2 * harmonicScore + 0.3 * acScore)
-              .clamp(0.0, 1.0);
+          (0.5 * snrScore + 0.2 * harmonicScore + 0.3 * acScore).clamp(
+            0.0,
+            1.0,
+          );
 
       return confidence;
     } catch (e) {
@@ -739,7 +784,10 @@ class PPGAlgorithm {
   /// Calculates normalized autocorrelation at the expected lag for the given BPM.
   /// Returns 0-1: high means strong periodic component at expected HR.
   double _autocorrelationScore(
-      List<double> signal, double sampleRate, double bpm) {
+    List<double> signal,
+    double sampleRate,
+    double bpm,
+  ) {
     if (bpm <= 0 || signal.length < 30) return 0.0;
 
     final double expectedPeriodSamples = sampleRate * 60.0 / bpm;
@@ -783,8 +831,10 @@ class PPGAlgorithm {
 
     // Search lags corresponding to 42-210 BPM (0.7-3.5 Hz)
     final int minLag = (sampleRate / 3.5).ceil(); // 3.5 Hz = 210 BPM
-    final int maxLag =
-        min((sampleRate / 0.7).floor(), signal.length ~/ 2); // 0.7 Hz = 42 BPM
+    final int maxLag = min(
+      (sampleRate / 0.7).floor(),
+      signal.length ~/ 2,
+    ); // 0.7 Hz = 42 BPM
     if (minLag >= maxLag) return 0.0;
 
     // Find lag with maximum normalized autocorrelation
@@ -828,8 +878,10 @@ class PPGAlgorithm {
     final double bpm = sampleRate * 60.0 / refinedLag;
 
     if (kDebugMode) {
-      print('Debug: Autocorrelation: lag=${refinedLag.toStringAsFixed(1)}, '
-          'AC=${bestAc.toStringAsFixed(3)}, BPM=${bpm.toStringAsFixed(1)}');
+      print(
+        'Debug: Autocorrelation: lag=${refinedLag.toStringAsFixed(1)}, '
+        'AC=${bestAc.toStringAsFixed(3)}, BPM=${bpm.toStringAsFixed(1)}',
+      );
     }
 
     return (bpm >= 40 && bpm <= 210) ? bpm : 0.0;
@@ -844,19 +896,23 @@ class PPGAlgorithm {
     final double adaptiveThreshold = mean + 0.4 * std;
 
     // Higher min distance to reject dicrotic notch (~0.4s to block second peak)
-    final double minDistance = (localFrameRate * 0.4)
-        .clamp(localFrameRate * 0.3, localFrameRate * 0.8);
+    final double minDistance = (localFrameRate * 0.4).clamp(
+      localFrameRate * 0.3,
+      localFrameRate * 0.8,
+    );
 
     // Higher prominence requirement (0.5 * std) to filter low-amplitude artifacts
     final double prominence = 0.5 * std;
     final int promWindow = (localFrameRate * 0.3).round().clamp(5, 40);
 
     // Find peaks with adaptive threshold and min distance.
-    final List<List<double>> peaks = _findPeaks(signal,
-        threshold: adaptiveThreshold,
-        minDistance: minDistance,
-        prominence: prominence,
-        promWindow: promWindow);
+    final List<List<double>> peaks = _findPeaks(
+      signal,
+      threshold: adaptiveThreshold,
+      minDistance: minDistance,
+      prominence: prominence,
+      promWindow: promWindow,
+    );
 
     var peakIndices = peaks[0];
     final List<double> peakValues = peaks[1];
@@ -885,15 +941,17 @@ class PPGAlgorithm {
     if (ibis.isEmpty) return 0.0;
 
     // Filter invalid IBIs (outliers outside 0.3-1.5s for 40-200 BPM).
-    final List<double> validIbis =
-        ibis.where((ibi) => ibi >= 0.3 && ibi <= 1.5).toList();
+    final List<double> validIbis = ibis
+        .where((ibi) => ibi >= 0.3 && ibi <= 1.5)
+        .toList();
     if (validIbis.isEmpty) return 0.0;
 
     // Store valid IBIs for full-measurement HRV calculation
     _allIbiIntervals.addAll(validIbis);
     if (kDebugMode) {
       print(
-          'Debug: Added ${validIbis.length} IBIs, total now: ${_allIbiIntervals.length}');
+        'Debug: Added ${validIbis.length} IBIs, total now: ${_allIbiIntervals.length}',
+      );
     }
 
     // Use median IBI for robustness.
@@ -903,11 +961,13 @@ class PPGAlgorithm {
 
   // IMPROVED: Enhanced peak finder with optional threshold, minDistance, and prominence.
   // ignore: unused_element
-  List<List<double>> _findPeaks(final List<double> signal,
-      {double? threshold,
-      double minDistance = 0.0,
-      double? prominence,
-      int promWindow = 5}) {
+  List<List<double>> _findPeaks(
+    final List<double> signal, {
+    double? threshold,
+    double minDistance = 0.0,
+    double? prominence,
+    int promWindow = 5,
+  }) {
     final int n = signal.length - 2;
     final List<double> indices = [];
     final List<double> values = [];
@@ -998,16 +1058,18 @@ class PPGAlgorithm {
   double getAverageIntensity() => _lastAverageGreen ?? 0.0;
 
   RgbMeans getLastRgbMeans() => RgbMeans(
-        red: _lastAverageRed ?? 0.0,
-        green: _lastAverageGreen ?? 0.0,
-        blue: _lastAverageBlue ?? 0.0,
-      );
+    red: _lastAverageRed ?? 0.0,
+    green: _lastAverageGreen ?? 0.0,
+    blue: _lastAverageBlue ?? 0.0,
+  );
 
   List<int> getIntensityValues() =>
       _intensityValues.map((e) => e.toInt()).toList();
 
   List<double> _computeMovingAverage(
-      final List<double> values, final int windowSize) {
+    final List<double> values,
+    final int windowSize,
+  ) {
     if (values.length < windowSize) return values;
 
     final List<double> averages = [];
@@ -1073,9 +1135,11 @@ class PPGAlgorithm {
 
     if (kDebugMode) {
       print(
-          'Debug: Calculating HRV from ${_allIbiIntervals.length} IBI intervals');
+        'Debug: Calculating HRV from ${_allIbiIntervals.length} IBI intervals',
+      );
       print(
-          'Debug: IBI range: ${_allIbiIntervals.reduce(min).toStringAsFixed(3)}s - ${_allIbiIntervals.reduce(max).toStringAsFixed(3)}s');
+        'Debug: IBI range: ${_allIbiIntervals.reduce(min).toStringAsFixed(3)}s - ${_allIbiIntervals.reduce(max).toStringAsFixed(3)}s',
+      );
     }
     // SDNN: Standard Deviation of NN intervals
     _currentSdnn =
@@ -1089,7 +1153,8 @@ class PPGAlgorithm {
       successiveDiffs.add(diff);
       sumSquaredDiff += diff * diff;
     }
-    _currentRmssd = sqrt(sumSquaredDiff / (_allIbiIntervals.length - 1)) *
+    _currentRmssd =
+        sqrt(sumSquaredDiff / (_allIbiIntervals.length - 1)) *
         1000.0; // Convert to ms
 
     // pNN50: Percentage of successive NN intervals that differ by more than 50ms
@@ -1099,10 +1164,14 @@ class PPGAlgorithm {
     // SD1 and SD2: Poincaré plot parameters
     // SD1 represents short-term HRV (beat-to-beat variability)
     // SD2 represents long-term HRV (continuous variability)
-    _currentSd1 = sqrt(0.5 * sumSquaredDiff / (_allIbiIntervals.length - 1)) *
+    _currentSd1 =
+        sqrt(0.5 * sumSquaredDiff / (_allIbiIntervals.length - 1)) *
         1000.0; // Convert to ms
-    _currentSd2 = sqrt(2 * pow(_currentSdnn / 1000.0, 2) -
-            0.5 * sumSquaredDiff / (_allIbiIntervals.length - 1)) *
+    _currentSd2 =
+        sqrt(
+          2 * pow(_currentSdnn / 1000.0, 2) -
+              0.5 * sumSquaredDiff / (_allIbiIntervals.length - 1),
+        ) *
         1000.0; // Convert to ms
 
     final double meanIbi = _calculateAverage(_allIbiIntervals) * 1000.0;
@@ -1119,7 +1188,8 @@ class PPGAlgorithm {
       print('  SD1: ${_currentSd1.toStringAsFixed(2)} ms (short-term)');
       print('  SD2: ${_currentSd2.toStringAsFixed(2)} ms (long-term)');
       print(
-          '  Max successive diff: ${(successiveDiffs.map((d) => d.abs()).reduce(max) * 1000).toStringAsFixed(1)} ms');
+        '  Max successive diff: ${(successiveDiffs.map((d) => d.abs()).reduce(max) * 1000).toStringAsFixed(1)} ms',
+      );
     }
   }
 
@@ -1149,7 +1219,8 @@ class PPGAlgorithm {
         successiveDiffs.add(diff);
         sumSquaredDiff += diff * diff;
       }
-      _currentRmssd = sqrt(sumSquaredDiff / (recentIbis.length - 1)) *
+      _currentRmssd =
+          sqrt(sumSquaredDiff / (recentIbis.length - 1)) *
           1000.0; // Convert to ms
 
       // pNN50: Percentage of successive NN intervals that differ by more than 50ms
@@ -1161,13 +1232,17 @@ class PPGAlgorithm {
       // SD1 and SD2: Poincaré plot parameters
       _currentSd1 =
           sqrt(0.5 * sumSquaredDiff / (recentIbis.length - 1)) * 1000.0;
-      _currentSd2 = sqrt(2 * pow(_currentSdnn / 1000.0, 2) -
-              0.5 * sumSquaredDiff / (recentIbis.length - 1)) *
+      _currentSd2 =
+          sqrt(
+            2 * pow(_currentSdnn / 1000.0, 2) -
+                0.5 * sumSquaredDiff / (recentIbis.length - 1),
+          ) *
           1000.0;
 
       if (kDebugMode) {
         print(
-            'HRV (continuous): SDNN=${_currentSdnn.toStringAsFixed(1)} ms, RMSSD=${_currentRmssd.toStringAsFixed(1)} ms, pNN50=${_currentPnn50.toStringAsFixed(1)}%, SD1=${_currentSd1.toStringAsFixed(1)} ms, SD2=${_currentSd2.toStringAsFixed(1)} ms (from ${recentIbis.length} IBIs)');
+          'HRV (continuous): SDNN=${_currentSdnn.toStringAsFixed(1)} ms, RMSSD=${_currentRmssd.toStringAsFixed(1)} ms, pNN50=${_currentPnn50.toStringAsFixed(1)}%, SD1=${_currentSd1.toStringAsFixed(1)} ms, SD2=${_currentSd2.toStringAsFixed(1)} ms (from ${recentIbis.length} IBIs)',
+        );
       }
     }
   }
@@ -1314,8 +1389,10 @@ class PPGAlgorithm {
 
     // 2) Envelope via absolute value + moving average (~1s)
     final envelope = pulse.map((v) => v.abs()).toList();
-    final envSmooth =
-        _movingAverage(envelope, (fs * 1.0).round().clamp(5, 120));
+    final envSmooth = _movingAverage(
+      envelope,
+      (fs * 1.0).round().clamp(5, 120),
+    );
 
     final envMin = envelope.isEmpty ? 0.0 : envelope.reduce(min);
     final envMax = envelope.isEmpty ? 0.0 : envelope.reduce(max);
@@ -1408,12 +1485,13 @@ class PPGAlgorithm {
       } else {
         _smoothedRespiratoryRate =
             (_smoothedRespiratoryRate * (1 - _emaAlpha)) +
-                (clampedRR * _emaAlpha);
+            (clampedRR * _emaAlpha);
       }
     }
     if (kDebugMode) {
       print(
-          'RR: Raw = ${clampedRR.toStringAsFixed(2)}, EMA-smoothed = ${_smoothedRespiratoryRate.toStringAsFixed(2)}');
+        'RR: Raw = ${clampedRR.toStringAsFixed(2)}, EMA-smoothed = ${_smoothedRespiratoryRate.toStringAsFixed(2)}',
+      );
     }
 
     return _smoothedRespiratoryRate;
@@ -1421,7 +1499,11 @@ class PPGAlgorithm {
 
   /// Butterworth bandpass filter (2nd order cascade)
   List<double> _applyButterworthBandpass(
-      List<double> signal, double lowFreq, double highFreq, double fs) {
+    List<double> signal,
+    double lowFreq,
+    double highFreq,
+    double fs,
+  ) {
     if (signal.length < 3) return signal;
 
     final nyquist = fs / 2.0;
@@ -1468,7 +1550,8 @@ class PPGAlgorithm {
     yn2 = 0;
     for (int i = 0; i < out1.length; i++) {
       final xn = out1[i];
-      final yn = b0High * xn +
+      final yn =
+          b0High * xn +
           b1High * xn1 +
           b2High * xn2 -
           a1High * yn1 -
@@ -1513,9 +1596,5 @@ class RgbMeans {
   final double green;
   final double blue;
 
-  const RgbMeans({
-    required this.red,
-    required this.green,
-    required this.blue,
-  });
+  const RgbMeans({required this.red, required this.green, required this.blue});
 }

@@ -1,10 +1,12 @@
 // pdf_create.dart
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:flutter/services.dart';
+import 'package:tepovka/utils/web_download.dart';
 
 Future<String?> createPdf({
   required int averageBPM,
@@ -88,11 +90,20 @@ Future<String?> createPdf({
       ),
     );
 
-    final directory = await getApplicationDocumentsDirectory();
-    final pdfFile = File(
-        '${directory.path}/hrv_report_${formattedDate}_${formattedTime}.pdf');
-    await pdfFile.writeAsBytes(await pdf.save());
-    return pdfFile.path;
+    final bytes = await pdf.save();
+    if (kIsWeb) {
+      // Trigger browser download
+      return await saveBytes(
+        'hrv_report_${formattedDate}_${formattedTime}.pdf',
+        bytes,
+      );
+    } else {
+      final directory = await getApplicationDocumentsDirectory();
+      final pdfFile = File(
+          '${directory.path}/hrv_report_${formattedDate}_${formattedTime}.pdf');
+      await pdfFile.writeAsBytes(bytes);
+      return pdfFile.path;
+    }
   } catch (e) {
     print('Error creating PDF: $e');
     return null;

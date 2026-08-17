@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:camera/camera.dart';
 import 'package:tepovka/elements/camera_body.dart';
 import 'package:tepovka/ppg_algo.dart';
@@ -16,6 +17,7 @@ import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samosta
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/services/tts_service.dart';
+import 'package:tepovka/web_video_stream.dart';
 
 class TimeLabel {
   double x;
@@ -74,6 +76,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   double _emaState = 0.0; // Persistent EMA state across timer ticks
   bool _isTeardown = false;
   bool _isSwitchingCamera = false;
+  WebVideoStream? _webVideoStream;
+  bool _webStreamActive = false;
 
   bool get _hasInitializedCameraController {
     try {
@@ -96,10 +100,15 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     super.initState();
     // Inicializace samostatné třídy pro kvalitu
     _signalQualityChecker = SignalQualityChecker();
-    // Initialize back cameras list
-    _initializeBackCameras();
-    // Initialize camera and algorithm
     _ppgAlgorithm = PPGAlgorithm();
+    if (!kIsWeb) {
+      // Initialize back cameras list
+      _initializeBackCameras();
+    } else {
+      // On web, use a prerecorded video feed instead of camera frames.
+      _startWebVideoStream();
+      _startGraphUpdateTimer();
+    }
     // Set up animation controllers
     _progressController = AnimationController(
       vsync: this,
@@ -125,16 +134,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _backCameras = backCameras.length >= 2 ? backCameras : allCameras;
 
       print(
-          'Camera debug: total=${allCameras.length}, back=${backCameras.length}, switchable=${_backCameras.length}');
+        'Camera debug: total=${allCameras.length}, back=${backCameras.length}, switchable=${_backCameras.length}',
+      );
       for (final cam in allCameras) {
         print(
-            'Camera debug: name=${cam.name}, dir=${cam.lensDirection}, sensorOrientation=${cam.sensorOrientation}');
+          'Camera debug: name=${cam.name}, dir=${cam.lensDirection}, sensorOrientation=${cam.sensorOrientation}',
+        );
       }
 
       if (_backCameras.isNotEmpty) {
         // Prefer rear camera as default if present.
-        final firstBackIndex = _backCameras
-            .indexWhere((c) => c.lensDirection == CameraLensDirection.back);
+        final firstBackIndex = _backCameras.indexWhere(
+          (c) => c.lensDirection == CameraLensDirection.back,
+        );
         _currentBackCameraIndex = firstBackIndex >= 0 ? firstBackIndex : 0;
         setState(() {});
       }
@@ -177,6 +189,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   }
 
   Future<void> _toggleFlashlight() async {
+    if (kIsWeb) return;
     if (_hasInitializedCameraController) {
       if (_isFlashOn) {
         await _cameraController.setFlashMode(FlashMode.off);
@@ -192,7 +205,28 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _startWebVideoStream() async {
+    if (!kIsWeb || _webStreamActive) return;
+
+    _webVideoStream ??= WebVideoStream('assets/assets/ppg.mp4');
+    try {
+      await _webVideoStream!.start((rgb) {
+        _ppgAlgorithm?.processRgbFrame(rgb);
+      });
+      _webStreamActive = true;
+    } catch (e) {
+      debugPrint('Web video stream failed: $e');
+    }
+  }
+
+  Future<void> _stopWebVideoStream() async {
+    if (!kIsWeb) return;
+    await _webVideoStream?.stop();
+    _webStreamActive = false;
+  }
+
   void _startImageStream() {
+    if (kIsWeb) return; // Camera streaming is not supported on web
     if (_hasInitializedCameraController && !_isStreamingImages) {
       _cameraController.startImageStream((image) {
         if (_ppgAlgorithm != null) {
@@ -416,6 +450,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _countdownTimer?.cancel();
       _progressController.stop();
       _heartAnimationController.stop();
+      if (kIsWeb) {
+        await _stopWebVideoStream();
+      }
       if (_hasInitializedCameraController) {
         await _cameraController.setFlashMode(FlashMode.off);
         _isFlashOn = false;
@@ -441,8 +478,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       _isPlottingStarted = true;
     });
     // Timer pro live aktualizace každých ~33ms pro plynulý osciloskopový efekt (blízko 30fps)
-    _graphUpdateTimer =
-        Timer.periodic(const Duration(milliseconds: 33), (timer) {
+    _graphUpdateTimer = Timer.periodic(const Duration(milliseconds: 33), (
+      timer,
+    ) {
       _updateLiveData();
     });
   }
@@ -487,13 +525,14 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.'),
+            'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.',
+          ),
           duration: Duration(seconds: 3),
         ),
       );
     }
 
-    if (_hasInitializedCameraController && !_isFlashOn) {
+    if (!kIsWeb && _hasInitializedCameraController && !_isFlashOn) {
       try {
         await _cameraController.setFlashMode(FlashMode.torch);
         if (mounted) {
@@ -555,14 +594,16 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     List<double> respiratoryRates = _ppgAlgorithm?.getRespiratoryRates() ?? [];
 
     print(
-        'DEBUG: respiratoryRates = $respiratoryRates, isEmpty=${respiratoryRates.isEmpty}, length=${respiratoryRates.length}');
+      'DEBUG: respiratoryRates = $respiratoryRates, isEmpty=${respiratoryRates.isEmpty}, length=${respiratoryRates.length}',
+    );
 
     double averageRR = 0.0;
     if (respiratoryRates.isNotEmpty) {
       // Filter out zero values and calculate average of valid measurements
       final validRates = respiratoryRates.where((r) => r > 0).toList();
       print(
-          'DEBUG: validRates = $validRates (from ${respiratoryRates.length} total)');
+        'DEBUG: validRates = $validRates (from ${respiratoryRates.length} total)',
+      );
       if (validRates.isNotEmpty) {
         averageRR = validRates.reduce((a, b) => a + b) / validRates.length;
         print('DEBUG: calculated averageRR = $averageRR');
@@ -573,7 +614,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       averageRR = 0.0; // no RR available
     }
     print('DEBUG: Final RR = $averageRR');
-    if (_hasInitializedCameraController) {
+    if (!kIsWeb && _hasInitializedCameraController) {
       await _cameraController.setFlashMode(FlashMode.off);
     }
     setState(() {
@@ -590,7 +631,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     // ignore: unawaited_futures
     TtsService.instance.announceMeasurementEnd();
     print(
-        'DEBUG fullRecordData length: ${_fullRecordData.length}, recordingDuration: $_recordingDuration');
+      'DEBUG fullRecordData length: ${_fullRecordData.length}, recordingDuration: $_recordingDuration',
+    );
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -643,6 +685,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    if (kIsWeb) {
+      _webVideoStream?.stop();
+    }
     if (_isStreamingImages) {
       _cameraController.stopImageStream();
     }
@@ -687,8 +732,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     }
     if (currentBPM > 0) {
       double heartRateFactor = (currentBPM - 30) / (220 - 30);
-      _heartAnimationController.duration =
-          Duration(milliseconds: max(300, (600 / heartRateFactor).round()));
+      _heartAnimationController.duration = Duration(
+        milliseconds: max(300, (600 / heartRateFactor).round()),
+      );
     }
     final minY = -_yAxisHalfRange;
     final maxY = _yAxisHalfRange;
@@ -774,7 +820,25 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       ),
                     ],
                     // Camera preview v kruhu
-                    if (currentCamera != null)
+                    if (kIsWeb)
+                      Container(
+                        width: cameraSize,
+                        height: cameraSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black,
+                          border: Border.all(
+                            color: _signalQuality == 'Dobrá'
+                                ? Colors.green
+                                : Colors.red,
+                            width: 4,
+                          ),
+                        ),
+                        child: ClipOval(
+                          child: HtmlElementView(viewType: 'ppg-video'),
+                        ),
+                      )
+                    else if (currentCamera != null)
                       Container(
                         width: cameraSize,
                         height: cameraSize,
@@ -794,7 +858,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                             height: cameraSize,
                             child: CameraBody(
                               key: ValueKey(
-                                  _currentBackCameraIndex), // Force rebuild on switch
+                                _currentBackCameraIndex,
+                              ), // Force rebuild on switch
                               cameraDescription: currentCamera,
                               onCameraReady: (controller) {
                                 setState(() {
@@ -911,7 +976,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                               borderData: FlBorderData(
                                 show: true,
                                 border: Border.all(
-                                    color: Colors.grey.withOpacity(0.3)),
+                                  color: Colors.grey.withOpacity(0.3),
+                                ),
                               ),
                               minX: minX,
                               maxX: maxX,
@@ -925,9 +991,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                                   barWidth: 2.0,
                                   isStrokeCapRound: true,
                                   dotData: const FlDotData(show: false),
-                                  belowBarData: BarAreaData(
-                                    show: false,
-                                  ),
+                                  belowBarData: BarAreaData(show: false),
                                 ),
                                 // Peak markers as a separate series (dots only)
                                 LineChartBarData(
@@ -977,12 +1041,15 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                               left: posX,
                               bottom: 0,
                               child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 child: Text(
                                   label.time,
                                   style: const TextStyle(
-                                      fontSize: 10, color: Colors.black),
+                                    fontSize: 10,
+                                    color: Colors.black,
+                                  ),
                                 ),
                               ),
                             );
@@ -995,15 +1062,18 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               ),
               Padding(
                 padding: EdgeInsets.symmetric(
-                    horizontal: paddingMedium, vertical: 0),
+                  horizontal: paddingMedium,
+                  vertical: 0,
+                ),
                 child: AnimatedBuilder(
                   animation: _progressController,
                   builder: (context, child) {
                     return LinearProgressIndicator(
                       value: _progressController.value,
                       backgroundColor: Colors.grey[300],
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(Colors.red),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.red,
+                      ),
                     );
                   },
                 ),
@@ -1034,10 +1104,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           IconButton(
-                            onPressed:
-                                (_backCameras.length < 2 || _isSwitchingCamera)
-                                    ? null
-                                    : _switchBackCamera,
+                            onPressed: (kIsWeb ||
+                                    _backCameras.length < 2 ||
+                                    _isSwitchingCamera)
+                                ? null
+                                : _switchBackCamera,
                             icon: Icon(
                               Icons.cameraswitch,
                               color: Colors.grey,
@@ -1096,8 +1167,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                                 color: Colors.black,
                               ),
                               decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: Colors.grey, width: 1),
+                                border: Border.all(
+                                  color: Colors.grey,
+                                  width: 1,
+                                ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
@@ -1124,7 +1197,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                             ],
                           ),
                           child: IconButton(
-                            onPressed: _toggleFlashlight,
+                            onPressed: kIsWeb ? null : _toggleFlashlight,
                             icon: Icon(
                               _isFlashOn
                                   ? CupertinoIcons.bolt_fill
@@ -1152,7 +1225,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.05, vertical: paddingSmall),
+                    horizontal: screenWidth * 0.05,
+                    vertical: paddingSmall,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -1188,18 +1263,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           selectedIndex: _selectedIndex,
           onTabChange: _onItemTapped,
           tabs: const [
-            GButton(
-              icon: Symbols.family_home,
-              text: 'MENU',
-            ),
-            GButton(
-              icon: Symbols.ecg_heart,
-              text: 'MĚŘENÍ',
-            ),
-            GButton(
-              icon: Symbols.help,
-              text: 'INFO',
-            ),
+            GButton(icon: Symbols.family_home, text: 'MENU'),
+            GButton(icon: Symbols.ecg_heart, text: 'MĚŘENÍ'),
+            GButton(icon: Symbols.help, text: 'INFO'),
           ],
         ),
       ),
