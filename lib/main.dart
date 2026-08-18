@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:tepovka/pages/intro_page.dart';
@@ -13,16 +14,32 @@ import 'package:tepovka/services/local_profile_service.dart';
 Future<void> main() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    // App je dělaná pro iPhone (TARGETED_DEVICE_FAMILY = 1) a portrait.
-    // Lock orientace zde slouží jako pojistka i pro Android.
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-    await AppSettings.init();
-    await LocalProfileService.init();
 
-    // Initialize local logger
-    await LocalLogger.init();
+    // Zadna z techto inicializaci nesmi zabranit spusteni aplikace. Ve webove
+    // ukazce cast z nich neni k dispozici (souborovy system, zamek orientace)
+    // a driv kvuli tomu skoncil start jeste pred runApp - vysledkem byla bila
+    // stranka bez jakekoli chybove hlasky.
+    Future<void> tryInit(String what, Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (e) {
+        debugPrint('Init step "$what" failed: $e');
+      }
+    }
+
+    if (!kIsWeb) {
+      // App je dělaná pro iPhone (TARGETED_DEVICE_FAMILY = 1) a portrait.
+      // Lock orientace zde slouží jako pojistka i pro Android.
+      await tryInit(
+        'orientation',
+        () => SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]),
+      );
+    }
+    await tryInit('settings', AppSettings.init);
+    await tryInit('profile', LocalProfileService.init);
+    await tryInit('logger', LocalLogger.init);
 
     // Capture Flutter framework errors locally
     FlutterError.onError = (details) async {

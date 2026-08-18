@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:camera/camera.dart';
+import 'package:tepovka/web_video_stream.dart';
 import 'package:tepovka/elements/camera_body.dart';
 import 'package:tepovka/ppg_algo.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -97,6 +99,12 @@ class _HomeState extends State<Home>
   /// Bezici priprava kamery a analyzy, spustena behem odpoctu.
   Future<void>? _preparation;
 
+  /// Ve webove ukazce nahrazuje kameru prehravane video: prohlizec k ni
+  /// nema pristup jako telefon a demo ma ukazovat prubeh mereni, ne prazdny
+  /// nahled. Signal jde pak uplne stejnou cestou jako z kamery.
+  WebVideoStream? _webVideoStream;
+  bool _webStreamActive = false;
+
   /// Metadata vyplnena ve vyzkumnem rezimu pred merenim.
   Map<String, String> _measurementMetadata = const {};
 
@@ -163,8 +171,12 @@ class _HomeState extends State<Home>
     WidgetsBinding.instance.addObserver(this);
     // Inicializace samostatné třídy pro kvalitu
     _signalQualityChecker = SignalQualityChecker();
-    // Initialize back cameras list
-    _initializeBackCameras();
+    if (kIsWeb) {
+      _startWebVideoStream();
+    } else {
+      // Initialize back cameras list
+      _initializeBackCameras();
+    }
     // Initialize camera and algorithm
     _ppgAlgorithm = PPGAlgorithm();
     // Spawn the analysis isolate now, not on the first analysis run mid-measurement.
@@ -262,6 +274,7 @@ class _HomeState extends State<Home>
   }
 
   void _startImageStream() {
+    if (kIsWeb) return; // na webu snimky dodava _startWebVideoStream
     if (_hasInitializedCameraController && !_isStreamingImages) {
       _cameraController.startImageStream((image) {
         final PPGAlgorithm? algorithm = _ppgAlgorithm;
@@ -283,7 +296,38 @@ class _HomeState extends State<Home>
     }
   }
 
+  Future<void> _startWebVideoStream() async {
+    if (!kIsWeb || _webStreamActive) return;
+    _webVideoStream ??= WebVideoStream('assets/assets/ppg.mp4');
+    try {
+      await _webVideoStream!.start((rgb) {
+        final PPGAlgorithm? algorithm = _ppgAlgorithm;
+        if (algorithm == null) return;
+        algorithm.processRgbSample(
+          red: rgb.red,
+          green: rgb.green,
+          blue: rgb.blue,
+        );
+        if (algorithm.sampleCount != _lastConsumedSampleCount) {
+          _lastConsumedSampleCount = algorithm.sampleCount;
+          _appendSample(algorithm);
+        }
+      });
+      _webStreamActive = true;
+      _startGraphUpdates();
+    } catch (e) {
+      debugPrint('Web video stream failed: $e');
+    }
+  }
+
+  Future<void> _stopWebVideoStream() async {
+    if (!kIsWeb) return;
+    await _webVideoStream?.stop();
+    _webStreamActive = false;
+  }
+
   void _startAccelerometerStream() {
+    if (kIsWeb) return; // akcelerometr v prohlizeci nepouzivame
     _accelerometerSubscription?.cancel();
     _accelerometerSubscription =
         userAccelerometerEventStream().listen((UserAccelerometerEvent event) {
@@ -566,6 +610,9 @@ class _HomeState extends State<Home>
       }
       if (_isStreamingImages) {
         await _cameraController.stopImageStream();
+      }
+      if (disposeCamera) {
+        await _stopWebVideoStream();
       }
       if (disposeCamera && _hasInitializedCameraController) {
         await _cameraController.dispose();
@@ -1110,7 +1157,7 @@ class _HomeState extends State<Home>
                         height: cameraSize,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: currentCamera != null
+                          color: (kIsWeb || currentCamera != null)
                               ? Colors.black
                               : Colors.grey, // Background pro kruh
                           border: Border.all(
@@ -1121,34 +1168,47 @@ class _HomeState extends State<Home>
                         ),
                         child: child,
                       ),
-                      child: currentCamera != null
+                      child: kIsWeb
+                          // Ve webove ukazce je misto nahledu kamery prehravane
+                          // video, ze ktereho se cte stejny signal jako z prstu.
                           ? ClipOval(
                               child: SizedBox(
                                 width: cameraSize,
                                 height: cameraSize,
-                                child: CameraBody(
-                                  key: ValueKey(
-                                      _currentBackCameraIndex), // Force rebuild on switch
-                                  cameraDescription: currentCamera,
-                                  onCameraReady: (controller) {
-                                    setState(() {
-                                      _cameraController = controller;
-                                    });
-                                    _startImageStream();
-                                    _startGraphUpdates();
-                                    // Bez svetla se merit neda, takze se
-                                    // rozsviti hned po prichodu na obrazovku
-                                    // mereni. Automatika kamery se tim stihne
-                                    // ustalit jeste pred odpoctem.
-                                    _setTorch(true);
-                                  },
-                                  onImageAvailable: (image) {
-                                    // Nepoužíváme, protože stream je v _startImageStream
-                                  },
+                                child: const HtmlElementView(
+                                  viewType: 'ppg-video',
                                 ),
                               ),
                             )
-                          : const Center(child: CircularProgressIndicator()),
+                          : currentCamera != null
+                              ? ClipOval(
+                                  child: SizedBox(
+                                    width: cameraSize,
+                                    height: cameraSize,
+                                    child: CameraBody(
+                                      key: ValueKey(
+                                          _currentBackCameraIndex), // Force rebuild on switch
+                                      cameraDescription: currentCamera,
+                                      onCameraReady: (controller) {
+                                        setState(() {
+                                          _cameraController = controller;
+                                        });
+                                        _startImageStream();
+                                        _startGraphUpdates();
+                                        // Bez svetla se merit neda, takze se
+                                        // rozsviti hned po prichodu na obrazovku
+                                        // mereni. Automatika kamery se tim stihne
+                                        // ustalit jeste pred odpoctem.
+                                        _setTorch(true);
+                                      },
+                                      onImageAvailable: (image) {
+                                        // Nepoužíváme, protože stream je v _startImageStream
+                                      },
+                                    ),
+                                  ),
+                                )
+                              : const Center(
+                                  child: CircularProgressIndicator()),
                     ),
                     // Quality control vpravo od kamery
                     Container(

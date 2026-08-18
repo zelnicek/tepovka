@@ -58,6 +58,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/ppg.png
+    - assets/ppg.mp4
     - assets/otaznik.webp
     - assets/folder.png
     - assets/vut_heart-removebg-preview.png
