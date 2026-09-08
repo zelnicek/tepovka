@@ -54,5 +54,10 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
-	</dict>
+		<!-- Tepovka implements no encryption of its own: no crypto APIs are
+	     called from Dart or from the iOS target, and the app makes no
+	     network requests (external links are handed to Safari). -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
 </plist>
