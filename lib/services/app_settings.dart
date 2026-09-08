@@ -1,7 +1,20 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum UserMode { patient, doctor }
+
+/// Which language the UI renders in. [system] follows the device setting and
+/// falls back to Czech for locales the app does not ship.
+enum AppLanguage { system, czech, english }
+
+extension AppLanguageX on AppLanguage {
+  /// null means "let the platform decide".
+  Locale? get locale => switch (this) {
+        AppLanguage.system => null,
+        AppLanguage.czech => const Locale('cs'),
+        AppLanguage.english => const Locale('en'),
+      };
+}
 
 /// Format, ve kterem vyzkumny rezim uklada zaznam.
 enum ExportFormat {
@@ -22,14 +35,20 @@ extension ExportFormatX on ExportFormat {
         ExportFormat.json => 'json',
       };
 
+  /// Untranslated fallback. UI code should prefer the localised labels; this
+  /// exists for logs and other non-user-facing output.
   String get label => switch (this) {
-        ExportFormat.txt => 'TXT (původní formát)',
+        ExportFormat.txt => 'TXT',
         ExportFormat.csv => 'CSV (Excel, pandas)',
-        ExportFormat.json => 'JSON (vše v jednom objektu)',
+        ExportFormat.json => 'JSON',
       };
 }
 
 /// Polozky, ktere se ve vyzkumnem rezimu vyplnuji pred merenim.
+///
+/// Deliberately not localised: these are seed values the user can rename, and
+/// they are persisted verbatim. Translating them would rename fields in
+/// existing installs and break exports that key off the field name.
 const List<String> kDefaultResearchFields = <String>[
   'ID probanda',
   'Protokol',
@@ -49,6 +68,9 @@ class AppSettingsData {
   final bool researchMode;
   final ExportFormat exportFormat;
 
+  /// UI language. Defaults to following the device.
+  final AppLanguage language;
+
   /// Nazvy poli, ktera se pred merenim vyplnuji. Uzivatel si je muze zmenit.
   final List<String> researchFields;
 
@@ -62,6 +84,7 @@ class AppSettingsData {
     this.researchMode = false,
     this.exportFormat = ExportFormat.txt,
     this.researchFields = kDefaultResearchFields,
+    this.language = AppLanguage.system,
   });
 
   AppSettingsData copyWith({
@@ -74,6 +97,7 @@ class AppSettingsData {
     bool? researchMode,
     ExportFormat? exportFormat,
     List<String>? researchFields,
+    AppLanguage? language,
   }) =>
       AppSettingsData(
         seniorMode: seniorMode ?? this.seniorMode,
@@ -85,6 +109,7 @@ class AppSettingsData {
         researchMode: researchMode ?? this.researchMode,
         exportFormat: exportFormat ?? this.exportFormat,
         researchFields: researchFields ?? this.researchFields,
+        language: language ?? this.language,
       );
 }
 
@@ -103,6 +128,7 @@ class AppSettings {
   static const _kResearchMode = 'settings_researchMode';
   static const _kExportFormat = 'settings_exportFormat';
   static const _kResearchFields = 'settings_researchFields';
+  static const _kLanguage = 'settings_language';
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -116,6 +142,7 @@ class AppSettings {
     final research = prefs.getBool(_kResearchMode) ?? false;
     final formatIndex = prefs.getInt(_kExportFormat) ?? 0;
     final fields = prefs.getStringList(_kResearchFields);
+    final langIndex = prefs.getInt(_kLanguage) ?? 0;
     notifier.value = AppSettingsData(
       seniorMode: senior,
       highContrast: contrast,
@@ -128,6 +155,15 @@ class AppSettings {
           .values[formatIndex.clamp(0, ExportFormat.values.length - 1)],
       researchFields:
           (fields == null || fields.isEmpty) ? kDefaultResearchFields : fields,
+      language:
+          AppLanguage.values[langIndex.clamp(0, AppLanguage.values.length - 1)],
+    );
+  }
+
+  static void setLanguage(AppLanguage language) {
+    notifier.value = notifier.value.copyWith(language: language);
+    SharedPreferences.getInstance().then(
+      (p) => p.setInt(_kLanguage, language.index),
     );
   }
 

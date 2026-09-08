@@ -1,0 +1,353 @@
+{
+  "@@locale": "cs",
+  "commonCancel": "Zrušit",
+  "@commonCancel": {
+    "description": "Dialog dismiss button"
+  },
+  "commonSave": "Uložit",
+  "commonClose": "Zavřít",
+  "commonNote": "Poznámka",
+  "commonTapForExplanation": "Tip: klepni pro vysvětlení",
+  "@commonTapForExplanation": {
+    "description": "Hint on metric cards that open an explanation"
+  },
+  "navMenu": "MENU",
+  "navMeasure": "MĚŘENÍ",
+  "navInfo": "INFO",
+  "homeReady": "PŘIPRAVENO K MĚŘENÍ",
+  "@homeReady": {
+    "description": "App bar title before a measurement starts"
+  },
+  "homeMeasuring": "PROBÍHÁ MĚŘENÍ...",
+  "homeGetReady": "PŘIPRAVTE SE...",
+  "homeStartButton": "ZAHÁJIT MĚŘENÍ",
+  "homeStopButton": "ZASTAVIT MĚŘENÍ",
+  "homeDurationLabel": "Doba měření (sekundy)",
+  "homeSwitchCamera": "Přepnout kameru",
+  "homeChangeCamera": "Změnit kameru",
+  "homeTorchOn": "Zapnout blesk",
+  "homeTorchOff": "Vypnout blesk",
+  "homeQualityLabel": "Kvalita",
+  "homeBpmUnit": "bpm",
+  "homeSecondsSuffix": "{seconds} s",
+  "@homeSecondsSuffix": {
+    "description": "Countdown remaining, e.g. '24 s'",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "homeNoReading": "--",
+  "@homeNoReading": {
+    "description": "Shown instead of a BPM number when no reliable estimate exists yet"
+  },
+  "homeCameraSwitchFailed": "Nepodařilo se přepnout kameru. Zkuste to znovu.",
+  "homeDurationOutOfRange": "Zadejte dobu trvání mezi 10 a 300 sekundami",
+  "homeHrvDurationHint": "Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.",
+  "qualityGood": "Dobrá",
+  "@qualityGood": {
+    "description": "Signal quality label. Also used as a filter value in records."
+  },
+  "qualityMedium": "Střední",
+  "qualityBad": "Špatná",
+  "qualityNoFinger": "Žádný prst",
+  "qualityPoorContact": "Špatný kontakt",
+  "ttsCountdown": "Nahrávání začne za tři, dva, jedna.",
+  "ttsMeasurementEnd": "Měření ukončeno.",
+  "ttsSignalGood": "Signál je dobrý.",
+  "ttsSignalWorse": "Signál je horší, nehýbejte se.",
+  "ttsPoorContact": "Špatný kontakt s kamerou.",
+  "ttsPlaceFinger": "Přiložte prst na kameru.",
+  "ttsTestVoice": "Testovací hlas funguje.",
+  "introTitle": "DOMOVSKÁ STRÁNKA",
+  "introStartMeasurement": "ZAČÍT MĚŘENÍ",
+  "introRecords": "ZÁZNAMY",
+  "summaryTitle": "VÝSLEDEK",
+  "summaryAverageHeartRate": "Průměrná tepová frekvence:",
+  "summaryNotesHint": "Zadejte své poznámky k měření...",
+  "summaryTabSignal": "Signál",
+  "summaryTabRecovery": "Zotavení",
+  "summarySaveToHealth": "Uložit (zapíše do Apple Health)",
+  "summaryInNorm": "Jste v normě",
+  "summaryRest": "Odpočívejte",
+  "summaryContinueActivity": "Pokračujte v běžné aktivitě",
+  "summaryShortRest": "Doporučujeme krátký odpočinek",
+  "summarySpo2Pending": "Poznámka: Hodnota SpO2 se právě připravuje a nemusí být okamžitě aktuální.",
+  "summaryInvalidHeartRate": "Neplatná tepová frekvence (≤ 0). Záznam nebyl uložen.",
+  "summarySavedToHealth": "Úspěšně uloženo do Apple Health",
+  "summaryHealthSaveError": "Chyba při ukládání do Apple Health",
+  "metricsHrvAnalysis": "HRV Analýza",
+  "metricsAverageRr": "Průměrný RR",
+  "metricsRespiratoryRate": "Dechová frekvence",
+  "metricsBreathsPerMinute": "{value} dechů/min",
+  "@metricsBreathsPerMinute": {
+    "description": "Respiratory rate with unit",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "metricsHeartRateRecovery": "Zotavení srdeční frekvence",
+  "metricsHeartRate": "Tepová frekvence",
+  "metricsRecoveryIntro": "Měří pokles tepové frekvence po zátěži. Vyšší pokles za 60–120 s obvykle značí lepší kardiovaskulární kondici a rychlejší zotavení.",
+  "tipRmssd": "Root Mean Square of Successive Differences – citlivé na krátkodobou, parasympatickou aktivitu. Vyšší hodnoty obvykle znamenají lepší regeneraci a nižší stres.",
+  "tipSdnn": "Standardní odchylka NN intervalů – celková variabilita srdeční frekvence za celé měření. Odráží kombinaci krátkodobých i dlouhodobých vlivů.",
+  "tipPnn50": "Podíl po sobě jdoucích NN intervalů, které se liší o více než 50 ms. Vyšší procento obvykle ukazuje na silnější parasympatickou aktivitu.",
+  "tipMeanRr": "Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou tepovou frekvencí (delší RR = nižší BPM).",
+  "tipSd1": "SD1 (Poincaré) – krátkodobá HRV (beat-to-beat variabilita). Blízce souvisí s RMSSD a parasympatikem.",
+  "tipSd2": "SD2 (Poincaré) – dlouhodobá HRV. Zachycuje pomalejší kolísání a trend variability.",
+  "tipSd2Sd1Ratio": "Poměr dlouhodobé/krátkodobé variability. Vyšší poměr může ukazovat na převahu dlouhodobých oscilací nebo zvýšený stres.",
+  "tipLf": "Low Frequency složka (0.04–0.15 Hz) – směs sympatické i parasympatické aktivity. Uvádíme jako procento z (LF+HF).",
+  "tipHf": "High Frequency složka (0.15–0.40 Hz) – převážně parasympatická aktivita (dýchací sinusová arytmie). Uvádíme jako procento z (LF+HF).",
+  "tipLfHfRatio": "Poměr LF/HF – orientační ukazatel rovnováhy sympatikus/parasympatikus. Interpretace musí brát v úvahu kontext a délku záznamu.",
+  "tipRespiratoryRate": "Dechová frekvence (dechů/min). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.",
+  "tipBaevsky": "Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí, interpretuj s ohledem na podmínky měření.",
+  "tipGenericHrv": "Metrika HRV. Hodnoť v kontextu délky záznamu, artefaktů a podmínek měření.",
+  "tipHr0": "Průměrná tepová frekvence v prvních 10 sekundách zotavení. Slouží jako výchozí hodnota pro porovnání poklesu.",
+  "tipHr60": "Tepová frekvence kolem 60. sekundy po ukončení zátěže. Porovnává se s počáteční HR pro HRR60.",
+  "tipHrr60": "Heart Rate Recovery za 60 s: rozdíl HR mezi 0–10 s a 50–60 s. Vyšší = rychlejší zotavení.",
+  "tipHrSlope": "Lineární sklon poklesu HR v prvních 60 s, vyjádřený v bpm/min. Více záporný = rychlejší pokles.",
+  "tipHr120": "Tepová frekvence kolem 120. sekundy. Vhodné pro delší zotavení a výpočet HRR120.",
+  "tipHrr120": "Heart Rate Recovery za 120 s: rozdíl HR mezi 0–10 s a 110–120 s. Vyšší = lepší kondice.",
+  "tipHrTau": "Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).",
+  "recordsTitle": "HISTORIE MĚŘENÍ",
+  "recordsSearchHint": "Hledat poznámku, datum, čas, BPM",
+  "recordsFilterAll": "Vše",
+  "recordsSelectMultiple": "Výběr více záznamů",
+  "recordsSort": "Třídit",
+  "recordsSortDateNewest": "Datum: nejnovější",
+  "recordsSortDateOldest": "Datum: nejstarší",
+  "recordsSortBpmHighest": "Tep: nejvyšší",
+  "recordsSortBpmLowest": "Tep: nejnižší",
+  "recordsEmpty": "Nebyly nalezeny žádné záznamy.",
+  "recordsDeleteSelected": "Smazat vybrané ({count})",
+  "@recordsDeleteSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsConfirmDeleteTitle": "Potvrdit smazání",
+  "recordsConfirmDeleteBody": "Opravdu chcete tento záznam smazat?",
+  "recordsDeleted": "Záznam smazán",
+  "recordsDeletedCount": "Smazáno {count} záznamů",
+  "@recordsDeletedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsLongTermTrends": "Dlouhodobé trendy",
+  "recordsTrendSummary": "{total} měření • průměr {mean} bpm",
+  "@recordsTrendSummary": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "mean": {
+        "type": "String"
+      }
+    }
+  },
+  "recordsDownloadPdf": "Stáhnout PDF",
+  "recordsExportTxt": "Export TXT",
+  "settingsTitle": "NASTAVENÍ",
+  "settingsAccessibilitySection": "Dostupnost a čitelnost",
+  "settingsDisplayMode": "Režim zobrazení",
+  "settingsDisplayModeHint": "Zvolte: Pacient (zjednodušené) nebo Lékař (detailní)",
+  "settingsPatientMode": "Režim pacienta",
+  "settingsPatientModeHint": "Jednoduché zobrazení – semafor",
+  "settingsDoctorMode": "Režim lékaře",
+  "settingsDoctorModeHint": "Detailní metriky HRV, zotavení",
+  "settingsSeniorMode": "Senior mód",
+  "settingsSeniorModeHint": "Větší prvky a lepší čitelnost",
+  "settingsHighContrast": "Vysoký kontrast",
+  "settingsHighContrastHint": "Černý text na bílém pozadí",
+  "settingsAppleHealth": "Propojení s Apple Health",
+  "settingsAppleHealthBody": "Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. Aplikace zapisuje pouze typ „Tepová frekvence\". Žádná další data se neodesílají ani nečtou.",
+  "settingsManagePermissions": "Spravovat oprávnění",
+  "settingsManagePermissionsHint": "Otevřete Nastavení → Soukromí → Zdraví → Tepovka",
+  "settingsGeneralSection": "Obecné",
+  "settingsTestVoiceHint": "Přehraje krátkou hlášku pro ověření",
+  "settingsPlayingTestVoice": "Přehrávám testovací hlášku...",
+  "settingsHaptics": "Haptická odezva",
+  "settingsHapticsHint": "Vibrace při akcích v aplikaci",
+  "settingsResearchSection": "VÝZKUMNÝ REŽIM",
+  "settingsResearchMode": "Režim pro výzkum",
+  "settingsResearchModeHint": "Před měřením se vyplní údaje k záznamu a export je podrobnější",
+  "settingsResearchFields": "Údaje vyplňované před měřením",
+  "settingsExportFormat": "Formát exportu",
+  "settingsPreMeasurementFields": "Údaje před měřením",
+  "settingsPreMeasurementFieldsHint": "Každý řádek je jedno pole formuláře.",
+  "settingsLogin": "Přihlášení",
+  "settingsNotLoggedIn": "Nepřihlášen",
+  "settingsLogout": "Odhlásit se",
+  "settingsLogoutHint": "Odstraní aktivní přihlášení na tomto zařízení",
+  "settingsLoggedOut": "Odhlášeno",
+  "settingsMyQrForDoctor": "Můj QR kód pro lékaře",
+  "settingsMyQrForDoctorHint": "Umožní rychlé vyhledání záznamů",
+  "settingsStoreLocally": "Ukládat záznamy lokálně",
+  "settingsStoreLocallyHint": "Uloží měření do zařízení",
+  "settingsTorchDuring": "Blesk během měření",
+  "settingsTorchDuringHint": "Zlepšuje průchod světla při PPG",
+  "settingsComingSoon": "Připravujeme",
+  "settingsLocalCount": "Počet měření uložených lokálně",
+  "settingsLastMeasurement": "Poslední měření",
+  "settingsOpenLog": "Otevřít log",
+  "settingsShareLog": "Sdílet log",
+  "settingsLogCleared": "Log vymazán",
+  "settingsLogOpenError": "Chyba při otevírání logu: {error}",
+  "@settingsLogOpenError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLogShareError": "Chyba při sdílení logu: {error}",
+  "@settingsLogShareError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLogDeleteError": "Chyba při mazání logu: {error}",
+  "@settingsLogDeleteError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLanguage": "Jazyk",
+  "@settingsLanguage": {
+    "description": "New setting introduced with localisation"
+  },
+  "settingsLanguageSystem": "Podle systému",
+  "settingsLanguageCzech": "Čeština",
+  "settingsLanguageEnglish": "English",
+  "exportFormatTxt": "TXT (původní formát)",
+  "exportFormatJson": "JSON (vše v jednom objektu)",
+  "loginMyQr": "Můj QR kód",
+  "loginQrHint": "Lékař na svém mobilu otevře kameru nebo QR skener a naskenuje tento kód. Pokud skener není dostupný, může ručně zadat vaše ID.",
+  "loginFullscreen": "Na celé obrazovce",
+  "loginIdCopied": "ID zkopírováno do schránky",
+  "loginCopyId": "Kopírovat ID",
+  "loginShare": "Sdílet",
+  "loginLogout": "Odhlásit",
+  "loginLocalProfile": "Lokální profil",
+  "loginName": "Jméno",
+  "loginNameHint": "Zadejte vaše jméno",
+  "loginPin": "PIN (volitelné)",
+  "loginPinHint": "4–6 číslic pro zámek profilu",
+  "loginSaveProfile": "Uložit profil a zobrazit QR",
+  "loginSignInFirst": "Nejprve se prosím přihlašte.",
+  "consentTitle": "Souhlas se zpracováním dat",
+  "consentBody": "Provoz aplikace vyžaduje zpracování obrazových snímků z fotoaparátu k výpočtu srdeční frekvence a souvisejících metrik.\n\nAplikace neodesílá vaše snímky na servery a data ukládá pouze lokálně, pokud s tím výslovně souhlasíte.\n\nDůležité: tato aplikace není lékařský přístroj. Hodnoty jako SpO2 jsou orientační a nemusí být ihned dostupné nebo přesné. Nepoužívejte aplikaci jako náhradu lékařského zařízení — při obavách vyhledejte odbornou lékařskou pomoc.",
+  "consentWhatItDoesTitle": "Co aplikace dělá:",
+  "consentBullet1": "- Zpracování snímků z fotoaparátu pro PPG analýzu.",
+  "consentBullet2": "- Ukládání souhrnných výsledků lokálně.",
+  "consentBullet3": "- Neodesílání surových obrazových dat bez souhlasu.",
+  "consentQuestion": "Souhlasíte se zpracováním dat potřebných pro měření?",
+  "consentAgree": "Souhlasím",
+  "researchDialogTitle": "Údaje k měření",
+  "researchDialogAutoStamp": "Datum a čas se doplní automaticky ({stamp}).",
+  "@researchDialogAutoStamp": {
+    "placeholders": {
+      "stamp": {
+        "type": "String"
+      }
+    }
+  },
+  "researchDialogStart": "Začít měření",
+  "pdfTitle": "Měření tepové frekvence a HRV",
+  "pdfTime": "Čas: {time}",
+  "@pdfTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "pdfAverageBpm": "Průměrný BPM: {bpm}",
+  "@pdfAverageBpm": {
+    "placeholders": {
+      "bpm": {
+        "type": "String"
+      }
+    }
+  },
+  "pdfDuration": "Délka měření: {duration} sekund",
+  "@pdfDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "pdfNotes": "Poznámky: {notes}",
+  "@pdfNotes": {
+    "placeholders": {
+      "notes": {
+        "type": "String"
+      }
+    }
+  },
+  "pdfSignalChart": "Graf signálu:",
+  "aboutHowPpgTitle": "Jak funguje PPG měření?",
+  "aboutHowPpgBody": "Fotopletysmografie (PPG) měří změny objemu krve v cévách pod pokožkou. S každým tepem projde prstem víc krve, ta pohltí víc světla a snímek z kamery na okamžik potemní. Aplikace z každého snímku spočítá průměrný jas v ploše pod prstem a z toho, jak se v čase mění, odečte tep.",
+  "aboutFingerTitle": "Jak správně přiložit prst?",
+  "aboutFingerBody": "1. Ujistěte se, že máte čistý prst bez nečistot.\n2. Jemně přiložte prst na kameru tak, aby ji zcela zakrýval.\n3. Nepřikládejte prst příliš silně, aby nedošlo ke zkreslení signálu.\n4. Svítilna se zapne sama během odpočtu — nechte prst v klidu, než měření začne.",
+  "aboutBeforeStartTitle": "Co se děje před začátkem měření",
+  "aboutBeforeStartBody": "Během odpočtu 3–2–1 aplikace rozsvítí svítilnu, počká, až se ustálí automatika kamery, a zamkne expozici i zaostření. Bez zámku by automatika kompenzovala právě ty změny jasu, které tep tvoří. Teprve pak začne samotný záznam, aby jeho začátek nebyl zatížený rozsvěcením a rozjezdem filtrů.",
+  "aboutProcessingTitle": "Jak se signál zpracovává",
+  "aboutProcessingBody": "1. Z každého snímku se vezme průměr zeleného kanálu v ploše pod prstem; když je zelená příliš tmavá, použije se červený kanál.\n2. Adaptivní filtr s údaji z akcelerometru potlačí vliv pohybu ruky.\n3. Následuje mediánový filtr proti ojedinělým výkyvům, odečtení pomalu se měnící složky (dýchání, prokrvení) a jemné vyhlazení.\n4. Kamera nedodává snímky přesně pravidelně, proto se pracuje se skutečnou snímkovací frekvencí měřenou z časových značek snímků — v praxi bývá kolem 24 snímků za sekundu, ne 30.",
+  "aboutHeartRateTitle": "Jak se vypočítá tepová frekvence?",
+  "aboutHeartRateBody": "Během měření se tep odhaduje ze spektra signálu a z autokorelace v posledních sekundách; když je odhad málo spolehlivý, aplikace raději nic nezobrazí, než aby ukázala nepodložené číslo.\nVe výsledku a v historii se pak tep počítá z detekovaných vrcholů: najdou se špičky odpovídající jednotlivým tepům, změří se intervaly mezi nimi a tep vyjde jako 60 ÷ průměrný interval v sekundách. Poloha každé špičky se dopočítává i mezi snímky, aby intervaly nebyly omezené krokem snímání.",
+  "aboutGreenChannelTitle": "Proč zelený kanál?",
+  "aboutGreenChannelBody": "Zelené světlo pohlcuje hemoglobin nejsilněji, takže se v něm změny prokrvení projeví nejvýrazněji. Červený kanál se přes prst přesvítí snáz, a slouží proto jako záloha, když je zelená příliš tmavá.",
+  "aboutAccuracyTitle": "Jak přesné to je",
+  "aboutAccuracyBody": "Zpracování jsme v srpnu 2026 ověřovali proti EKG holteru Bittium Faros 180 a pulznímu oxymetru na měřeních s 13 účastníky. Na uložených záznamech přepočtených stejným detektorem, jaký používá aplikace, se tep shodoval s EKG s průměrnou odchylkou pod 2 bpm — srovnatelně s tím, jak si odpovídají oba referenční přístroje navzájem.\nPřesnost ale závisí na kvalitě signálu: při pohybu, slabém prokrvení nebo špatně přiloženém prstu je odhad výrazně horší. U každého měření proto najdete i hodnocení kvality — měření označené jako špatné neberte vážně.\nParametry variability (SDNN, RMSSD) berte jen orientačně; na ně je snímkovací frekvence kamery hrubá. Aplikace není zdravotnický prostředek a neslouží k diagnostice.",
+  "infoTitle": "O NÁS",
+  "infoIntro": "Ahoj!\nS radostí Vám představujeme naši aplikaci s názvem Tepovka, která vzniká v rámci soutěže organizované Fakultou elektrotechniky a komunikačních technologií na Vysokém učení technickém v Brně. Tento projekt je výsledkem naší spolupráce v týmu, který spojuje nadšení pro biomedicínské inženýrství a snahu přinášet inovativní řešení do každodenního života.\n\nNaším cílem je vytvořit aplikaci, která umožní měření srdeční frekvence jednoduše pomocí smartphonu s kamerou a bleskem. Tato funkce je pouhým začátkem. V budoucnu plánujeme rozšířit aplikaci o pokročilejší funkce, jako je měření saturace kyslíku v krvi (oximetrie), detekce srdečních arytmií nebo dokonce měření krevního tlaku – pokud výzkumy ukáží, že je tato technologie proveditelná.\n\nAplikace vzniká za podpory VUT, které poskytuje nejen technologické zázemí, ale také odborné vedení, díky kterému můžeme naše nápady realizovat.",
+  "infoTeamTitle": "Náš tým",
+  "infoTeamBody": "Jsme studenti biomedicínského inženýrství a spojuje nás vášeň pro vývoj zdravotnických technologií. Náš tým tvoří:\n- Štěpán Zelníček\n- David Vavroušek\n- Jakub Kovář\n- Jakub Kaša\n\nKaždý z nás přispívá svými specifickými dovednostmi – od programování, přes design aplikací až po analýzu biologických dat. Naším hlavním cílem je vytvořit uživatelsky přívětivou a zároveň technologicky pokročilou aplikaci, která bude sloužit široké veřejnosti.",
+  "infoFollowTitle": "Sledujte a podpořte nás",
+  "infoFollowBody": "Jsme nadšeni z možnosti sdílet naši cestu s Vámi a budeme rádi, když nás podpoříte a budete sledovat naše pokroky. Těšíme se na společné objevování nových možností v oblasti digitálního zdravotnictví!",
+  "infoSupportedBy": "Za podpory VUT. Děkujeme",
+  "commonDelete": "Smazat",
+  "metricsStressIndex": "Index stresu",
+  "settingsAppLanguage": "Jazyk aplikace",
+  "settingsTextSize": "Velikost textu",
+  "settingsTestVoice": "Otestovat hlas (TTS)",
+  "settingsLogSection": "Logy a diagnostika",
+  "settingsLogNotFound": "Log soubor nenalezen",
+  "settingsClearLog": "Vymazat log",
+  "consentDecline": "Nechci",
+  "infoWeb": "Web",
+  "recordsBpmRange": "Rozsah BPM: {min}–{max}",
+  "@recordsBpmRange": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "pdfHrvMetrics": "HRV Metriky:",
+  "pdfDate": "Datum: {date}",
+  "@pdfDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  }
+}

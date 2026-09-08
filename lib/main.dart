@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:tepovka/widgets/privacy_consent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -72,15 +72,21 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: baseTheme,
           themeMode: ThemeMode.light,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('cs'),
-            Locale('en'),
-          ],
+          localizationsDelegates: L10n.localizationsDelegates,
+          supportedLocales: L10n.supportedLocales,
+          // null follows the device; an explicit choice in Settings wins.
+          locale: settings.language.locale,
+          localeResolutionCallback: (deviceLocale, supported) {
+            if (deviceLocale != null) {
+              for (final Locale candidate in supported) {
+                if (candidate.languageCode == deviceLocale.languageCode) {
+                  return candidate;
+                }
+              }
+            }
+            // Czech is the project's source language, so it is the fallback.
+            return const Locale('cs');
+          },
           builder: (context, child) {
             final mq = MediaQuery.of(context);
             return MediaQuery(

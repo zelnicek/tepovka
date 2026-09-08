@@ -1,0 +1,744 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for Czech (`cs`).
+class L10nCs extends L10n {
+  L10nCs([String locale = 'cs']) : super(locale);
+
+  @override
+  String get commonCancel => 'Zrušit';
+
+  @override
+  String get commonSave => 'Uložit';
+
+  @override
+  String get commonClose => 'Zavřít';
+
+  @override
+  String get commonNote => 'Poznámka';
+
+  @override
+  String get commonTapForExplanation => 'Tip: klepni pro vysvětlení';
+
+  @override
+  String get navMenu => 'MENU';
+
+  @override
+  String get navMeasure => 'MĚŘENÍ';
+
+  @override
+  String get navInfo => 'INFO';
+
+  @override
+  String get homeReady => 'PŘIPRAVENO K MĚŘENÍ';
+
+  @override
+  String get homeMeasuring => 'PROBÍHÁ MĚŘENÍ...';
+
+  @override
+  String get homeGetReady => 'PŘIPRAVTE SE...';
+
+  @override
+  String get homeStartButton => 'ZAHÁJIT MĚŘENÍ';
+
+  @override
+  String get homeStopButton => 'ZASTAVIT MĚŘENÍ';
+
+  @override
+  String get homeDurationLabel => 'Doba měření (sekundy)';
+
+  @override
+  String get homeSwitchCamera => 'Přepnout kameru';
+
+  @override
+  String get homeChangeCamera => 'Změnit kameru';
+
+  @override
+  String get homeTorchOn => 'Zapnout blesk';
+
+  @override
+  String get homeTorchOff => 'Vypnout blesk';
+
+  @override
+  String get homeQualityLabel => 'Kvalita';
+
+  @override
+  String get homeBpmUnit => 'bpm';
+
+  @override
+  String homeSecondsSuffix(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get homeNoReading => '--';
+
+  @override
+  String get homeCameraSwitchFailed =>
+      'Nepodařilo se přepnout kameru. Zkuste to znovu.';
+
+  @override
+  String get homeDurationOutOfRange =>
+      'Zadejte dobu trvání mezi 10 a 300 sekundami';
+
+  @override
+  String get homeHrvDurationHint =>
+      'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.';
+
+  @override
+  String get qualityGood => 'Dobrá';
+
+  @override
+  String get qualityMedium => 'Střední';
+
+  @override
+  String get qualityBad => 'Špatná';
+
+  @override
+  String get qualityNoFinger => 'Žádný prst';
+
+  @override
+  String get qualityPoorContact => 'Špatný kontakt';
+
+  @override
+  String get ttsCountdown => 'Nahrávání začne za tři, dva, jedna.';
+
+  @override
+  String get ttsMeasurementEnd => 'Měření ukončeno.';
+
+  @override
+  String get ttsSignalGood => 'Signál je dobrý.';
+
+  @override
+  String get ttsSignalWorse => 'Signál je horší, nehýbejte se.';
+
+  @override
+  String get ttsPoorContact => 'Špatný kontakt s kamerou.';
+
+  @override
+  String get ttsPlaceFinger => 'Přiložte prst na kameru.';
+
+  @override
+  String get ttsTestVoice => 'Testovací hlas funguje.';
+
+  @override
+  String get introTitle => 'DOMOVSKÁ STRÁNKA';
+
+  @override
+  String get introStartMeasurement => 'ZAČÍT MĚŘENÍ';
+
+  @override
+  String get introRecords => 'ZÁZNAMY';
+
+  @override
+  String get summaryTitle => 'VÝSLEDEK';
+
+  @override
+  String get summaryAverageHeartRate => 'Průměrná tepová frekvence:';
+
+  @override
+  String get summaryNotesHint => 'Zadejte své poznámky k měření...';
+
+  @override
+  String get summaryTabSignal => 'Signál';
+
+  @override
+  String get summaryTabRecovery => 'Zotavení';
+
+  @override
+  String get summarySaveToHealth => 'Uložit (zapíše do Apple Health)';
+
+  @override
+  String get summaryInNorm => 'Jste v normě';
+
+  @override
+  String get summaryRest => 'Odpočívejte';
+
+  @override
+  String get summaryContinueActivity => 'Pokračujte v běžné aktivitě';
+
+  @override
+  String get summaryShortRest => 'Doporučujeme krátký odpočinek';
+
+  @override
+  String get summarySpo2Pending =>
+      'Poznámka: Hodnota SpO2 se právě připravuje a nemusí být okamžitě aktuální.';
+
+  @override
+  String get summaryInvalidHeartRate =>
+      'Neplatná tepová frekvence (≤ 0). Záznam nebyl uložen.';
+
+  @override
+  String get summarySavedToHealth => 'Úspěšně uloženo do Apple Health';
+
+  @override
+  String get summaryHealthSaveError => 'Chyba při ukládání do Apple Health';
+
+  @override
+  String get metricsHrvAnalysis => 'HRV Analýza';
+
+  @override
+  String get metricsAverageRr => 'Průměrný RR';
+
+  @override
+  String get metricsRespiratoryRate => 'Dechová frekvence';
+
+  @override
+  String metricsBreathsPerMinute(String value) {
+    return '$value dechů/min';
+  }
+
+  @override
+  String get metricsHeartRateRecovery => 'Zotavení srdeční frekvence';
+
+  @override
+  String get metricsHeartRate => 'Tepová frekvence';
+
+  @override
+  String get metricsRecoveryIntro =>
+      'Měří pokles tepové frekvence po zátěži. Vyšší pokles za 60–120 s obvykle značí lepší kardiovaskulární kondici a rychlejší zotavení.';
+
+  @override
+  String get tipRmssd =>
+      'Root Mean Square of Successive Differences – citlivé na krátkodobou, parasympatickou aktivitu. Vyšší hodnoty obvykle znamenají lepší regeneraci a nižší stres.';
+
+  @override
+  String get tipSdnn =>
+      'Standardní odchylka NN intervalů – celková variabilita srdeční frekvence za celé měření. Odráží kombinaci krátkodobých i dlouhodobých vlivů.';
+
+  @override
+  String get tipPnn50 =>
+      'Podíl po sobě jdoucích NN intervalů, které se liší o více než 50 ms. Vyšší procento obvykle ukazuje na silnější parasympatickou aktivitu.';
+
+  @override
+  String get tipMeanRr =>
+      'Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou tepovou frekvencí (delší RR = nižší BPM).';
+
+  @override
+  String get tipSd1 =>
+      'SD1 (Poincaré) – krátkodobá HRV (beat-to-beat variabilita). Blízce souvisí s RMSSD a parasympatikem.';
+
+  @override
+  String get tipSd2 =>
+      'SD2 (Poincaré) – dlouhodobá HRV. Zachycuje pomalejší kolísání a trend variability.';
+
+  @override
+  String get tipSd2Sd1Ratio =>
+      'Poměr dlouhodobé/krátkodobé variability. Vyšší poměr může ukazovat na převahu dlouhodobých oscilací nebo zvýšený stres.';
+
+  @override
+  String get tipLf =>
+      'Low Frequency složka (0.04–0.15 Hz) – směs sympatické i parasympatické aktivity. Uvádíme jako procento z (LF+HF).';
+
+  @override
+  String get tipHf =>
+      'High Frequency složka (0.15–0.40 Hz) – převážně parasympatická aktivita (dýchací sinusová arytmie). Uvádíme jako procento z (LF+HF).';
+
+  @override
+  String get tipLfHfRatio =>
+      'Poměr LF/HF – orientační ukazatel rovnováhy sympatikus/parasympatikus. Interpretace musí brát v úvahu kontext a délku záznamu.';
+
+  @override
+  String get tipRespiratoryRate =>
+      'Dechová frekvence (dechů/min). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.';
+
+  @override
+  String get tipBaevsky =>
+      'Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí, interpretuj s ohledem na podmínky měření.';
+
+  @override
+  String get tipGenericHrv =>
+      'Metrika HRV. Hodnoť v kontextu délky záznamu, artefaktů a podmínek měření.';
+
+  @override
+  String get tipHr0 =>
+      'Průměrná tepová frekvence v prvních 10 sekundách zotavení. Slouží jako výchozí hodnota pro porovnání poklesu.';
+
+  @override
+  String get tipHr60 =>
+      'Tepová frekvence kolem 60. sekundy po ukončení zátěže. Porovnává se s počáteční HR pro HRR60.';
+
+  @override
+  String get tipHrr60 =>
+      'Heart Rate Recovery za 60 s: rozdíl HR mezi 0–10 s a 50–60 s. Vyšší = rychlejší zotavení.';
+
+  @override
+  String get tipHrSlope =>
+      'Lineární sklon poklesu HR v prvních 60 s, vyjádřený v bpm/min. Více záporný = rychlejší pokles.';
+
+  @override
+  String get tipHr120 =>
+      'Tepová frekvence kolem 120. sekundy. Vhodné pro delší zotavení a výpočet HRR120.';
+
+  @override
+  String get tipHrr120 =>
+      'Heart Rate Recovery za 120 s: rozdíl HR mezi 0–10 s a 110–120 s. Vyšší = lepší kondice.';
+
+  @override
+  String get tipHrTau =>
+      'Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).';
+
+  @override
+  String get recordsTitle => 'HISTORIE MĚŘENÍ';
+
+  @override
+  String get recordsSearchHint => 'Hledat poznámku, datum, čas, BPM';
+
+  @override
+  String get recordsFilterAll => 'Vše';
+
+  @override
+  String get recordsSelectMultiple => 'Výběr více záznamů';
+
+  @override
+  String get recordsSort => 'Třídit';
+
+  @override
+  String get recordsSortDateNewest => 'Datum: nejnovější';
+
+  @override
+  String get recordsSortDateOldest => 'Datum: nejstarší';
+
+  @override
+  String get recordsSortBpmHighest => 'Tep: nejvyšší';
+
+  @override
+  String get recordsSortBpmLowest => 'Tep: nejnižší';
+
+  @override
+  String get recordsEmpty => 'Nebyly nalezeny žádné záznamy.';
+
+  @override
+  String recordsDeleteSelected(int count) {
+    return 'Smazat vybrané ($count)';
+  }
+
+  @override
+  String get recordsConfirmDeleteTitle => 'Potvrdit smazání';
+
+  @override
+  String get recordsConfirmDeleteBody => 'Opravdu chcete tento záznam smazat?';
+
+  @override
+  String get recordsDeleted => 'Záznam smazán';
+
+  @override
+  String recordsDeletedCount(int count) {
+    return 'Smazáno $count záznamů';
+  }
+
+  @override
+  String get recordsLongTermTrends => 'Dlouhodobé trendy';
+
+  @override
+  String recordsTrendSummary(int total, String mean) {
+    return '$total měření • průměr $mean bpm';
+  }
+
+  @override
+  String get recordsDownloadPdf => 'Stáhnout PDF';
+
+  @override
+  String get recordsExportTxt => 'Export TXT';
+
+  @override
+  String get settingsTitle => 'NASTAVENÍ';
+
+  @override
+  String get settingsAccessibilitySection => 'Dostupnost a čitelnost';
+
+  @override
+  String get settingsDisplayMode => 'Režim zobrazení';
+
+  @override
+  String get settingsDisplayModeHint =>
+      'Zvolte: Pacient (zjednodušené) nebo Lékař (detailní)';
+
+  @override
+  String get settingsPatientMode => 'Režim pacienta';
+
+  @override
+  String get settingsPatientModeHint => 'Jednoduché zobrazení – semafor';
+
+  @override
+  String get settingsDoctorMode => 'Režim lékaře';
+
+  @override
+  String get settingsDoctorModeHint => 'Detailní metriky HRV, zotavení';
+
+  @override
+  String get settingsSeniorMode => 'Senior mód';
+
+  @override
+  String get settingsSeniorModeHint => 'Větší prvky a lepší čitelnost';
+
+  @override
+  String get settingsHighContrast => 'Vysoký kontrast';
+
+  @override
+  String get settingsHighContrastHint => 'Černý text na bílém pozadí';
+
+  @override
+  String get settingsAppleHealth => 'Propojení s Apple Health';
+
+  @override
+  String get settingsAppleHealthBody =>
+      'Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. Aplikace zapisuje pouze typ „Tepová frekvence\". Žádná další data se neodesílají ani nečtou.';
+
+  @override
+  String get settingsManagePermissions => 'Spravovat oprávnění';
+
+  @override
+  String get settingsManagePermissionsHint =>
+      'Otevřete Nastavení → Soukromí → Zdraví → Tepovka';
+
+  @override
+  String get settingsGeneralSection => 'Obecné';
+
+  @override
+  String get settingsTestVoiceHint => 'Přehraje krátkou hlášku pro ověření';
+
+  @override
+  String get settingsPlayingTestVoice => 'Přehrávám testovací hlášku...';
+
+  @override
+  String get settingsHaptics => 'Haptická odezva';
+
+  @override
+  String get settingsHapticsHint => 'Vibrace při akcích v aplikaci';
+
+  @override
+  String get settingsResearchSection => 'VÝZKUMNÝ REŽIM';
+
+  @override
+  String get settingsResearchMode => 'Režim pro výzkum';
+
+  @override
+  String get settingsResearchModeHint =>
+      'Před měřením se vyplní údaje k záznamu a export je podrobnější';
+
+  @override
+  String get settingsResearchFields => 'Údaje vyplňované před měřením';
+
+  @override
+  String get settingsExportFormat => 'Formát exportu';
+
+  @override
+  String get settingsPreMeasurementFields => 'Údaje před měřením';
+
+  @override
+  String get settingsPreMeasurementFieldsHint =>
+      'Každý řádek je jedno pole formuláře.';
+
+  @override
+  String get settingsLogin => 'Přihlášení';
+
+  @override
+  String get settingsNotLoggedIn => 'Nepřihlášen';
+
+  @override
+  String get settingsLogout => 'Odhlásit se';
+
+  @override
+  String get settingsLogoutHint =>
+      'Odstraní aktivní přihlášení na tomto zařízení';
+
+  @override
+  String get settingsLoggedOut => 'Odhlášeno';
+
+  @override
+  String get settingsMyQrForDoctor => 'Můj QR kód pro lékaře';
+
+  @override
+  String get settingsMyQrForDoctorHint => 'Umožní rychlé vyhledání záznamů';
+
+  @override
+  String get settingsStoreLocally => 'Ukládat záznamy lokálně';
+
+  @override
+  String get settingsStoreLocallyHint => 'Uloží měření do zařízení';
+
+  @override
+  String get settingsTorchDuring => 'Blesk během měření';
+
+  @override
+  String get settingsTorchDuringHint => 'Zlepšuje průchod světla při PPG';
+
+  @override
+  String get settingsComingSoon => 'Připravujeme';
+
+  @override
+  String get settingsLocalCount => 'Počet měření uložených lokálně';
+
+  @override
+  String get settingsLastMeasurement => 'Poslední měření';
+
+  @override
+  String get settingsOpenLog => 'Otevřít log';
+
+  @override
+  String get settingsShareLog => 'Sdílet log';
+
+  @override
+  String get settingsLogCleared => 'Log vymazán';
+
+  @override
+  String settingsLogOpenError(String error) {
+    return 'Chyba při otevírání logu: $error';
+  }
+
+  @override
+  String settingsLogShareError(String error) {
+    return 'Chyba při sdílení logu: $error';
+  }
+
+  @override
+  String settingsLogDeleteError(String error) {
+    return 'Chyba při mazání logu: $error';
+  }
+
+  @override
+  String get settingsLanguage => 'Jazyk';
+
+  @override
+  String get settingsLanguageSystem => 'Podle systému';
+
+  @override
+  String get settingsLanguageCzech => 'Čeština';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get exportFormatTxt => 'TXT (původní formát)';
+
+  @override
+  String get exportFormatJson => 'JSON (vše v jednom objektu)';
+
+  @override
+  String get loginMyQr => 'Můj QR kód';
+
+  @override
+  String get loginQrHint =>
+      'Lékař na svém mobilu otevře kameru nebo QR skener a naskenuje tento kód. Pokud skener není dostupný, může ručně zadat vaše ID.';
+
+  @override
+  String get loginFullscreen => 'Na celé obrazovce';
+
+  @override
+  String get loginIdCopied => 'ID zkopírováno do schránky';
+
+  @override
+  String get loginCopyId => 'Kopírovat ID';
+
+  @override
+  String get loginShare => 'Sdílet';
+
+  @override
+  String get loginLogout => 'Odhlásit';
+
+  @override
+  String get loginLocalProfile => 'Lokální profil';
+
+  @override
+  String get loginName => 'Jméno';
+
+  @override
+  String get loginNameHint => 'Zadejte vaše jméno';
+
+  @override
+  String get loginPin => 'PIN (volitelné)';
+
+  @override
+  String get loginPinHint => '4–6 číslic pro zámek profilu';
+
+  @override
+  String get loginSaveProfile => 'Uložit profil a zobrazit QR';
+
+  @override
+  String get loginSignInFirst => 'Nejprve se prosím přihlašte.';
+
+  @override
+  String get consentTitle => 'Souhlas se zpracováním dat';
+
+  @override
+  String get consentBody =>
+      'Provoz aplikace vyžaduje zpracování obrazových snímků z fotoaparátu k výpočtu srdeční frekvence a souvisejících metrik.\n\nAplikace neodesílá vaše snímky na servery a data ukládá pouze lokálně, pokud s tím výslovně souhlasíte.\n\nDůležité: tato aplikace není lékařský přístroj. Hodnoty jako SpO2 jsou orientační a nemusí být ihned dostupné nebo přesné. Nepoužívejte aplikaci jako náhradu lékařského zařízení — při obavách vyhledejte odbornou lékařskou pomoc.';
+
+  @override
+  String get consentWhatItDoesTitle => 'Co aplikace dělá:';
+
+  @override
+  String get consentBullet1 =>
+      '- Zpracování snímků z fotoaparátu pro PPG analýzu.';
+
+  @override
+  String get consentBullet2 => '- Ukládání souhrnných výsledků lokálně.';
+
+  @override
+  String get consentBullet3 =>
+      '- Neodesílání surových obrazových dat bez souhlasu.';
+
+  @override
+  String get consentQuestion =>
+      'Souhlasíte se zpracováním dat potřebných pro měření?';
+
+  @override
+  String get consentAgree => 'Souhlasím';
+
+  @override
+  String get researchDialogTitle => 'Údaje k měření';
+
+  @override
+  String researchDialogAutoStamp(String stamp) {
+    return 'Datum a čas se doplní automaticky ($stamp).';
+  }
+
+  @override
+  String get researchDialogStart => 'Začít měření';
+
+  @override
+  String get pdfTitle => 'Měření tepové frekvence a HRV';
+
+  @override
+  String pdfTime(String time) {
+    return 'Čas: $time';
+  }
+
+  @override
+  String pdfAverageBpm(String bpm) {
+    return 'Průměrný BPM: $bpm';
+  }
+
+  @override
+  String pdfDuration(String duration) {
+    return 'Délka měření: $duration sekund';
+  }
+
+  @override
+  String pdfNotes(String notes) {
+    return 'Poznámky: $notes';
+  }
+
+  @override
+  String get pdfSignalChart => 'Graf signálu:';
+
+  @override
+  String get aboutHowPpgTitle => 'Jak funguje PPG měření?';
+
+  @override
+  String get aboutHowPpgBody =>
+      'Fotopletysmografie (PPG) měří změny objemu krve v cévách pod pokožkou. S každým tepem projde prstem víc krve, ta pohltí víc světla a snímek z kamery na okamžik potemní. Aplikace z každého snímku spočítá průměrný jas v ploše pod prstem a z toho, jak se v čase mění, odečte tep.';
+
+  @override
+  String get aboutFingerTitle => 'Jak správně přiložit prst?';
+
+  @override
+  String get aboutFingerBody =>
+      '1. Ujistěte se, že máte čistý prst bez nečistot.\n2. Jemně přiložte prst na kameru tak, aby ji zcela zakrýval.\n3. Nepřikládejte prst příliš silně, aby nedošlo ke zkreslení signálu.\n4. Svítilna se zapne sama během odpočtu — nechte prst v klidu, než měření začne.';
+
+  @override
+  String get aboutBeforeStartTitle => 'Co se děje před začátkem měření';
+
+  @override
+  String get aboutBeforeStartBody =>
+      'Během odpočtu 3–2–1 aplikace rozsvítí svítilnu, počká, až se ustálí automatika kamery, a zamkne expozici i zaostření. Bez zámku by automatika kompenzovala právě ty změny jasu, které tep tvoří. Teprve pak začne samotný záznam, aby jeho začátek nebyl zatížený rozsvěcením a rozjezdem filtrů.';
+
+  @override
+  String get aboutProcessingTitle => 'Jak se signál zpracovává';
+
+  @override
+  String get aboutProcessingBody =>
+      '1. Z každého snímku se vezme průměr zeleného kanálu v ploše pod prstem; když je zelená příliš tmavá, použije se červený kanál.\n2. Adaptivní filtr s údaji z akcelerometru potlačí vliv pohybu ruky.\n3. Následuje mediánový filtr proti ojedinělým výkyvům, odečtení pomalu se měnící složky (dýchání, prokrvení) a jemné vyhlazení.\n4. Kamera nedodává snímky přesně pravidelně, proto se pracuje se skutečnou snímkovací frekvencí měřenou z časových značek snímků — v praxi bývá kolem 24 snímků za sekundu, ne 30.';
+
+  @override
+  String get aboutHeartRateTitle => 'Jak se vypočítá tepová frekvence?';
+
+  @override
+  String get aboutHeartRateBody =>
+      'Během měření se tep odhaduje ze spektra signálu a z autokorelace v posledních sekundách; když je odhad málo spolehlivý, aplikace raději nic nezobrazí, než aby ukázala nepodložené číslo.\nVe výsledku a v historii se pak tep počítá z detekovaných vrcholů: najdou se špičky odpovídající jednotlivým tepům, změří se intervaly mezi nimi a tep vyjde jako 60 ÷ průměrný interval v sekundách. Poloha každé špičky se dopočítává i mezi snímky, aby intervaly nebyly omezené krokem snímání.';
+
+  @override
+  String get aboutGreenChannelTitle => 'Proč zelený kanál?';
+
+  @override
+  String get aboutGreenChannelBody =>
+      'Zelené světlo pohlcuje hemoglobin nejsilněji, takže se v něm změny prokrvení projeví nejvýrazněji. Červený kanál se přes prst přesvítí snáz, a slouží proto jako záloha, když je zelená příliš tmavá.';
+
+  @override
+  String get aboutAccuracyTitle => 'Jak přesné to je';
+
+  @override
+  String get aboutAccuracyBody =>
+      'Zpracování jsme v srpnu 2026 ověřovali proti EKG holteru Bittium Faros 180 a pulznímu oxymetru na měřeních s 13 účastníky. Na uložených záznamech přepočtených stejným detektorem, jaký používá aplikace, se tep shodoval s EKG s průměrnou odchylkou pod 2 bpm — srovnatelně s tím, jak si odpovídají oba referenční přístroje navzájem.\nPřesnost ale závisí na kvalitě signálu: při pohybu, slabém prokrvení nebo špatně přiloženém prstu je odhad výrazně horší. U každého měření proto najdete i hodnocení kvality — měření označené jako špatné neberte vážně.\nParametry variability (SDNN, RMSSD) berte jen orientačně; na ně je snímkovací frekvence kamery hrubá. Aplikace není zdravotnický prostředek a neslouží k diagnostice.';
+
+  @override
+  String get infoTitle => 'O NÁS';
+
+  @override
+  String get infoIntro =>
+      'Ahoj!\nS radostí Vám představujeme naši aplikaci s názvem Tepovka, která vzniká v rámci soutěže organizované Fakultou elektrotechniky a komunikačních technologií na Vysokém učení technickém v Brně. Tento projekt je výsledkem naší spolupráce v týmu, který spojuje nadšení pro biomedicínské inženýrství a snahu přinášet inovativní řešení do každodenního života.\n\nNaším cílem je vytvořit aplikaci, která umožní měření srdeční frekvence jednoduše pomocí smartphonu s kamerou a bleskem. Tato funkce je pouhým začátkem. V budoucnu plánujeme rozšířit aplikaci o pokročilejší funkce, jako je měření saturace kyslíku v krvi (oximetrie), detekce srdečních arytmií nebo dokonce měření krevního tlaku – pokud výzkumy ukáží, že je tato technologie proveditelná.\n\nAplikace vzniká za podpory VUT, které poskytuje nejen technologické zázemí, ale také odborné vedení, díky kterému můžeme naše nápady realizovat.';
+
+  @override
+  String get infoTeamTitle => 'Náš tým';
+
+  @override
+  String get infoTeamBody =>
+      'Jsme studenti biomedicínského inženýrství a spojuje nás vášeň pro vývoj zdravotnických technologií. Náš tým tvoří:\n- Štěpán Zelníček\n- David Vavroušek\n- Jakub Kovář\n- Jakub Kaša\n\nKaždý z nás přispívá svými specifickými dovednostmi – od programování, přes design aplikací až po analýzu biologických dat. Naším hlavním cílem je vytvořit uživatelsky přívětivou a zároveň technologicky pokročilou aplikaci, která bude sloužit široké veřejnosti.';
+
+  @override
+  String get infoFollowTitle => 'Sledujte a podpořte nás';
+
+  @override
+  String get infoFollowBody =>
+      'Jsme nadšeni z možnosti sdílet naši cestu s Vámi a budeme rádi, když nás podpoříte a budete sledovat naše pokroky. Těšíme se na společné objevování nových možností v oblasti digitálního zdravotnictví!';
+
+  @override
+  String get infoSupportedBy => 'Za podpory VUT. Děkujeme';
+
+  @override
+  String get commonDelete => 'Smazat';
+
+  @override
+  String get metricsStressIndex => 'Index stresu';
+
+  @override
+  String get settingsAppLanguage => 'Jazyk aplikace';
+
+  @override
+  String get settingsTextSize => 'Velikost textu';
+
+  @override
+  String get settingsTestVoice => 'Otestovat hlas (TTS)';
+
+  @override
+  String get settingsLogSection => 'Logy a diagnostika';
+
+  @override
+  String get settingsLogNotFound => 'Log soubor nenalezen';
+
+  @override
+  String get settingsClearLog => 'Vymazat log';
+
+  @override
+  String get consentDecline => 'Nechci';
+
+  @override
+  String get infoWeb => 'Web';
+
+  @override
+  String recordsBpmRange(String min, String max) {
+    return 'Rozsah BPM: $min–$max';
+  }
+
+  @override
+  String get pdfHrvMetrics => 'HRV Metriky:';
+
+  @override
+  String pdfDate(String date) {
+    return 'Datum: $date';
+  }
+}
