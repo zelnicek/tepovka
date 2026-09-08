@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:tepovka/services/app_settings.dart';
 
@@ -59,14 +60,14 @@ class _ResearchMetadataDialogState extends State<ResearchMetadataDialog> {
         '${now.minute.toString().padLeft(2, '0')}';
 
     return AlertDialog(
-      title: const Text('Údaje k měření'),
+      title: Text(L10n.of(context).researchDialogTitle),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Datum a čas se doplní automaticky ($stamp).',
+              L10n.of(context).researchDialogAutoStamp(stamp),
               style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.6)),
             ),
             const SizedBox(height: 12),
@@ -92,7 +93,7 @@ class _ResearchMetadataDialogState extends State<ResearchMetadataDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Zrušit'),
+          child: Text(L10n.of(context).commonCancel),
         ),
         FilledButton(
           onPressed: () {
@@ -103,7 +104,7 @@ class _ResearchMetadataDialogState extends State<ResearchMetadataDialog> {
             });
             Navigator.of(context).pop(values);
           },
-          child: const Text('Začít měření'),
+          child: Text(L10n.of(context).researchDialogStart),
         ),
       ],
     );

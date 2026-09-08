@@ -1,10 +1,46 @@
 // pdf_create.dart
 import 'dart:typed_data';
+
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+
+/// Text the PDF needs, resolved by the caller which still has a BuildContext.
+class PdfLabels {
+  final String title;
+  final String Function(String) date;
+  final String Function(String) time;
+  final String Function(String) averageBpm;
+  final String Function(String) duration;
+  final String Function(String) notes;
+  final String hrvMetrics;
+  final String signalChart;
+
+  const PdfLabels({
+    required this.title,
+    required this.date,
+    required this.time,
+    required this.averageBpm,
+    required this.duration,
+    required this.notes,
+    required this.hrvMetrics,
+    required this.signalChart,
+  });
+
+  factory PdfLabels.of(L10n t) => PdfLabels(
+        title: t.pdfTitle,
+        date: t.pdfDate,
+        time: t.pdfTime,
+        averageBpm: t.pdfAverageBpm,
+        duration: t.pdfDuration,
+        notes: t.pdfNotes,
+        hrvMetrics: t.pdfHrvMetrics,
+        signalChart: t.pdfSignalChart,
+      );
+}
 
 Future<String?> createPdf({
   required int averageBPM,
@@ -14,6 +50,7 @@ Future<String?> createPdf({
   required Uint8List? chartImageBytes,
   required String formattedDate,
   required String formattedTime,
+  required PdfLabels labels,
 }) async {
   try {
     final pdf = pw.Document();
@@ -42,23 +79,23 @@ Future<String?> createPdf({
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('Měření tepové frekvence a HRV',
+                  pw.Text(labels.title,
                       style: pw.TextStyle(
                           fontSize: 24,
                           fontWeight: pw.FontWeight.bold,
                           font: ttf)),
                   pw.SizedBox(height: 20),
-                  pw.Text('Datum: $formattedDate',
+                  pw.Text(labels.date(formattedDate),
                       style: pw.TextStyle(font: ttf)),
-                  pw.Text('Čas: $formattedTime',
+                  pw.Text(labels.time(formattedTime),
                       style: pw.TextStyle(font: ttf)),
-                  pw.Text('Průměrný BPM: $averageBPM',
+                  pw.Text(labels.averageBpm('$averageBPM'),
                       style: pw.TextStyle(font: ttf)),
-                  pw.Text('Délka měření: $duration sekund',
+                  pw.Text(labels.duration('$duration'),
                       style: pw.TextStyle(font: ttf)),
-                  pw.Text('Poznámky: $notes', style: pw.TextStyle(font: ttf)),
+                  pw.Text(labels.notes(notes), style: pw.TextStyle(font: ttf)),
                   pw.SizedBox(height: 20),
-                  pw.Text('HRV Metriky:',
+                  pw.Text(labels.hrvMetrics,
                       style: pw.TextStyle(
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
@@ -73,7 +110,7 @@ Future<String?> createPdf({
                   ),
                   pw.SizedBox(height: 20),
                   if (chartImage != null) ...[
-                    pw.Text('Graf signálu:',
+                    pw.Text(labels.signalChart,
                         style: pw.TextStyle(
                             fontSize: 18,
                             fontWeight: pw.FontWeight.bold,

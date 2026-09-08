@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/pages/login_page.dart';
@@ -66,12 +67,12 @@ class _SettingsPageState extends State<SettingsPage> {
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Log soubor nenalezen')));
+            SnackBar(content: Text(L10n.of(context).settingsLogNotFound)));
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chyba při otevírání logu: $e')));
+          SnackBar(content: Text(L10n.of(context).settingsLogOpenError('$e'))));
     }
   }
 
@@ -83,12 +84,12 @@ class _SettingsPageState extends State<SettingsPage> {
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Log soubor nenalezen')));
+            SnackBar(content: Text(L10n.of(context).settingsLogNotFound)));
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Chyba při sdílení logu: $e')));
+          .showSnackBar(SnackBar(content: Text(L10n.of(context).settingsLogShareError('$e'))));
     }
   }
 
@@ -100,16 +101,16 @@ class _SettingsPageState extends State<SettingsPage> {
         await LocalLogger.init(); // recreate
         if (!mounted) return;
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Log vymazán')));
+            .showSnackBar(SnackBar(content: Text(L10n.of(context).settingsLogCleared)));
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Log soubor nenalezen')));
+            SnackBar(content: Text(L10n.of(context).settingsLogNotFound)));
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Chyba při mazání logu: $e')));
+          .showSnackBar(SnackBar(content: Text(L10n.of(context).settingsLogDeleteError('$e'))));
     }
   }
 
@@ -117,13 +118,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final picked = await showDialog<ExportFormat>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Formát exportu'),
+        title: Text(L10n.of(context).settingsExportFormat),
         children: [
           for (final format in ExportFormat.values)
             RadioListTile<ExportFormat>(
               value: format,
               groupValue: _exportFormat,
-              title: Text(format.label),
+              title: Text(_exportFormatLabel(format)),
               onChanged: (v) => Navigator.of(context).pop(v),
             ),
         ],
@@ -139,12 +140,12 @@ class _SettingsPageState extends State<SettingsPage> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Údaje před měřením'),
+        title: Text(L10n.of(context).settingsPreMeasurementFields),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Každý řádek je jedno pole formuláře.',
+            Text(L10n.of(context).settingsPreMeasurementFieldsHint,
                 style: TextStyle(fontSize: 12)),
             const SizedBox(height: 10),
             TextField(
@@ -157,11 +158,11 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Zrušit'),
+            child: Text(L10n.of(context).commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Uložit'),
+            child: Text(L10n.of(context).commonSave),
           ),
         ],
       ),
@@ -171,16 +172,57 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _researchFields = AppSettings.value.researchFields);
   }
 
+  String _exportFormatLabel(ExportFormat format) {
+    final L10n t = L10n.of(context);
+    return switch (format) {
+      ExportFormat.txt => t.exportFormatTxt,
+      ExportFormat.csv => 'CSV (Excel, pandas)',
+      ExportFormat.json => t.exportFormatJson,
+    };
+  }
+
+  String _languageLabel(AppLanguage language) {
+    final L10n t = L10n.of(context);
+    return switch (language) {
+      AppLanguage.system => t.settingsLanguageSystem,
+      AppLanguage.czech => t.settingsLanguageCzech,
+      AppLanguage.english => t.settingsLanguageEnglish,
+    };
+  }
+
+  Future<void> _pickLanguage(AppLanguage current) async {
+    final AppLanguage? picked = await showDialog<AppLanguage>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(L10n.of(context).settingsAppLanguage),
+        children: [
+          for (final AppLanguage option in AppLanguage.values)
+            RadioListTile<AppLanguage>(
+              value: option,
+              groupValue: current,
+              title: Text(_languageLabel(option)),
+              onChanged: (value) => Navigator.pop(context, value),
+            ),
+        ],
+      ),
+    );
+    if (picked != null && picked != current) {
+      AppSettings.setLanguage(picked);
+      if (mounted) setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final AppSettingsData settings = AppSettings.value;
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
         automaticallyImplyLeading: true,
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
         centerTitle: true,
-        title: const Text(
-          'NASTAVENÍ',
+        title: Text(
+          L10n.of(context).settingsTitle,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -189,23 +231,23 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: ListView(
         children: [
-          const ListTile(
+          ListTile(
             title: Text(
-              'Dostupnost a čitelnost',
+              L10n.of(context).settingsAccessibilitySection,
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(height: 4),
-          const ListTile(
-            title: Text('Režim zobrazení'),
+          ListTile(
+            title: Text(L10n.of(context).settingsDisplayMode),
             subtitle:
-                Text('Zvolte: Pacient (zjednodušené) nebo Lékař (detailní)'),
+                Text(L10n.of(context).settingsDisplayModeHint),
           ),
           RadioListTile<UserMode>(
             value: UserMode.patient,
             groupValue: _userMode,
-            title: const Text('Režim pacienta'),
-            subtitle: const Text('Jednoduché zobrazení – semafor'),
+            title: Text(L10n.of(context).settingsPatientMode),
+            subtitle: Text(L10n.of(context).settingsPatientModeHint),
             onChanged: (v) {
               if (v == null) return;
               setState(() => _userMode = v);
@@ -215,8 +257,8 @@ class _SettingsPageState extends State<SettingsPage> {
           RadioListTile<UserMode>(
             value: UserMode.doctor,
             groupValue: _userMode,
-            title: const Text('Režim lékaře'),
-            subtitle: const Text('Detailní metriky HRV, zotavení'),
+            title: Text(L10n.of(context).settingsDoctorMode),
+            subtitle: Text(L10n.of(context).settingsDoctorModeHint),
             onChanged: (v) {
               if (v == null) return;
               setState(() => _userMode = v);
@@ -226,8 +268,8 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 24),
           SwitchListTile(
             secondary: const Icon(Symbols.settings_accessibility),
-            title: const Text('Senior mód'),
-            subtitle: const Text('Větší prvky a lepší čitelnost'),
+            title: Text(L10n.of(context).settingsSeniorMode),
+            subtitle: Text(L10n.of(context).settingsSeniorModeHint),
             value: _seniorMode,
             onChanged: (v) {
               setState(() => _seniorMode = v);
@@ -236,8 +278,8 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SwitchListTile(
             secondary: const Icon(Symbols.contrast),
-            title: const Text('Vysoký kontrast'),
-            subtitle: const Text('Černý text na bílém pozadí'),
+            title: Text(L10n.of(context).settingsHighContrast),
+            subtitle: Text(L10n.of(context).settingsHighContrastHint),
             value: _highContrast,
             onChanged: (v) {
               setState(() => _highContrast = v);
@@ -246,7 +288,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           ListTile(
             leading: const Icon(Symbols.format_size),
-            title: const Text('Velikost textu'),
+            title: Text(L10n.of(context).settingsTextSize),
             subtitle: Text('${(_textScale * 100).round()}%'),
           ),
           Padding(
@@ -277,44 +319,41 @@ class _SettingsPageState extends State<SettingsPage> {
               width: 28,
               height: 28,
             ),
-            title: const Text('Propojení s Apple Health'),
-            subtitle: const Text(
-              'Po dokončení měření můžete tepovou frekvenci uložit '
-              'do aplikace Zdraví. Aplikace zapisuje pouze typ '
-              '„Tepová frekvence". Žádná další data se neodesílají '
-              'ani nečtou.',
+            title: Text(L10n.of(context).settingsAppleHealth),
+            subtitle: Text(
+              L10n.of(context).settingsAppleHealthBody,
             ),
             isThreeLine: true,
           ),
           ListTile(
             leading: const Icon(Symbols.settings),
-            title: const Text('Spravovat oprávnění'),
-            subtitle: const Text(
-              'Otevřete Nastavení → Soukromí → Zdraví → Tepovka',
+            title: Text(L10n.of(context).settingsManagePermissions),
+            subtitle: Text(
+              L10n.of(context).settingsManagePermissionsHint,
             ),
           ),
           const Divider(height: 24),
-          const ListTile(
+          ListTile(
             title: Text(
-              'Obecné',
+              L10n.of(context).settingsGeneralSection,
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           ListTile(
             leading: const Icon(Icons.volume_up),
-            title: const Text('Otestovat hlas (TTS)'),
-            subtitle: const Text('Přehraje krátkou hlášku pro ověření'),
+            title: Text(L10n.of(context).settingsTestVoice),
+            subtitle: Text(L10n.of(context).settingsTestVoiceHint),
             onTap: () async {
-              await TtsService.instance.testSpeak();
+              await TtsService.instance.testSpeak(L10n.of(context).ttsTestVoice);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Přehrávám testovací hlášku...')),
+                SnackBar(content: Text(L10n.of(context).settingsPlayingTestVoice)),
               );
             },
           ),
           SwitchListTile(
             secondary: const Icon(Symbols.vibration),
-            title: const Text('Haptická odezva'),
-            subtitle: const Text('Vibrace při akcích v aplikaci'),
+            title: Text(L10n.of(context).settingsHaptics),
+            subtitle: Text(L10n.of(context).settingsHapticsHint),
             value: _haptics,
             onChanged: (v) {
               setState(() => _haptics = v);
@@ -322,18 +361,18 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
           const Divider(height: 1),
-          const ListTile(
+          ListTile(
             dense: true,
             title: Text(
-              'VÝZKUMNÝ REŽIM',
+              L10n.of(context).settingsResearchSection,
               style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.6),
             ),
           ),
           SwitchListTile(
             secondary: const Icon(Symbols.science),
-            title: const Text('Režim pro výzkum'),
-            subtitle: const Text(
-                'Před měřením se vyplní údaje k záznamu a export je podrobnější'),
+            title: Text(L10n.of(context).settingsResearchMode),
+            subtitle: Text(
+                L10n.of(context).settingsResearchModeHint),
             value: _researchMode,
             onChanged: (v) {
               setState(() => _researchMode = v);
@@ -343,14 +382,14 @@ class _SettingsPageState extends State<SettingsPage> {
           if (_researchMode) ...[
             ListTile(
               leading: const Icon(Symbols.description),
-              title: const Text('Formát exportu'),
-              subtitle: Text(_exportFormat.label),
+              title: Text(L10n.of(context).settingsExportFormat),
+              subtitle: Text(_exportFormatLabel(_exportFormat)),
               trailing: const Icon(Symbols.chevron_right),
               onTap: _pickExportFormat,
             ),
             ListTile(
               leading: const Icon(Symbols.list_alt),
-              title: const Text('Údaje vyplňované před měřením'),
+              title: Text(L10n.of(context).settingsResearchFields),
               subtitle: Text(_researchFields.join(' · ')),
               trailing: const Icon(Symbols.chevron_right),
               onTap: _editResearchFields,
@@ -359,10 +398,10 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Symbols.login),
-            title: const Text('Přihlášení'),
+            title: Text(L10n.of(context).settingsLogin),
             subtitle: Text(
               !LocalProfileService.isLoggedIn
-                  ? 'Nepřihlášen'
+                  ? L10n.of(context).settingsNotLoggedIn
                   : 'Profil: ${LocalProfileService.displayName ?? 'Uživatel'} (${(LocalProfileService.userId ?? '').substring(0, 6)}…) ',
             ),
             trailing: const Icon(Symbols.chevron_right),
@@ -375,16 +414,16 @@ class _SettingsPageState extends State<SettingsPage> {
           if (LocalProfileService.isLoggedIn)
             ListTile(
               leading: const Icon(Symbols.logout),
-              title: const Text('Odhlásit se'),
+              title: Text(L10n.of(context).settingsLogout),
               subtitle:
-                  const Text('Odstraní aktivní přihlášení na tomto zařízení'),
+                  Text(L10n.of(context).settingsLogoutHint),
               onTap: () async {
                 await LocalProfileService.signOutLocal();
                 if (!mounted) return;
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Odhlášeno'),
+                  SnackBar(
+                    content: Text(L10n.of(context).settingsLoggedOut),
                     duration: Duration(seconds: 2),
                   ),
                 );
@@ -393,8 +432,8 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Symbols.qr_code),
-            title: const Text('Můj QR kód pro lékaře'),
-            subtitle: const Text('Umožní rychlé vyhledání záznamů'),
+            title: Text(L10n.of(context).settingsMyQrForDoctor),
+            subtitle: Text(L10n.of(context).settingsMyQrForDoctorHint),
             trailing: const Icon(Symbols.chevron_right),
             onTap: () {
               Navigator.of(context).push(
@@ -405,8 +444,8 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 1),
           SwitchListTile(
             secondary: const Icon(Symbols.folder),
-            title: const Text('Ukládat záznamy lokálně'),
-            subtitle: const Text('Uloží měření do zařízení'),
+            title: Text(L10n.of(context).settingsStoreLocally),
+            subtitle: Text(L10n.of(context).settingsStoreLocallyHint),
             value: _saveRecords,
             onChanged: (v) {
               setState(() => _saveRecords = v);
@@ -416,34 +455,34 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 1),
           SwitchListTile(
             secondary: const Icon(Symbols.flash_on),
-            title: const Text('Blesk během měření'),
-            subtitle: const Text('Zlepšuje průchod světla při PPG'),
+            title: Text(L10n.of(context).settingsTorchDuring),
+            subtitle: Text(L10n.of(context).settingsTorchDuringHint),
             value: _flashDuringMeasurement,
             onChanged: (v) => setState(() => _flashDuringMeasurement = v),
           ),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Symbols.language),
-            title: const Text('Jazyk aplikace'),
-            subtitle: const Text('Připravujeme'),
+            title: Text(L10n.of(context).settingsAppLanguage),
+            subtitle: Text(_languageLabel(settings.language)),
             trailing: const Icon(Symbols.chevron_right),
-            onTap: () {},
+            onTap: () => _pickLanguage(settings.language),
           ),
           const Divider(height: 24),
-          const ListTile(
+          ListTile(
             title: Text(
-              'Logy a diagnostika',
+              L10n.of(context).settingsLogSection,
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           ListTile(
             leading: const Icon(Icons.insights),
-            title: const Text('Počet měření uložených lokálně'),
+            title: Text(L10n.of(context).settingsLocalCount),
             subtitle: Text('$_measurementsCount'),
           ),
           ListTile(
             leading: const Icon(Icons.access_time),
-            title: const Text('Poslední měření'),
+            title: Text(L10n.of(context).settingsLastMeasurement),
             subtitle: Text('$_lastMeasurement'),
           ),
           Padding(
@@ -456,17 +495,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 ElevatedButton.icon(
                   onPressed: _openLog,
                   icon: const Icon(Icons.open_in_new),
-                  label: const Text('Otevřít log'),
+                  label: Text(L10n.of(context).settingsOpenLog),
                 ),
                 ElevatedButton.icon(
                   onPressed: _shareLog,
                   icon: const Icon(Icons.share),
-                  label: const Text('Sdílet log'),
+                  label: Text(L10n.of(context).settingsShareLog),
                 ),
                 ElevatedButton.icon(
                   onPressed: _clearLog,
                   icon: const Icon(Icons.delete),
-                  label: const Text('Vymazat log'),
+                  label: Text(L10n.of(context).settingsClearLog),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 ),
               ],

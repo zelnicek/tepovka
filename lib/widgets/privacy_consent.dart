@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:flutter/services.dart';
@@ -33,7 +34,7 @@ class _PrivacyConsentPageState extends State<PrivacyConsentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Souhlas se zpracováním dat'),
+        title: Text(L10n.of(context).consentTitle),
       ),
       body: SafeArea(
         child: Padding(
@@ -56,20 +57,20 @@ class _PrivacyConsentPageState extends State<PrivacyConsentPage> {
                           ),
                         ),
                       ),
-                      const Text(
-                        'Provoz aplikace vyžaduje zpracování obrazových snímků z fotoaparátu k výpočtu srdeční frekvence a souvisejících metrik.\n\nAplikace neodesílá vaše snímky na servery a data ukládá pouze lokálně, pokud s tím výslovně souhlasíte.\n\nDůležité: tato aplikace není lékařský přístroj. Hodnoty jako SpO2 jsou orientační a nemusí být ihned dostupné nebo přesné. Nepoužívejte aplikaci jako náhradu lékařského zařízení — při obavách vyhledejte odbornou lékařskou pomoc.',
+                      Text(
+                        L10n.of(context).consentBody,
                       ),
                       const SizedBox(height: 16),
-                      const Text('Co aplikace dělá:'),
+                      Text(L10n.of(context).consentWhatItDoesTitle),
                       const SizedBox(height: 8),
-                      const Text(
-                          '- Zpracování snímků z fotoaparátu pro PPG analýzu.'),
-                      const Text('- Ukládání souhrnných výsledků lokálně.'),
-                      const Text(
-                          '- Neodesílání surových obrazových dat bez souhlasu.'),
+                      Text(
+                          L10n.of(context).consentBullet1),
+                      Text(L10n.of(context).consentBullet2),
+                      Text(
+                          L10n.of(context).consentBullet3),
                       const SizedBox(height: 16),
-                      const Text(
-                          'Souhlasíte se zpracováním dat potřebných pro měření?'),
+                      Text(
+                          L10n.of(context).consentQuestion),
                     ],
                   ),
                 ),
@@ -94,7 +95,7 @@ class _PrivacyConsentPageState extends State<PrivacyConsentPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text('Souhlasím'),
+                        child: Text(L10n.of(context).consentAgree),
                       ),
                       ElevatedButton(
                         onPressed: _decline,
@@ -108,7 +109,7 @@ class _PrivacyConsentPageState extends State<PrivacyConsentPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text('Nechci'),
+                        child: Text(L10n.of(context).consentDecline),
                       ),
                     ],
                   ),

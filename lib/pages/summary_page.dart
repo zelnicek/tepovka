@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/pages/intro_page.dart';
@@ -685,7 +686,7 @@ class _SummaryState extends State<Summary> {
           'points': _recoverySpots
               .map((s) => {
                     't': s.x,
-                    'bpm': s.y,
+                    L10n.of(context).homeBpmUnit: s.y,
                   })
               .toList(),
         },
@@ -705,9 +706,9 @@ class _SummaryState extends State<Summary> {
     // Guard against invalid BPM values (Health Connect requires >= 1)
     if (bpm.isNaN || !bpm.isFinite || bpm <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content:
-              Text('Neplatná tepová frekvence (≤ 0). Záznam nebyl uložen.'),
+              Text(L10n.of(context).summaryInvalidHeartRate),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
         ),
@@ -733,7 +734,7 @@ class _SummaryState extends State<Summary> {
             children: [
               Expanded(
                 child: Text(
-                  'Úspěšně uloženo do Apple Health',
+                  L10n.of(context).summarySavedToHealth,
                   style: TextStyle(
                     color: const Color.fromARGB(255, 192, 192, 192),
                   ),
@@ -762,8 +763,8 @@ class _SummaryState extends State<Summary> {
     } else {
       print('Nepodařilo se uložit do Apple Health');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Chyba při ukládání do Apple Health'),
+        SnackBar(
+          content: Text(L10n.of(context).summaryHealthSaveError),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 1),
         ),
@@ -817,11 +818,11 @@ class _SummaryState extends State<Summary> {
           automaticallyImplyLeading: false,
           backgroundColor: const Color.fromARGB(255, 242, 242, 242),
           centerTitle: true,
-          title: const Column(
+          title: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'VÝSLEDEK',
+                L10n.of(context).summaryTitle,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
@@ -840,8 +841,8 @@ class _SummaryState extends State<Summary> {
                     margin: const EdgeInsets.only(top: 20),
                     child: Column(
                       children: [
-                        const Text(
-                          'Průměrná tepová frekvence:',
+                        Text(
+                          L10n.of(context).summaryAverageHeartRate,
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 20,
@@ -874,11 +875,11 @@ class _SummaryState extends State<Summary> {
                       ),
                       cursorColor: Colors.grey,
                       decoration: InputDecoration(
-                        labelText: 'Poznámka',
+                        labelText: L10n.of(context).commonNote,
                         labelStyle: const TextStyle(
                           color: Color.fromARGB(255, 110, 109, 109),
                         ),
-                        hintText: 'Zadejte své poznámky k měření...',
+                        hintText: L10n.of(context).summaryNotesHint,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8.0),
                           borderSide: const BorderSide(
@@ -911,9 +912,9 @@ class _SummaryState extends State<Summary> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _buildSectionChip('Signál', 0),
+                        _buildSectionChip(L10n.of(context).summaryTabSignal, 0),
                         _buildSectionChip('HRV', 1),
-                        _buildSectionChip('Zotavení', 2),
+                        _buildSectionChip(L10n.of(context).summaryTabRecovery, 2),
                       ],
                     ),
                   ),
@@ -939,18 +940,18 @@ class _SummaryState extends State<Summary> {
           color: Colors.grey,
           selectedIndex: _selectedIndex,
           onTabChange: _onItemTapped,
-          tabs: const [
+          tabs: [
             GButton(
               icon: Symbols.family_home,
-              text: 'MENU',
+              text: L10n.of(context).navMenu,
             ),
             GButton(
               icon: Symbols.ecg_heart,
-              text: 'MĚŘENÍ',
+              text: L10n.of(context).navMeasure,
             ),
             GButton(
               icon: Symbols.help,
-              text: 'INFO',
+              text: L10n.of(context).navInfo,
             ),
           ],
         ),
@@ -1077,8 +1078,8 @@ class _SummaryState extends State<Summary> {
               child: AnimatedScale(
                 duration: const Duration(milliseconds: 100),
                 scale: _isSaving ? 1.0 : 1.1,
-                child: const Text(
-                  'Zrušit',
+                child: Text(
+                  L10n.of(context).commonCancel,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -1093,7 +1094,7 @@ class _SummaryState extends State<Summary> {
                 size: 45,
               ),
               color: Colors.blue,
-              tooltip: 'Uložit (zapíše do Apple Health)',
+              tooltip: L10n.of(context).summarySaveToHealth,
               onPressed: _isSaving
                   ? null
                   : () async {
@@ -1127,8 +1128,8 @@ class _SummaryState extends State<Summary> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Uložit',
+                    Text(
+                      L10n.of(context).commonSave,
                       style: TextStyle(
                         fontSize: 25,
                         fontWeight: FontWeight.bold,
@@ -1158,10 +1159,10 @@ class _SummaryState extends State<Summary> {
         ? const Color(0xFF2ECC71)
         : const Color(0xFFF39C12);
     final String title =
-        status == PatientStatus.normal ? 'Jste v normě' : 'Odpočívejte';
+        status == PatientStatus.normal ? L10n.of(context).summaryInNorm : L10n.of(context).summaryRest;
     final String subtitle = status == PatientStatus.normal
-        ? 'Pokračujte v běžné aktivitě'
-        : 'Doporučujeme krátký odpočinek';
+        ? L10n.of(context).summaryContinueActivity
+        : L10n.of(context).summaryShortRest;
 
     return SingleChildScrollView(
       child: Column(
@@ -1170,8 +1171,8 @@ class _SummaryState extends State<Summary> {
             margin: const EdgeInsets.only(top: 24),
             child: Column(
               children: [
-                const Text(
-                  'Průměrná tepová frekvence:',
+                Text(
+                  L10n.of(context).summaryAverageHeartRate,
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
                 ),
                 const SizedBox(height: 8),
@@ -1396,19 +1397,19 @@ class _SummaryState extends State<Summary> {
                 borderRadius: BorderRadius.circular(8),
                 side: BorderSide(color: Colors.orange.withOpacity(0.6)),
               ),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(10),
                 child: Text(
-                  'Poznámka: Hodnota SpO2 se právě připravuje a nemusí být okamžitě aktuální.',
+                  L10n.of(context).summarySpo2Pending,
                   style: TextStyle(fontSize: 13, color: Colors.black87),
                 ),
               ),
             ),
           ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 20),
           child: Text(
-            'HRV Analýza',
+            L10n.of(context).metricsHrvAnalysis,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -1429,7 +1430,7 @@ class _SummaryState extends State<Summary> {
               _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
               _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
               _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
-              _buildHRVCard('Průměrný RR', '${_meanRR.toStringAsFixed(2)} ms'),
+              _buildHRVCard(L10n.of(context).metricsAverageRr, '${_meanRR.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD2/SD1', '${_sd2sd1.toStringAsFixed(2)}'),
@@ -1484,9 +1485,9 @@ class _SummaryState extends State<Summary> {
             mainAxisSpacing: 10,
             children: [
               _buildHRVCard(
-                'Dechová frekvence',
+                L10n.of(context).metricsRespiratoryRate,
                 _respiratoryRate > 0
-                    ? '${_respiratoryRate.toStringAsFixed(1)} dechů/min'
+                    ? L10n.of(context).metricsBreathsPerMinute(_respiratoryRate.toStringAsFixed(1))
                     : '—',
               ),
               _buildHRVCard(
@@ -1541,7 +1542,7 @@ class _SummaryState extends State<Summary> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Zotavení srdeční frekvence',
+              L10n.of(context).metricsHeartRateRecovery,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -1553,7 +1554,7 @@ class _SummaryState extends State<Summary> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
-            'Měří pokles tepové frekvence po zátěži. Vyšší pokles za 60–120 s obvykle značí lepší kardiovaskulární kondici a rychlejší zotavení.',
+            L10n.of(context).metricsRecoveryIntro,
             style: const TextStyle(fontSize: 13, color: Colors.black54),
           ),
         ),
@@ -1639,7 +1640,7 @@ class _SummaryState extends State<Summary> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Zavřít'),
+                  child: Text(L10n.of(context).commonClose),
                 ),
               ),
             ],
@@ -1650,71 +1651,63 @@ class _SummaryState extends State<Summary> {
   }
 
   String _getMetricInfoText(String title) {
-    switch (title) {
-      // Czech labels used in UI
-      case 'Dechová frekvence':
-        return 'Dechová frekvence (dechů/min). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.';
-      case 'Průměrný RR':
-        return 'Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou TF (delší RR = nižší BPM).';
-      case 'Index stresu':
-        return 'Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí, interpretuj s ohledem na podmínky měření.';
-      // HR Recovery metrics (current titles)
-      case 'HR₀':
-        return 'Průměrná tepová frekvence v prvních 10 sekundách po ukončení zátěže. Slouží jako výchozí úroveň pro posouzení poklesu (HRR).';
-      case 'HR@60s':
-        return 'Tepová frekvence kolem 60. sekundy zotavení (průměr z 50–60 s). Používá se k výpočtu HRR60.';
-      case 'HRR60':
-        return 'Pokles TF za 60 s: rozdíl mezi HR₀ (0–10 s) a HR@60s (50–60 s). Vyšší hodnota obvykle značí lepší kondici a rychlejší zotavení.';
-      case 'Slope(0–60s)':
-        return 'Lineární sklon poklesu TF v prvních 60 s, vyjádřený v bpm/min. Více záporný sklon (rychlejší pokles) typicky znamená lepší zotavení.';
-      case 'HR@120s':
-        return 'Tepová frekvence kolem 120. sekundy zotavení (průměr z 110–120 s). Vhodné pro delší protokoly (HRR120).';
-      case 'HRR120':
-        return 'Pokles TF za 120 s: rozdíl mezi HR₀ a HR@120s (110–120 s). Vyšší hodnota obvykle značí lepší kardiovaskulární kondici.';
-      case 'Tau':
-        return 'Odhad časové konstanty (τ) exponenciálního poklesu TF směrem k bazální hodnotě. Nižší τ znamená rychlejší zotavení.';
+    final L10n t = L10n.of(context);
+    // Titles that are translated cannot be switch cases (a case label must be
+    // a compile-time constant), and matching them here keeps the lookup
+    // working in whatever language the caller rendered the title in.
+    if (title == t.metricsRespiratoryRate) return t.tipRespiratoryRate;
+    if (title == t.metricsAverageRr) return t.tipMeanRr;
+    if (title == t.metricsHeartRate) return t.tipGenericHrv;
+    if (title == t.metricsStressIndex) return t.tipBaevsky;
 
-      // HR Recovery metrics (alternative Czech titles)
-      case 'HR (0–10 s)':
-        return 'Průměrná tepová frekvence v prvních 10 sekundách zotavení. Slouží jako výchozí hodnota pro porovnání poklesu.';
-      case 'HR v 60. s':
-        return 'Tepová frekvence kolem 60. sekundy po ukončení zátěže. Porovnává se s počáteční HR pro HRR60.';
-      case 'Pokles 0–60 s':
-        return 'Heart Rate Recovery za 60 s: rozdíl HR mezi 0–10 s a 50–60 s. Vyšší = rychlejší zotavení.';
-      case 'Sklon (0–60 s)':
-        return 'Lineární sklon poklesu HR v prvních 60 s, vyjádřený v bpm/min. Více záporný = rychlejší pokles.';
-      case 'HR v 120. s':
-        return 'Tepová frekvence kolem 120. sekundy. Vhodné pro delší zotavení a výpočet HRR120.';
-      case 'Pokles 0–120 s':
-        return 'Heart Rate Recovery za 120 s: rozdíl HR mezi 0–10 s a 110–120 s. Vyšší = lepší kondice.';
-      case 'Tau (odhad)':
-        return 'Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).';
+    switch (title) {
+      // Technical abbreviations render identically in both languages.
       case 'RMSSD':
-        return 'Root Mean Square of Successive Differences – citlivé na krátkodobou, parasympatickou aktivitu. Vyšší hodnoty obvykle znamenají lepší regeneraci a nižší stres.';
+        return t.tipRmssd;
       case 'SDNN':
-        return 'Standardní odchylka NN intervalů – celková variabilita srdeční frekvence za celé měření. Odráží kombinaci krátkodobých i dlouhodobých vlivů.';
+        return t.tipSdnn;
       case 'pNN50':
-        return 'Podíl po sobě jdoucích NN intervalů, které se liší o více než 50 ms. Vyšší procento obvykle ukazuje na silnější parasympatickou aktivitu.';
+        return t.tipPnn50;
       case 'Mean RR':
-        return 'Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou tepovou frekvencí (delší RR = nižší BPM).';
-      case 'SD1':
-        return 'SD1 (Poincaré) – krátkodobá HRV (beat‑to‑beat variabilita). Blízce souvisí s RMSSD a parasympatikem.';
-      case 'SD2':
-        return 'SD2 (Poincaré) – dlouhodobá HRV. Zachycuje pomalejší kolísání a trend variability.';
-      case 'SD2/SD1':
-        return 'Poměr dlouhodobé/krátkodobé variability. Vyšší poměr může ukazovat na převahu dlouhodobých oscilací nebo zvýšený stres.';
-      case 'LF':
-        return 'Low Frequency složka (0.04–0.15 Hz) – směs sympatické i parasympatické aktivity. Uvádíme jako procento z (LF+HF).';
-      case 'HF':
-        return 'High Frequency složka (0.15–0.40 Hz) – převážně parasympatická aktivita (dýchací sinusová arytmie). Uvádíme jako procento z (LF+HF).';
-      case 'LF/HF':
-        return 'Poměr LF/HF – orientační ukazatel rovnováhy sympatikus/parasympatikus. Interpretace musí brát v úvahu kontext a délku záznamu.';
       case 'RR':
-        return 'Dechová frekvence (breaths per minute). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.';
+        return t.tipMeanRr;
+      case 'SD1':
+        return t.tipSd1;
+      case 'SD2':
+        return t.tipSd2;
+      case 'SD2/SD1':
+        return t.tipSd2Sd1Ratio;
+      case 'LF':
+        return t.tipLf;
+      case 'HF':
+        return t.tipHf;
+      case 'LF/HF':
+        return t.tipLfHfRatio;
       case 'Stress Index':
-        return 'Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí. Vnímej s ohledem na podmínky měření.';
+        return t.tipBaevsky;
+      case 'HR\u2080':
+      case 'HR (0\u201310 s)':
+        return t.tipHr0;
+      case 'HR@60s':
+      case 'HR v 60. s':
+        return t.tipHr60;
+      case 'HRR60':
+      case 'Pokles 0\u201360 s':
+        return t.tipHrr60;
+      case 'Slope(0\u201360s)':
+      case 'Sklon (0\u201360 s)':
+        return t.tipHrSlope;
+      case 'HR@120s':
+      case 'HR v 120. s':
+        return t.tipHr120;
+      case 'HRR120':
+      case 'Pokles 0\u2013120 s':
+        return t.tipHrr120;
+      case 'Tau':
+      case 'Tau (odhad)':
+        return t.tipHrTau;
       default:
-        return 'Metrika HRV. Hodnoť v kontextu délky záznamu, artefaktů a podmínek měření.';
+        return t.tipGenericHrv;
     }
   }
 
@@ -1779,7 +1772,7 @@ class _SummaryState extends State<Summary> {
               right: 4,
               top: 4,
               child: Tooltip(
-                message: 'Tip: klepni pro vysvětlení',
+                message: L10n.of(context).commonTapForExplanation,
                 waitDuration: const Duration(milliseconds: 300),
                 child: InkResponse(
                   key: iconKey,

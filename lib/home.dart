@@ -17,6 +17,7 @@ import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/services/tts_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -53,13 +54,13 @@ class _HomeState extends State<Home>
   bool _isRecording = false; // Tracks whether recording is active
   bool _showBPM = true; // Determines whether BPM is displayed
   bool _isFlashOn = false; // Tracks flashlight state
-  String appbar_text = 'PŘIPRAVENO K MĚŘENÍ';
+  String appbar_text = '';
   List<int> bpm_list = [];
   int _recordingDuration = 30; // Default recording duration in seconds
   int _remainingTime = 30; // Remaining time for countdown display
   double _currentTime = 0.0; // Kumulativní čas pro legendu
   int _lastLabelSecond = 0;
-  String _signalQuality = 'Špatná'; // Proměnná pro kvalitu signálu
+  SignalQuality _signalQuality = SignalQuality.bad;
   late SignalQualityChecker _signalQualityChecker; // Instance samostatné třídy
   List<CameraDescription> _backCameras = [];
   int _currentBackCameraIndex = 0;
@@ -70,7 +71,7 @@ class _HomeState extends State<Home>
   static const double _bufferTime =
       0.5; // Buffer time for left overflow (in seconds)
   bool _isCountdownRunning = false;
-  String _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
+  String _buttonLabel = '';
   double _lastBpmUpdateTime = 0.0; // New: Time of last BPM update
   double _yAxisHalfRange =
       1.5; // Symmetric Y axis around 0 for stable oscilloscope view
@@ -131,14 +132,36 @@ class _HomeState extends State<Home>
   /// nav bar and buttons were all being rebuilt 30x per second).
   final ValueNotifier<int> _chartRevision = ValueNotifier<int>(0);
   final ValueNotifier<double> _bpmNotifier = ValueNotifier<double>(0.0);
-  final ValueNotifier<String> _qualityNotifier =
-      ValueNotifier<String>('Špatná');
+  final ValueNotifier<SignalQuality> _qualityNotifier =
+      ValueNotifier<SignalQuality>(SignalQuality.bad);
   final ValueNotifier<int> _remainingTimeNotifier = ValueNotifier<int>(30);
 
   /// Effective sample rate, measured from the camera rather than assumed.
   double get _effectiveSampleRate {
     final double measured = _ppgAlgorithm?.measuredFrameRate ?? 0.0;
     return measured >= 5.0 ? measured : _sampleRate;
+  }
+
+  /// Localised label for the quality indicator.
+  String _qualityLabel(SignalQuality quality) {
+    final L10n t = L10n.of(context);
+    return switch (quality) {
+      SignalQuality.good => t.qualityGood,
+      SignalQuality.bad => t.qualityBad,
+      SignalQuality.poorContact => t.qualityPoorContact,
+      SignalQuality.noFinger => t.qualityNoFinger,
+    };
+  }
+
+  /// Localised phrase spoken in senior mode.
+  String _qualitySpeech(SignalQuality quality) {
+    final L10n t = L10n.of(context);
+    return switch (quality) {
+      SignalQuality.good => t.ttsSignalGood,
+      SignalQuality.bad => t.ttsSignalWorse,
+      SignalQuality.poorContact => t.ttsPoorContact,
+      SignalQuality.noFinger => t.ttsPlaceFinger,
+    };
   }
 
   bool get _hasInitializedCameraController {
@@ -234,8 +257,8 @@ class _HomeState extends State<Home>
       print('Error switching camera: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nepodařilo se přepnout kameru. Zkuste to znovu.'),
+          SnackBar(
+            content: Text(L10n.of(context).homeCameraSwitchFailed),
             duration: Duration(seconds: 2),
           ),
         );
@@ -366,8 +389,10 @@ class _HomeState extends State<Home>
         _signalQualityChecker.calculateQuality(_data, rgbMeans: rgbMeans);
     if (_qualityNotifier.value != _signalQuality) {
       _qualityNotifier.value = _signalQuality;
-      // Announce quality changes in senior mode (Czech TTS)
-      TtsService.instance.announceQuality(_signalQuality);
+      // Announce quality changes in senior mode. The phrase is resolved here
+      // because TtsService has no BuildContext of its own.
+      TtsService.instance
+          .announceQuality(_signalQuality, _qualitySpeech(_signalQuality));
     }
 
     if (!_isPlottingStarted && _data.length >= 30) {
@@ -490,14 +515,14 @@ class _HomeState extends State<Home>
     setState(() {
       _isRecording = false;
       _isCountdownRunning = false;
-      appbar_text = 'PŘIPRAVENO K MĚŘENÍ';
+      appbar_text = L10n.of(context).homeReady;
       _remainingTime = _recordingDuration;
-      _signalQuality = 'Špatná'; // Reset kvality
-      _buttonLabel = 'ZAHÁJIT MĚŘENÍ';
+      _signalQuality = SignalQuality.bad; // Reset kvality
+      _buttonLabel = L10n.of(context).homeStartButton;
       _yAxisHalfRange = 1.5;
       _samplesSinceLastScaleUpdate = 0;
     });
-    _qualityNotifier.value = 'Špatná';
+    _qualityNotifier.value = SignalQuality.bad;
     _resetLiveBuffers();
 
     // Ensure camera stream and torch are stopped when user manually stops measuring
@@ -718,8 +743,8 @@ class _HomeState extends State<Home>
     // Validate recording duration
     if (_recordingDuration < 10 || _recordingDuration > 300) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Zadejte dobu trvání mezi 10 a 300 sekundami'),
+        SnackBar(
+          content: Text(L10n.of(context).homeDurationOutOfRange),
           duration: Duration(seconds: 2),
         ),
       );
@@ -728,9 +753,9 @@ class _HomeState extends State<Home>
 
     if (_recordingDuration < 60) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-              'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.'),
+              L10n.of(context).homeHrvDurationHint),
           duration: Duration(seconds: 3),
         ),
       );
@@ -746,9 +771,9 @@ class _HomeState extends State<Home>
     setState(() {
       _progressController.duration = Duration(seconds: _recordingDuration);
       _isRecording = true;
-      appbar_text = 'PROBÍHÁ MĚŘENÍ...';
+      appbar_text = L10n.of(context).homeMeasuring;
       _remainingTime = _recordingDuration;
-      _buttonLabel = 'ZASTAVIT MĚŘENÍ';
+      _buttonLabel = L10n.of(context).homeStopButton;
     });
     _startRecordBuffer();
     _initializeTimers();
@@ -781,13 +806,13 @@ class _HomeState extends State<Home>
 
     setState(() {
       _isCountdownRunning = true;
-      appbar_text = 'PŘIPRAVTE SE...';
+      appbar_text = L10n.of(context).homeGetReady;
       _buttonLabel = '3';
     });
     // Kamera i analýza se připraví na pozadí, zatímco běží odpočet.
     _preparation = _prepareCapture();
     // Voice announcement for seniors
-    TtsService.instance.announceCountdown();
+    TtsService.instance.announceCountdown(L10n.of(context).ttsCountdown);
     int count = 3;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       count--;
@@ -836,16 +861,16 @@ class _HomeState extends State<Home>
     setState(() {
       _isFlashOn = false;
       _isRecording = false; // Ensure recording state is reset
-      appbar_text = 'PŘIPRAVENO K MĚŘENÍ';
+      appbar_text = L10n.of(context).homeReady;
       _remainingTime = _recordingDuration;
-      _signalQuality = 'Špatná'; // Reset kvality
+      _signalQuality = SignalQuality.bad; // Reset kvality
     });
     // Haptics for UX: signal completion
     HapticFeedback.lightImpact();
     // Voice announcement for seniors (do not block navigation)
     // Fire-and-forget to avoid getting stuck on awaitSpeakCompletion
     // ignore: unawaited_futures
-    TtsService.instance.announceMeasurementEnd();
+    TtsService.instance.announceMeasurementEnd(L10n.of(context).ttsMeasurementEnd);
     print(
         'DEBUG fullRecordData length: ${_fullRecordData.length}, recordingDuration: $_recordingDuration');
     // Log measurement completion locally and increment local counter
@@ -950,6 +975,17 @@ class _HomeState extends State<Home>
     // When route changes, stop streaming/animations to avoid background activity
     _stopAllActivity(disposeCamera: false);
     super.deactivate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Also re-fires when the locale changes, so an idle screen follows a
+    // language switch instead of keeping the previous language's labels.
+    if (!_isRecording && !_isCountdownRunning) {
+      appbar_text = L10n.of(context).homeReady;
+      _buttonLabel = L10n.of(context).homeStartButton;
+    }
   }
 
   @override
@@ -1058,7 +1094,7 @@ class _HomeState extends State<Home>
                                   child: Text(
                                     // No reading yet: say so instead of showing
                                     // a placeholder number.
-                                    bpm > 0 ? bpm.round().toString() : '--',
+                                    bpm > 0 ? bpm.round().toString() : L10n.of(context).homeNoReading,
                                     maxLines: 1,
                                     softWrap: false,
                                     style: TextStyle(
@@ -1088,7 +1124,7 @@ class _HomeState extends State<Home>
                                   ),
                                   SizedBox(width: paddingSmall),
                                   Text(
-                                    'bpm',
+                                    L10n.of(context).homeBpmUnit,
                                     maxLines: 1,
                                     softWrap: false,
                                     style: TextStyle(fontSize: fontSizeSmall),
@@ -1103,7 +1139,7 @@ class _HomeState extends State<Home>
                     // Camera preview v kruhu. Only the border colour depends on
                     // signal quality, so the preview itself stays out of the
                     // rebuild path.
-                    ValueListenableBuilder<String>(
+                    ValueListenableBuilder<SignalQuality>(
                       valueListenable: _qualityNotifier,
                       builder: (context, quality, child) => Container(
                         width: cameraSize,
@@ -1114,8 +1150,9 @@ class _HomeState extends State<Home>
                               ? Colors.black
                               : Colors.grey, // Background pro kruh
                           border: Border.all(
-                            color:
-                                quality == 'Dobrá' ? Colors.green : Colors.red,
+                            color: quality == SignalQuality.good
+                                ? Colors.green
+                                : Colors.red,
                             width: 4,
                           ),
                         ),
@@ -1158,14 +1195,14 @@ class _HomeState extends State<Home>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Kvalita',
+                            L10n.of(context).homeQualityLabel,
                             style: TextStyle(
                               fontSize: fontSizeSmall,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           SizedBox(height: paddingSmall),
-                          ValueListenableBuilder<String>(
+                          ValueListenableBuilder<SignalQuality>(
                             valueListenable: _qualityNotifier,
                             builder: (context, quality, _) => FittedBox(
                               fit: BoxFit.scaleDown,
@@ -1174,23 +1211,23 @@ class _HomeState extends State<Home>
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    quality == 'Dobrá'
+                                    quality == SignalQuality.good
                                         ? Icons.check_circle
                                         : Icons.error,
-                                    color: quality == 'Dobrá'
+                                    color: quality == SignalQuality.good
                                         ? Colors.green
                                         : Colors.red,
                                     size: iconSizeMedium * 0.5,
                                   ),
                                   SizedBox(width: paddingSmall * 0.5),
                                   Text(
-                                    quality,
+                                    _qualityLabel(quality),
                                     maxLines: 1,
                                     softWrap: false,
                                     style: TextStyle(
                                       fontSize: fontSizeSmall,
                                       fontWeight: FontWeight.w500,
-                                      color: quality == 'Dobrá'
+                                      color: quality == SignalQuality.good
                                           ? Colors.green
                                           : Colors.red,
                                     ),
@@ -1394,7 +1431,7 @@ class _HomeState extends State<Home>
                                     mainAxisSize: MainAxisSize.max,
                                     children: [
                                       Text(
-                                        'Doba měření (sekundy)',
+                                        L10n.of(context).homeDurationLabel,
                                         style: TextStyle(
                                           fontSize: fontSizeSmall * 0.9,
                                           fontWeight: FontWeight.w500,
@@ -1468,10 +1505,10 @@ class _HomeState extends State<Home>
                                           color: Colors.grey,
                                           size: iconSizeMedium * 0.9,
                                         ),
-                                        tooltip: 'Přepnout kameru',
+                                        tooltip: L10n.of(context).homeSwitchCamera,
                                       ),
                                       Text(
-                                        'Změnit kameru',
+                                        L10n.of(context).homeChangeCamera,
                                         style: TextStyle(
                                           fontSize: fontSizeSmall * 0.9,
                                           color: Colors.grey,
@@ -1512,8 +1549,8 @@ class _HomeState extends State<Home>
                                       size: iconSizeMedium * 0.9,
                                     ),
                                     tooltip: _isFlashOn
-                                        ? 'Vypnout blesk'
-                                        : 'Zapnout blesk',
+                                        ? L10n.of(context).homeTorchOff
+                                        : L10n.of(context).homeTorchOn,
                                   ),
                                 ),
                               ),
@@ -1569,18 +1606,18 @@ class _HomeState extends State<Home>
           color: Colors.grey,
           selectedIndex: _selectedIndex,
           onTabChange: _onItemTapped,
-          tabs: const [
+          tabs: [
             GButton(
               icon: Symbols.family_home,
-              text: 'MENU',
+              text: L10n.of(context).navMenu,
             ),
             GButton(
               icon: Symbols.ecg_heart,
-              text: 'MĚŘENÍ',
+              text: L10n.of(context).navMeasure,
             ),
             GButton(
               icon: Symbols.help,
-              text: 'INFO',
+              text: L10n.of(context).navInfo,
             ),
           ],
         ),

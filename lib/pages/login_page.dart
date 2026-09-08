@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tepovka/services/local_profile_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -37,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Přihlášení'),
+        title: Text(L10n.of(context).settingsLogin),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -47,8 +48,8 @@ class _LoginPageState extends State<LoginPage> {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Můj QR kód',
+                    Text(
+                      L10n.of(context).loginMyQr,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -86,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Lékař na svém mobilu otevře kameru nebo QR skener a naskenuje tento kód. Pokud skener není dostupný, může ručně zadat vaše ID.',
+                              L10n.of(context).loginQrHint,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontSize: 12,
@@ -107,7 +108,7 @@ class _LoginPageState extends State<LoginPage> {
                                     );
                                   },
                                   icon: const Icon(Icons.fullscreen),
-                                  label: const Text('Na celé obrazovce'),
+                                  label: Text(L10n.of(context).loginFullscreen),
                                 ),
                                 TextButton.icon(
                                   onPressed: () async {
@@ -116,22 +117,22 @@ class _LoginPageState extends State<LoginPage> {
                                     );
                                     if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content:
-                                            Text('ID zkopírováno do schránky'),
+                                            Text(L10n.of(context).loginIdCopied),
                                         duration: Duration(seconds: 2),
                                       ),
                                     );
                                   },
                                   icon: const Icon(Icons.copy),
-                                  label: const Text('Kopírovat ID'),
+                                  label: Text(L10n.of(context).loginCopyId),
                                 ),
                                 TextButton.icon(
                                   onPressed: () async {
                                     await Share.share('Tepovka ID: $uid');
                                   },
                                   icon: const Icon(Icons.ios_share),
-                                  label: const Text('Sdílet'),
+                                  label: Text(L10n.of(context).loginShare),
                                 ),
                               ],
                             ),
@@ -143,15 +144,15 @@ class _LoginPageState extends State<LoginPage> {
                                 await LocalProfileService.signOutLocal();
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Odhlášeno'),
+                                  SnackBar(
+                                    content: Text(L10n.of(context).settingsLoggedOut),
                                     duration: Duration(seconds: 2),
                                   ),
                                 );
                                 setState(() {});
                               },
                               icon: const Icon(Icons.logout),
-                              label: const Text('Odhlásit'),
+                              label: Text(L10n.of(context).loginLogout),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.redAccent,
                                 foregroundColor: Colors.white,
@@ -167,26 +168,26 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 8),
-                    const Text(
-                      'Lokální profil',
+                    Text(
+                      L10n.of(context).loginLocalProfile,
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Jméno',
-                        hintText: 'Zadejte vaše jméno',
+                      decoration: InputDecoration(
+                        labelText: L10n.of(context).loginName,
+                        hintText: L10n.of(context).loginNameHint,
                         border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _pinController,
-                      decoration: const InputDecoration(
-                        labelText: 'PIN (volitelné)',
-                        hintText: '4–6 číslic pro zámek profilu',
+                      decoration: InputDecoration(
+                        labelText: L10n.of(context).loginPin,
+                        hintText: L10n.of(context).loginPinHint,
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
@@ -210,7 +211,7 @@ class _LoginPageState extends State<LoginPage> {
                               if (mounted) setState(() {});
                             },
                       icon: const FaIcon(FontAwesomeIcons.userPlus),
-                      label: const Text('Uložit profil a zobrazit QR'),
+                      label: Text(L10n.of(context).loginSaveProfile),
                     ),
                     const SizedBox(height: 16),
                     if (_busy) const Center(child: CircularProgressIndicator()),

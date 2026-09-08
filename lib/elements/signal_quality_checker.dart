@@ -11,11 +11,20 @@ import 'package:tepovka/ppg_algo.dart'; // Import PPGAlgorithm for RgbMeans
 /// Then, lighting (too dark/bright). Finally, variability: 'Dobrá' if low STD (stable, no motion),
 /// else 'Špatná'. New: 'Špatný kontakt' if RGB ratios indicate poor tissue contact.
 /// Aligned with 2025 rPPG standards: SNR-inspired checks, adaptive thresholds for robustness.
+/// Signal quality as a value, not as a display string.
+///
+/// This used to be a Czech label that callers compared against
+/// (`quality == 'Dobrá'`). That works only while there is exactly one language:
+/// the moment the label is translated, every such comparison silently stops
+/// matching. The label now lives in the localisations and this enum is what
+/// travels through the code.
+enum SignalQuality { good, bad, poorContact, noFinger }
+
 class SignalQualityChecker {
   final Queue<double> _stdQueue =
       Queue<double>(); // Queue for sliding STD average
-  final Queue<String> _qualityQueue =
-      Queue<String>(); // Queue for stabilized quality labels
+  final Queue<SignalQuality> _qualityQueue =
+      Queue<SignalQuality>(); // Queue for stabilized quality labels
   static const int _windowSize =
       5; // Window for moving average (last 5 computations)
   static const int _qualityWindow = 5; // Window for majority-vote stabilization
@@ -39,8 +48,8 @@ class SignalQualityChecker {
   /// Uses STD for motion robustness. First validates finger/lighting via green mean and G/R ratio.
   /// If OK, assesses variability: 'Dobrá' for low STD, else 'Špatná'.
   /// Optimized: Computes on last 50 points; integrates RGB for contact quality.
-  String calculateQuality(List<FlSpot> data, {RgbMeans? rgbMeans}) {
-    if (data.isEmpty) return 'Špatná';
+  SignalQuality calculateQuality(List<FlSpot> data, {RgbMeans? rgbMeans}) {
+    if (data.isEmpty) return SignalQuality.bad;
 
     // Use last _sampleWindow points for fast computation
     final int effectiveLength =
@@ -90,7 +99,7 @@ class SignalQualityChecker {
 
     // OPRACENA: 'Žádný prst' jen pokud low intensity NEBO (high intensity A low variability A neutral ratio).
     if (lowIntensity || (highIntensity && lowVariability && neutralRatio)) {
-      return _stabilizeQuality('Žádný prst');
+      return _stabilizeQuality(SignalQuality.noFinger);
     }
 
     // NOVÁ: Pokud high intensity A high variability = dobrý pulz v saturaci → přeskoč a jdi na variability check.
@@ -104,7 +113,7 @@ class SignalQualityChecker {
     if (!useRedAsPrimary &&
         effectiveIntensity < _tooDarkThreshold &&
         (grRatio < _minSkinRatioGR || grRatio > _maxSkinRatioGR)) {
-      return _stabilizeQuality('Špatný kontakt');
+      return _stabilizeQuality(SignalQuality.poorContact);
     }
 
     // Add to sliding queue
@@ -125,11 +134,12 @@ class SignalQualityChecker {
     // Simple SNR proxy: If mean > 3x STD (signal dominates noise), boost to 'Dobrá'
     final bool highSnr = meanGreenIntensity > 3 * currentStd;
 
-    return _stabilizeQuality(
-        (currentStd < dynamicThreshold || highSnr) ? 'Dobrá' : 'Špatná');
+    return _stabilizeQuality((currentStd < dynamicThreshold || highSnr)
+        ? SignalQuality.good
+        : SignalQuality.bad);
   }
 
-  String _stabilizeQuality(String quality) {
+  SignalQuality _stabilizeQuality(SignalQuality quality) {
     _qualityQueue.add(quality);
     if (_qualityQueue.length > _qualityWindow) {
       _qualityQueue.removeFirst();
@@ -139,12 +149,12 @@ class SignalQualityChecker {
       return quality; // Not enough samples yet
     }
 
-    final counts = <String, int>{};
+    final counts = <SignalQuality, int>{};
     for (final value in _qualityQueue) {
       counts[value] = (counts[value] ?? 0) + 1;
     }
 
-    String best = quality;
+    SignalQuality best = quality;
     int bestCount = -1;
     counts.forEach((key, value) {
       if (value > bestCount) {

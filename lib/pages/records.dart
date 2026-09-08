@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:tepovka/services/storage_service.dart';
@@ -371,7 +372,7 @@ class _RecordsPageState extends State<RecordsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 1),
-        content: Text('Smazáno ${toDelete.length} záznamů'),
+        content: Text(L10n.of(context).recordsDeletedCount(toDelete.length)),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -396,9 +397,9 @@ class _RecordsPageState extends State<RecordsPage> {
       });
       await _saveRecords(); // Save after deletion
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           duration: Duration(seconds: 1),
-          content: Text('Záznam smazán'),
+          content: Text(L10n.of(context).recordsDeleted),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -448,8 +449,8 @@ class _RecordsPageState extends State<RecordsPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: const Text('Potvrdit smazání'),
-          content: const Text('Opravdu chcete tento záznam smazat?'),
+          title: Text(L10n.of(context).recordsConfirmDeleteTitle),
+          content: Text(L10n.of(context).recordsConfirmDeleteBody),
           actions: <Widget>[
             TextButton(
               style: TextButton.styleFrom(
@@ -459,7 +460,7 @@ class _RecordsPageState extends State<RecordsPage> {
                 Navigator.of(context).pop(); // Zavře dialog
                 _refreshPage(); // Obnoví stránku
               },
-              child: const Text('Zrušit'),
+              child: Text(L10n.of(context).commonCancel),
             ),
             TextButton(
               style: TextButton.styleFrom(
@@ -469,7 +470,7 @@ class _RecordsPageState extends State<RecordsPage> {
                 Navigator.of(context).pop();
                 _deleteRecord(index);
               },
-              child: const Text('Smazat'),
+              child: Text(L10n.of(context).commonDelete),
             ),
           ],
         );
@@ -483,9 +484,9 @@ class _RecordsPageState extends State<RecordsPage> {
       children: [
         // Search
         TextField(
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             prefixIcon: Icon(Icons.search),
-            hintText: 'Hledat poznámku, datum, čas, BPM',
+            hintText: L10n.of(context).recordsSearchHint,
             border: OutlineInputBorder(),
           ),
           onChanged: (v) {
@@ -500,7 +501,7 @@ class _RecordsPageState extends State<RecordsPage> {
           runSpacing: 4,
           children: [
             ChoiceChip(
-              label: const Text('Vše'),
+              label: Text(L10n.of(context).recordsFilterAll),
               selected: _qualityFilter == 'all',
               onSelected: (_) {
                 setState(() => _qualityFilter = 'all');
@@ -508,7 +509,7 @@ class _RecordsPageState extends State<RecordsPage> {
               },
             ),
             ChoiceChip(
-              label: const Text('Dobrá'),
+              label: Text(L10n.of(context).qualityGood),
               selected: _qualityFilter == 'good',
               onSelected: (_) {
                 setState(() => _qualityFilter = 'good');
@@ -516,7 +517,7 @@ class _RecordsPageState extends State<RecordsPage> {
               },
             ),
             ChoiceChip(
-              label: const Text('Střední'),
+              label: Text(L10n.of(context).qualityMedium),
               selected: _qualityFilter == 'medium',
               onSelected: (_) {
                 setState(() => _qualityFilter = 'medium');
@@ -524,7 +525,7 @@ class _RecordsPageState extends State<RecordsPage> {
               },
             ),
             ChoiceChip(
-              label: const Text('Špatná'),
+              label: Text(L10n.of(context).qualityBad),
               selected: _qualityFilter == 'poor',
               onSelected: (_) {
                 setState(() => _qualityFilter = 'poor');
@@ -562,7 +563,7 @@ class _RecordsPageState extends State<RecordsPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rozsah BPM: $_minBpm–$_maxBpm'),
+            Text(L10n.of(context).recordsBpmRange('$_minBpm', '$_maxBpm')),
             SliderTheme(
               data: SliderThemeData(
                 activeTrackColor: Colors.lightBlue,
@@ -681,15 +682,19 @@ class _RecordsPageState extends State<RecordsPage> {
               Icon(Icons.insights, color: Colors.blue, size: r.iconMd),
               SizedBox(width: r.spaceSm),
               Text(
-                'Dlouhodobé trendy',
+                L10n.of(context).recordsLongTermTrends,
                 style: TextStyle(
                     fontSize: r.fontBodyLg, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           subtitle: Text(
-            '$total měření • průměr ${mean(bpmValues).toStringAsFixed(0)} bpm'
-            '${bpmTrend.abs() < 0.5 ? '' : '  •  ${bpmTrend > 0 ? '↑' : '↓'} ${bpmTrend.abs().toStringAsFixed(1)} bpm'}',
+            L10n.of(context)
+                    .recordsTrendSummary(
+                        total, mean(bpmValues).toStringAsFixed(0)) +
+                (bpmTrend.abs() < 0.5
+                    ? ''
+                    : '  •  ${bpmTrend > 0 ? '↑' : '↓'} ${bpmTrend.abs().toStringAsFixed(1)} bpm'),
             style: TextStyle(fontSize: r.fontSmall, color: Colors.black54),
           ),
           childrenPadding:
@@ -705,8 +710,8 @@ class _RecordsPageState extends State<RecordsPage> {
               children: [
                 _buildTrendTile(
                   r: r,
-                  title: 'Tepová frekvence',
-                  unit: 'bpm',
+                  title: L10n.of(context).metricsHeartRate,
+                  unit: L10n.of(context).homeBpmUnit,
                   spots: bpmSpots,
                   color: const Color.fromARGB(255, 246, 41, 0),
                   avg: mean(bpmValues),
@@ -735,7 +740,7 @@ class _RecordsPageState extends State<RecordsPage> {
                 ),
                 _buildTrendTile(
                   r: r,
-                  title: 'Index stresu',
+                  title: L10n.of(context).metricsStressIndex,
                   unit: '',
                   spots: stressSpots,
                   color: Colors.deepOrange,
@@ -754,17 +759,17 @@ class _RecordsPageState extends State<RecordsPage> {
               children: [
                 Expanded(
                   flex: good,
-                  child: _qualityBar(r, Colors.green, 'Dobrá', good),
+                  child: _qualityBar(r, Colors.green, L10n.of(context).qualityGood, good),
                 ),
                 if (medium > 0)
                   Expanded(
                     flex: medium,
-                    child: _qualityBar(r, Colors.orange, 'Střední', medium),
+                    child: _qualityBar(r, Colors.orange, L10n.of(context).qualityMedium, medium),
                   ),
                 if (poor > 0)
                   Expanded(
                     flex: poor,
-                    child: _qualityBar(r, Colors.red, 'Špatná', poor),
+                    child: _qualityBar(r, Colors.red, L10n.of(context).qualityBad, poor),
                   ),
               ],
             ),
@@ -909,15 +914,15 @@ class _RecordsPageState extends State<RecordsPage> {
     switch (q) {
       case 'good':
         color = Colors.green;
-        label = 'dobrá';
+        label = L10n.of(context).qualityGood.toLowerCase();
         break;
       case 'medium':
         color = Colors.orange;
-        label = 'střední';
+        label = L10n.of(context).qualityMedium.toLowerCase();
         break;
       default:
         color = Colors.red;
-        label = 'špatná';
+        label = L10n.of(context).qualityBad.toLowerCase();
     }
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -1006,7 +1011,7 @@ class _RecordsPageState extends State<RecordsPage> {
               right: 4,
               top: 4,
               child: Tooltip(
-                message: 'Tip: klepni pro vysvětlení',
+                message: L10n.of(context).commonTapForExplanation,
                 waitDuration: const Duration(milliseconds: 300),
                 child: InkResponse(
                   key: iconKey,
@@ -1067,21 +1072,31 @@ class _RecordsPageState extends State<RecordsPage> {
     final bool hasRaw = raws.length == data.length;
 
     final sqa = SignalQualityIndex(fs: fs).evaluate(data);
-    final peaks = UnifiedPpgPeakDetector(fs: fs)
-        .detect(data.map((v) => -v).toList(), zeroPhase: true);
+    // Signal ma pulzy nahoru (overeno na merenich 2026: sikmost derivace
+    // +0,84 u 97 % zaznamu), detektor tedy hleda maxima primo v nem.
+    // Krome vrcholu se hledaji i paty pulzu. Nastup pulzu ma strmejsi hranu
+    // a nemate ho dikroticky zakmit, takze intervaly z pat vychazeji
+    // spolehliveji - na merenich 2026 z nich detektor nasel 99,9 % tepu
+    // proti 98,9 % z vrcholu. Vrcholy se proto zobrazuji, casuje se z pat.
+    final detector = UnifiedPpgPeakDetector(fs: fs);
+    final peaks = detector.detect(data, zeroPhase: true);
+    final feet = detector.detect(data.map((v) => -v).toList(), zeroPhase: true);
 
     final int? t0Ms = hasStamps ? stamps.first : null;
     final times = List<double>.generate(
       data.length,
       (i) => hasStamps ? (stamps[i] - t0Ms!) / 1000.0 : i / fs,
     );
-    final peakTimes = peaks.map((peak) {
+    double timeOf(PpgPeak peak) {
       if (!hasStamps) return peak.timeSec;
       final int i0 = peak.fractionalIndex.floor().clamp(0, stamps.length - 1);
       final int i1 = (i0 + 1).clamp(0, stamps.length - 1);
       final double frac = peak.fractionalIndex - i0;
       return ((stamps[i0] + (stamps[i1] - stamps[i0]) * frac) - t0Ms!) / 1000.0;
-    }).toList();
+    }
+
+    final peakTimes = peaks.map(timeOf).toList();
+    final footTimes = feet.map(timeOf).toList();
 
     return _ExportBundle(
       fs: fs,
@@ -1090,6 +1105,12 @@ class _RecordsPageState extends State<RecordsPage> {
       raws: hasRaw ? raws : const [],
       peakIndices: peaks.map((p) => p.fractionalIndex.round()).toList(),
       peakTimes: peakTimes,
+      footIndices: feet.map((p) => p.fractionalIndex.round()).toList(),
+      footTimes: footTimes,
+      bpmFromFeet: detector.bpmFromPeaks(feet),
+      hasRaw: hasRaw,
+      hasStamps: hasStamps,
+      startInstant: _parseRecordStart(record),
       quality: sqa,
       sampleRateSource: hasStamps
           ? 'frame timestamps'
@@ -1117,7 +1138,6 @@ class _RecordsPageState extends State<RecordsPage> {
       final file =
           File('${directory.path}/record_${record.date}_${record.time}.csv');
       final b = _prepareExport(record);
-      final startInstant = _parseRecordStart(record);
       final sb = StringBuffer();
 
       // Metadata jako komentarova hlavicka - pandas i Excel ji umi preskocit.
@@ -1128,6 +1148,8 @@ class _RecordsPageState extends State<RecordsPage> {
       meta('started_at', record.startedAt);
       meta('duration_s', record.duration);
       meta('average_bpm', record.averageBPM);
+      meta('bpm_from_feet', b.bpmFromFeet.toStringAsFixed(1));
+      meta('timing_landmark', 'pulse foot');
       meta('sample_rate_hz', b.fs.toStringAsFixed(3));
       meta('sample_rate_source', b.sampleRateSource);
       meta(
@@ -1138,19 +1160,14 @@ class _RecordsPageState extends State<RecordsPage> {
       record.metadata.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
 
       sb.writeln(b.raws.isEmpty
-          ? 'time_s,timestamp,signal,peak'
-          : 'time_s,timestamp,signal,peak,raw_green,raw_red,raw_blue');
+          ? 'time_s,timestamp,signal,peak,foot'
+          : 'time_s,timestamp,signal,peak,foot,raw_green,raw_red,raw_blue');
       final peakSet = b.peakIndices.toSet();
+      final footSet = b.footIndices.toSet();
       for (int i = 0; i < b.data.length; i++) {
-        final stamp = startInstant
-                ?.add(Duration(microseconds: (b.times[i] * 1e6).round()))
-                .toIso8601String() ??
-            '';
-        final raw = b.raws.isEmpty
-            ? ''
-            : ',${b.raws[i]['green']},${b.raws[i]['red']},${b.raws[i]['blue']}';
-        sb.writeln('${b.times[i].toStringAsFixed(3)},$stamp,'
-            '${b.data[i]},${peakSet.contains(i) ? 1 : 0}$raw');
+        sb.writeln('${b.times[i].toStringAsFixed(3)},${b.stampAt(i)},'
+            '${b.data[i]},${peakSet.contains(i) ? 1 : 0},'
+            '${footSet.contains(i) ? 1 : 0}${b.raw(i)}');
       }
       await file.writeAsString(sb.toString());
       return file.path;
@@ -1194,6 +1211,10 @@ class _RecordsPageState extends State<RecordsPage> {
         'signal': b.data,
         'peakIndices': b.peakIndices,
         'peakTimesS': b.peakTimes,
+        'footIndices': b.footIndices,
+        'footTimesS': b.footTimes,
+        'bpmFromFeet': b.bpmFromFeet,
+        'timingLandmark': 'foot',
         if (b.raws.isNotEmpty) ...{
           'rawGreen': b.raws.map((r) => r['green']).toList(),
           'rawRed': b.raws.map((r) => r['red']).toList(),
@@ -1214,15 +1235,13 @@ class _RecordsPageState extends State<RecordsPage> {
       final directory = await getApplicationDocumentsDirectory();
       final file =
           File('${directory.path}/record_${record.date}_${record.time}.txt');
-      // Measurement start as a real instant, so every sample below can carry an
-      // absolute wall-clock time and not just an offset.
-      final DateTime? startInstant = _parseRecordStart(record);
+      final b = _prepareExport(record);
 
-      StringBuffer sb = StringBuffer();
+      final sb = StringBuffer();
       sb.writeln('Date: ${record.date}');
       sb.writeln('Time: ${record.time}');
-      sb.writeln(
-          'Measurement start: ${record.startedAt.isNotEmpty ? record.startedAt : '${record.date} ${record.time}'}');
+      sb.writeln('Measurement start: '
+          '${record.startedAt.isNotEmpty ? record.startedAt : '${record.date} ${record.time}'}');
       if (record.endedAt.isNotEmpty) {
         sb.writeln('Measurement end: ${record.endedAt}');
       }
@@ -1230,101 +1249,44 @@ class _RecordsPageState extends State<RecordsPage> {
         sb.writeln('Saved at: ${record.savedAt}');
       }
       sb.writeln('Average BPM: ${record.averageBPM}');
+      sb.writeln('BPM from pulse feet: ${b.bpmFromFeet.toStringAsFixed(1)}');
       sb.writeln('Notes: ${record.notesContent}');
       sb.writeln('Duration: ${record.duration}');
       record.metadata.forEach((key, value) => sb.writeln('$key: $value'));
-
-      // Compute trimmed data
-      final double fs = record.effectiveSampleRate;
-      int expectedLength = (record.duration * fs).toInt();
-      List<double> trimmedData = record.dataForPlot;
-      if (trimmedData.length > expectedLength) {
-        trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
-      }
-
-      // Razítka snímků zarovnaná na stejný ořez jako signál. Když je záznam
-      // nemá (starší data), doplní se rovnoměrně z měřené frekvence.
-      List<int> stamps = record.frameTimestampsMs;
-      if (stamps.length > trimmedData.length) {
-        stamps = stamps.sublist(stamps.length - trimmedData.length);
-      }
-      final bool hasStamps = stamps.length == trimmedData.length;
-
-      // Kvalita signálu, aby bylo z exportu poznat, kdy je odhad nepoužitelný.
-      final sqa = SignalQualityIndex(fs: fs).evaluate(trimmedData);
-
-      sb.writeln('Sample rate (Hz): ${fs.toStringAsFixed(3)}');
-      sb.writeln('Sample rate source: '
-          '${hasStamps ? 'frame timestamps' : (record.sampleRateHz > 0 ? 'measured' : 'derived from sample count')}');
-      sb.writeln(
-          'Signal quality: ${sqa.level.name} (${sqa.score.toStringAsFixed(0)}/100, SNR ${sqa.snrDb.toStringAsFixed(1)} dB)');
-
-      // Nefiltrované průměry kanálů z ROI, zarovnané na stejný ořez jako signál.
-      // Sloupec Signal Value prošel mediánem, odečtením baseline a EMA, takže
-      // je pro vlastní zpracování dat příliš vyhlazený — proto se vedle něj
-      // ukládá i to, co přišlo z kamery.
-      List<Map<String, dynamic>> raws = record.rawRgbSamples;
-      if (raws.length > trimmedData.length) {
-        raws = raws.sublist(raws.length - trimmedData.length);
-      }
-      final bool hasRaw = raws.length == trimmedData.length;
-      sb.writeln(
-          'Raw channels: ${hasRaw ? 'green,red,blue (ROI mean, unfiltered)' : 'not available'}');
-      sb.writeln(
-          'Signal Value pipeline: median(5) -> baseline removal -> EMA(alpha=0.4), inverted');
+      sb.writeln('Sample rate (Hz): ${b.fs.toStringAsFixed(3)}');
+      sb.writeln('Sample rate source: ${b.sampleRateSource}');
+      sb.writeln('Signal quality: ${b.quality.level.name} '
+          '(${b.quality.score.toStringAsFixed(0)}/100, '
+          'SNR ${b.quality.snrDb.toStringAsFixed(1)} dB)');
+      sb.writeln('Raw channels: '
+          '${b.hasRaw ? 'green,red,blue (ROI mean, unfiltered)' : 'not available'}');
+      sb.writeln('Signal Value pipeline: '
+          'median(5) -> baseline removal -> EMA(alpha=0.4), inverted');
+      sb.writeln('Timing landmark: pulse foot');
       sb.writeln('');
-      sb.writeln(hasRaw
+      sb.writeln(b.hasRaw
           ? 'Time (s),Timestamp,Signal Value,Raw Green,Raw Red,Raw Blue'
           : 'Time (s),Timestamp,Signal Value');
 
-      // Write signal data
-      final int? t0Ms = hasStamps ? stamps.first : null;
-      double rawOf(int i, String channel) =>
-          (raws[i][channel] as num?)?.toDouble() ?? double.nan;
-      for (int i = 0; i < trimmedData.length; i++) {
-        final double time = hasStamps ? (stamps[i] - t0Ms!) / 1000.0 : i / fs;
-        final String stamp = startInstant != null
-            ? startInstant
-                .add(Duration(microseconds: (time * 1e6).round()))
-                .toIso8601String()
-            : '';
-        final String raw = hasRaw
-            ? ',${rawOf(i, 'green')},${rawOf(i, 'red')},${rawOf(i, 'blue')}'
-            : '';
-        sb.writeln('${time.toStringAsFixed(3)},$stamp,${trimmedData[i]}$raw');
+      for (int i = 0; i < b.data.length; i++) {
+        sb.writeln('${b.times[i].toStringAsFixed(3)},${b.stampAt(i)},'
+            '${b.data[i]}${b.raw(i)}');
       }
 
-      // Detekce vrcholů jednotným detektorem. Signál je uložený s pulzy dolů,
-      // proto se před detekcí invertuje; zero-phase, protože jde o
-      // retrospektivní zpracování hotového záznamu.
-      final detector = UnifiedPpgPeakDetector(fs: fs);
-      final peaks = detector.detect(
-        trimmedData.map((v) => -v).toList(),
-        zeroPhase: true,
-      );
-
-      // Write peak indices
-      sb.writeln('');
-      sb.writeln('Peak Indices:');
-      for (final peak in peaks) {
-        sb.writeln(peak.fractionalIndex.round().toString());
-      }
-      sb.writeln('');
-      sb.writeln('Peak Times (s):');
-      for (final peak in peaks) {
-        // Se skutečnými razítky se čas vrcholu interpoluje mezi snímky, aby
-        // seděl na stejnou osu jako signál výše (a nesl i jitter kamery).
-        double t = peak.timeSec;
-        if (hasStamps) {
-          final int i0 =
-              peak.fractionalIndex.floor().clamp(0, stamps.length - 1);
-          final int i1 = (i0 + 1).clamp(0, stamps.length - 1);
-          final double frac = peak.fractionalIndex - i0;
-          t = ((stamps[i0] + (stamps[i1] - stamps[i0]) * frac) - t0Ms!) /
-              1000.0;
+      void section(String title, List<Object> values) {
+        sb.writeln('');
+        sb.writeln(title);
+        for (final v in values) {
+          sb.writeln(v.toString());
         }
-        sb.writeln(t.toStringAsFixed(4));
       }
+
+      section('Peak Indices:', b.peakIndices);
+      section('Peak Times (s):',
+          b.peakTimes.map((t) => t.toStringAsFixed(4)).toList());
+      section('Foot Indices:', b.footIndices);
+      section('Foot Times (s):',
+          b.footTimes.map((t) => t.toStringAsFixed(4)).toList());
 
       await file.writeAsString(sb.toString());
       return file.path;
@@ -1362,13 +1324,13 @@ class _RecordsPageState extends State<RecordsPage> {
       double avg = count > 0 ? sum / count : spots[i].y;
       smoothedData.add(FlSpot(spots[i].x, avg));
     }
-    // Detect peaks on smoothed — stejný detektor jako v exportu a v detailu,
-    // aby list, detail i export hlásily shodné BPM.
-    final peaks = UnifiedPpgPeakDetector(fs: fs)
-        .detect(smoothedData.map((s) => s.y).toList(), zeroPhase: true);
-    List<FlSpot> peakSpots = peaks
-        .map((peak) => smoothedData[
-            (peak.timeSec * fs).round().clamp(0, smoothedData.length - 1)])
+    // Tep se pocita z pat pulzu (presnejsi casovani), ne z vrcholu - stejne
+    // jako v exportu, aby list, detail i soubor hlasily shodne BPM.
+    final feet = UnifiedPpgPeakDetector(fs: fs)
+        .detect(smoothedData.map((s) => -s.y).toList(), zeroPhase: true);
+    List<FlSpot> peakSpots = feet
+        .map((foot) => smoothedData[
+            (foot.timeSec * fs).round().clamp(0, smoothedData.length - 1)])
         .toList();
     // Calculate average BPM from peaks
     double calculatedAverageBPM = 0.0;
@@ -1416,10 +1378,12 @@ class _RecordsPageState extends State<RecordsPage> {
     if (trimmedData.length > expectedLength) {
       trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
     }
-    // Create spots with time x and inverted y
+    // Ulozeny signal uz je otoceny v Home (pulzy miri nahoru), takze se
+    // vykresluje tak, jak je - jinak by detail ukazoval krivku vzhuru nohama
+    // oproti osciloskopu behem mereni a vrcholy by padaly do udoli.
     List<FlSpot> spots = [];
     for (int i = 0; i < trimmedData.length; i++) {
-      spots.add(FlSpot(i / fs, -trimmedData[i]));
+      spots.add(FlSpot(i / fs, trimmedData[i]));
     }
     // Moving average smoothing
     int windowSize = 7;
@@ -1609,8 +1573,8 @@ class _RecordsPageState extends State<RecordsPage> {
                     margin: const EdgeInsets.only(top: 20),
                     child: Column(
                       children: [
-                        const Text(
-                          'Průměrná tepová frekvence:',
+                        Text(
+                          L10n.of(context).summaryAverageHeartRate,
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 20,
@@ -1856,8 +1820,8 @@ class _RecordsPageState extends State<RecordsPage> {
                       child: ExpansionTile(
                         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
                         initiallyExpanded: false,
-                        title: const Text(
-                          'HRV Analýza',
+                        title: Text(
+                          L10n.of(context).metricsHrvAnalysis,
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -1873,15 +1837,15 @@ class _RecordsPageState extends State<RecordsPage> {
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                             children: [
-                              _buildHRVCard('Dechová frekvence',
-                                  '${record.respiratoryRate.toStringAsFixed(1)} dechů/min'),
+                              _buildHRVCard(L10n.of(context).metricsRespiratoryRate,
+                                  L10n.of(context).metricsBreathsPerMinute(record.respiratoryRate.toStringAsFixed(1))),
                               _buildHRVCard(
                                   'SDNN', '${sdnn.toStringAsFixed(2)} ms'),
                               _buildHRVCard(
                                   'RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
                               _buildHRVCard(
                                   'pNN50', '${pnn50.toStringAsFixed(2)} %'),
-                              _buildHRVCard('Průměrný RR',
+                              _buildHRVCard(L10n.of(context).metricsAverageRr,
                                   '${meanRR.toStringAsFixed(2)} ms'),
                               _buildHRVCard(
                                   'SD1', '${sd1.toStringAsFixed(2)} ms'),
@@ -1894,7 +1858,7 @@ class _RecordsPageState extends State<RecordsPage> {
                               _buildHRVCard(
                                   'LF/HF', '${lfhf.toStringAsFixed(2)}'),
                               _buildHRVCard(
-                                'Index stresu',
+                                L10n.of(context).metricsStressIndex,
                                 '${stressIndex.toStringAsFixed(2)}',
                                 valueColor: _getStressColor(stressIndex),
                               ),
@@ -1920,8 +1884,8 @@ class _RecordsPageState extends State<RecordsPage> {
                       child: ExpansionTile(
                         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
                         initiallyExpanded: true,
-                        title: const Text(
-                          'Zotavení srdeční frekvence',
+                        title: Text(
+                          L10n.of(context).metricsHeartRateRecovery,
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -1929,8 +1893,8 @@ class _RecordsPageState extends State<RecordsPage> {
                             const EdgeInsets.symmetric(horizontal: 12),
                         children: [
                           const SizedBox(height: 6),
-                          const Text(
-                            'Měří pokles tepové frekvence po zátěži. Vyšší pokles za 60–120 s obvykle značí lepší kardiovaskulární kondici a rychlejší zotavení.',
+                          Text(
+                            L10n.of(context).metricsRecoveryIntro,
                             style:
                                 TextStyle(fontSize: 13, color: Colors.black54),
                           ),
@@ -2016,6 +1980,7 @@ class _RecordsPageState extends State<RecordsPage> {
                             'Stress Index': '${stressIndex.toStringAsFixed(2)}',
                           };
                           final pdfPath = await createPdf(
+                            labels: PdfLabels.of(L10n.of(context)),
                             averageBPM: calculatedAverageBPM.toInt(),
                             notes: record.notesContent,
                             duration: record.duration,
@@ -2034,14 +1999,14 @@ class _RecordsPageState extends State<RecordsPage> {
                         child: Wrap(
                           crossAxisAlignment: WrapCrossAlignment.center,
                           spacing: 5,
-                          children: const [
+                          children: [
                             Icon(
                               FontAwesomeIcons.filePdf,
                               size: 18,
                               color: Colors.red,
                             ),
                             Text(
-                              'Stáhnout PDF',
+                              L10n.of(context).recordsDownloadPdf,
                               style: TextStyle(color: Colors.black),
                             ),
                           ],
@@ -2062,14 +2027,14 @@ class _RecordsPageState extends State<RecordsPage> {
                         child: Wrap(
                           crossAxisAlignment: WrapCrossAlignment.center,
                           spacing: 5,
-                          children: const [
+                          children: [
                             Icon(
                               FontAwesomeIcons.fileLines,
                               size: 18,
                               color: Colors.black,
                             ),
                             Text(
-                              'Export TXT',
+                              L10n.of(context).recordsExportTxt,
                               style: TextStyle(color: Colors.black),
                             ),
                           ],
@@ -2085,7 +2050,7 @@ class _RecordsPageState extends State<RecordsPage> {
                       foregroundColor: const Color.fromARGB(255, 0, 0, 0),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Zavřít'),
+                    child: Text(L10n.of(context).commonClose),
                   ),
                 ),
               ],
@@ -2120,7 +2085,7 @@ class _RecordsPageState extends State<RecordsPage> {
       final pts = (record.recoveryChart['points'] as List);
       for (final p in pts) {
         final t = (p['t'] as num?)?.toDouble() ?? 0.0;
-        final bpm = (p['bpm'] as num?)?.toDouble() ?? 0.0;
+        final bpm = (p[L10n.of(context).homeBpmUnit] as num?)?.toDouble() ?? 0.0;
         if (bpm > 0) spots.add(FlSpot(t, bpm));
       }
       final d = record.recoveryChart['durationSec'];
@@ -2231,50 +2196,61 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   String _getMetricInfoText(String title) {
-    switch (title) {
-      // Czech HRR labels
-      case 'HR (0–10 s)':
-        return 'Průměrná tepová frekvence v prvních 10 sekundách zotavení. Slouží jako výchozí hodnota pro porovnání poklesu.';
-      case 'HR v 60. s':
-        return 'Tepová frekvence kolem 60. sekundy po ukončení zátěže. Porovnává se s počáteční HR pro HRR60.';
-      case 'Pokles 0–60 s':
-        return 'Heart Rate Recovery za 60 s: rozdíl HR mezi 0–10 s a 50–60 s. Vyšší = rychlejší zotavení.';
-      case 'Sklon (0–60 s)':
-        return 'Lineární sklon poklesu HR v prvních 60 s, vyjádřený v bpm/min. Více záporný = rychlejší pokles.';
-      case 'HR v 120. s':
-        return 'Tepová frekvence kolem 120. sekundy. Vhodné pro delší zotavení a výpočet HRR120.';
-      case 'Pokles 0–120 s':
-        return 'Heart Rate Recovery za 120 s: rozdíl HR mezi 0–10 s a 110–120 s. Vyšší = lepší kondice.';
-      case 'Tau (odhad)':
-        return 'Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).';
+    final L10n t = L10n.of(context);
+    // Titles that are translated cannot be switch cases (a case label must be
+    // a compile-time constant), and matching them here keeps the lookup
+    // working in whatever language the caller rendered the title in.
+    if (title == t.metricsRespiratoryRate) return t.tipRespiratoryRate;
+    if (title == t.metricsAverageRr) return t.tipMeanRr;
+    if (title == t.metricsHeartRate) return t.tipGenericHrv;
+    if (title == t.metricsStressIndex) return t.tipBaevsky;
 
-      // HRV labels
-      case 'Dechová frekvence':
-        return 'Dechová frekvence (dechů/min). Odvozeno ze změn amplitudy PPG, typicky 6–20 dechů/min v klidu.';
-      case 'Průměrný RR':
-        return 'Průměrná délka NN (RR) intervalu v milisekundách. Nepřímo souvisí s klidovou TF (delší RR = nižší BPM).';
-      case 'Index stresu':
-        return 'Baevského index – orientační míra stresové zátěže. Vyšší hodnoty mohou ukazovat na vyšší napětí, interpretuj s ohledem na podmínky měření.';
-      case 'SDNN':
-        return 'Standardní odchylka NN intervalů – celková variabilita srdeční frekvence za celé měření.';
+    switch (title) {
+      // Technical abbreviations render identically in both languages.
       case 'RMSSD':
-        return 'Root Mean Square of Successive Differences – citlivé na krátkodobou, parasympatickou aktivitu.';
+        return t.tipRmssd;
+      case 'SDNN':
+        return t.tipSdnn;
       case 'pNN50':
-        return 'Podíl po sobě jdoucích NN intervalů, které se liší o více než 50 ms. Vyšší procento obvykle ukazuje na silnější parasympatickou aktivitu.';
+        return t.tipPnn50;
+      case 'Mean RR':
+      case 'RR':
+        return t.tipMeanRr;
       case 'SD1':
-        return 'SD1 (Poincaré) – krátkodobá HRV (beat‑to‑beat variabilita).';
+        return t.tipSd1;
       case 'SD2':
-        return 'SD2 (Poincaré) – dlouhodobá HRV. Zachycuje pomalejší kolísání a trend variability.';
+        return t.tipSd2;
       case 'SD2/SD1':
-        return 'Poměr dlouhodobé/krátkodobé variability. Vyšší poměr může ukazovat na převahu dlouhodobých oscilací nebo zvýšený stres.';
+        return t.tipSd2Sd1Ratio;
       case 'LF':
-        return 'Low Frequency složka (0.04–0.15 Hz) – směs sympatické i parasympatické aktivity. Uvádíme jako procento z (LF+HF).';
+        return t.tipLf;
       case 'HF':
-        return 'High Frequency složka (0.15–0.40 Hz) – převážně parasympatická aktivita (dýchací sinusová arytmie). Uvádíme jako procento z (LF+HF).';
+        return t.tipHf;
       case 'LF/HF':
-        return 'Poměr LF/HF – orientační ukazatel rovnováhy sympatikus/parasympatikus. Interpretace musí brát v úvahu kontext a délku záznamu.';
+        return t.tipLfHfRatio;
+      case 'HR\u2080':
+      case 'HR (0\u201310 s)':
+        return t.tipHr0;
+      case 'HR@60s':
+      case 'HR v 60. s':
+        return t.tipHr60;
+      case 'HRR60':
+      case 'Pokles 0\u201360 s':
+        return t.tipHrr60;
+      case 'Slope(0\u201360s)':
+      case 'Sklon (0\u201360 s)':
+        return t.tipHrSlope;
+      case 'HR@120s':
+      case 'HR v 120. s':
+        return t.tipHr120;
+      case 'HRR120':
+      case 'Pokles 0\u2013120 s':
+        return t.tipHrr120;
+      case 'Tau':
+      case 'Tau (odhad)':
+        return t.tipHrTau;
       default:
-        return 'Metrika – vykládej v kontextu délky záznamu, artefaktů a podmínek měření.';
+        return t.tipGenericHrv;
     }
   }
 
@@ -2403,7 +2379,7 @@ class _RecordsPageState extends State<RecordsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'HISTORIE MĚŘENÍ',
+              L10n.of(context).recordsTitle,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: r.fontTitleLg,
@@ -2413,7 +2389,7 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Výběr více záznamů',
+            tooltip: L10n.of(context).recordsSelectMultiple,
             icon: Icon(_selectionMode
                 ? Icons.check_box
                 : Icons.check_box_outline_blank),
@@ -2425,19 +2401,19 @@ class _RecordsPageState extends State<RecordsPage> {
             },
           ),
           PopupMenuButton<String>(
-            tooltip: 'Třídit',
+            tooltip: L10n.of(context).recordsSort,
             onSelected: (value) {
               setState(() {
                 _sortMode = value;
               });
               _applyFilters();
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem(
-                  value: 'date_desc', child: Text('Datum: nejnovější')),
-              PopupMenuItem(value: 'date_asc', child: Text('Datum: nejstarší')),
-              PopupMenuItem(value: 'bpm_desc', child: Text('Tep: nejvyšší')),
-              PopupMenuItem(value: 'bpm_asc', child: Text('Tep: nejnižší')),
+                  value: 'date_desc', child: Text(L10n.of(context).recordsSortDateNewest)),
+              PopupMenuItem(value: 'date_asc', child: Text(L10n.of(context).recordsSortDateOldest)),
+              PopupMenuItem(value: 'bpm_desc', child: Text(L10n.of(context).recordsSortBpmHighest)),
+              PopupMenuItem(value: 'bpm_asc', child: Text(L10n.of(context).recordsSortBpmLowest)),
             ],
             icon: const Icon(Icons.sort),
           ),
@@ -2454,7 +2430,7 @@ class _RecordsPageState extends State<RecordsPage> {
           backgroundColor: Colors.white, // Bílé pozadí
           strokeWidth: 3.0, // Tloušťka indikátoru
           child: _records.isEmpty
-              ? const Center(child: Text('Nebyly nalezeny žádné záznamy.'))
+              ? Center(child: Text(L10n.of(context).recordsEmpty))
               : ListView(
                   padding: const EdgeInsets.all(10),
                   children: [
@@ -2579,7 +2555,7 @@ class _RecordsPageState extends State<RecordsPage> {
                             onPressed: _deleteSelected,
                             icon: const Icon(Icons.delete_forever),
                             label: Text(
-                              'Smazat vybrané (${_selectedKeys.length})',
+                              L10n.of(context).recordsDeleteSelected(_selectedKeys.length),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2597,18 +2573,18 @@ class _RecordsPageState extends State<RecordsPage> {
         color: Colors.grey,
         selectedIndex: _selectedIndex,
         onTabChange: _onItemTapped,
-        tabs: const [
+        tabs: [
           GButton(
             icon: Symbols.family_home,
-            text: 'MENU',
+            text: L10n.of(context).navMenu,
           ),
           GButton(
             icon: Symbols.ecg_heart,
-            text: 'MĚŘENÍ',
+            text: L10n.of(context).navMeasure,
           ),
           GButton(
             icon: Symbols.help,
-            text: 'INFO',
+            text: L10n.of(context).navInfo,
           ),
         ],
       ),
@@ -2638,6 +2614,12 @@ class _ExportBundle {
     required this.raws,
     required this.peakIndices,
     required this.peakTimes,
+    required this.footIndices,
+    required this.footTimes,
+    required this.bpmFromFeet,
+    required this.hasRaw,
+    required this.hasStamps,
+    required this.startInstant,
     required this.quality,
     required this.sampleRateSource,
   });
@@ -2648,6 +2630,23 @@ class _ExportBundle {
   final List<Map<String, dynamic>> raws;
   final List<int> peakIndices;
   final List<double> peakTimes;
+  final List<int> footIndices;
+  final List<double> footTimes;
+
+  /// Tep spocitany z intervalu mezi patami pulzu.
+  final double bpmFromFeet;
+  final bool hasRaw;
+  final bool hasStamps;
+  final DateTime? startInstant;
+
+  String raw(int i) =>
+      hasRaw ? ',${raws[i]['green']},${raws[i]['red']},${raws[i]['blue']}' : '';
+
+  String stampAt(int i) =>
+      startInstant
+          ?.add(Duration(microseconds: (times[i] * 1e6).round()))
+          .toIso8601String() ??
+      '';
   final SqaResult quality;
   final String sampleRateSource;
 }

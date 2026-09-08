@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:tepovka/home.dart';
@@ -63,7 +64,7 @@ class _InfoAppState extends State<InfoApp> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'O NÁS',
+              L10n.of(context).infoTitle,
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: r.fontTitleLg),
             ),
@@ -94,31 +95,23 @@ class _InfoAppState extends State<InfoApp> {
               ),
               SizedBox(height: r.spaceSm),
               Text(
-                'Ahoj!\n'
-                'S radostí Vám představujeme naši aplikaci s názvem Tepovka, která vzniká v rámci soutěže organizované Fakultou elektrotechniky a komunikačních technologií na Vysokém učení technickém v Brně. '
-                'Tento projekt je výsledkem naší spolupráce v týmu, který spojuje nadšení pro biomedicínské inženýrství a snahu přinášet inovativní řešení do každodenního života.\n\n'
-                'Naším cílem je vytvořit aplikaci, která umožní měření srdeční frekvence jednoduše pomocí smartphonu s kamerou a bleskem. Tato funkce je pouhým začátkem. V budoucnu plánujeme rozšířit aplikaci o pokročilejší funkce, jako je měření saturace kyslíku v krvi (oximetrie), detekce srdečních arytmií nebo dokonce měření krevního tlaku – pokud výzkumy ukáží, že je tato technologie proveditelná.\n\n'
-                'Aplikace vzniká za podpory VUT, které poskytuje nejen technologické zázemí, ale také odborné vedení, díky kterému můžeme naše nápady realizovat.',
+                L10n.of(context).infoIntro,
                 style: TextStyle(fontSize: r.fontBodyLg),
               ),
               SizedBox(height: r.spaceXl),
               Text(
-                'Náš tým',
+                L10n.of(context).infoTeamTitle,
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: r.fontTitle),
               ),
               SizedBox(height: r.spaceSm),
               Text(
-                'Jsme studenti biomedicínského inženýrství a spojuje nás vášeň pro vývoj zdravotnických technologií. Náš tým tvoří:\n'
-                '- Štěpán Zelníček\n'
-                '- David Vavroušek\n'
-                '- Jakub Kovář\n\n'
-                'Každý z nás přispívá svými specifickými dovednostmi – od programování, přes design aplikací až po analýzu biologických dat. Naším hlavním cílem je vytvořit uživatelsky přívětivou a zároveň technologicky pokročilou aplikaci, která bude sloužit široké veřejnosti.',
+                L10n.of(context).infoTeamBody,
                 style: TextStyle(fontSize: r.fontBodyLg),
               ),
               SizedBox(height: r.spaceXl),
               Text(
-                'Sledujte a podpořte nás',
+                L10n.of(context).infoFollowTitle,
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: r.fontTitle),
               ),
@@ -139,7 +132,7 @@ class _InfoAppState extends State<InfoApp> {
                       }
                     },
                     icon: const Icon(Icons.language),
-                    label: const Text('Web'),
+                    label: Text(L10n.of(context).infoWeb),
                   ),
                   IconButton(
                     icon: Icon(
@@ -178,7 +171,7 @@ class _InfoAppState extends State<InfoApp> {
               ),
               SizedBox(height: r.spaceXl),
               Text(
-                'Jsme nadšeni z možnosti sdílet naši cestu s Vámi a budeme rádi, když nás podpoříte a budete sledovat naše pokroky. Těšíme se na společné objevování nových možností v oblasti digitálního zdravotnictví!',
+                L10n.of(context).infoFollowBody,
                 style: TextStyle(
                     fontSize: r.fontBodyLg, fontStyle: FontStyle.italic),
               ),
@@ -199,7 +192,7 @@ class _InfoAppState extends State<InfoApp> {
                 ),
               ),
               Text(
-                'Za podpory VUT. Děkujeme',
+                L10n.of(context).infoSupportedBy,
                 style: TextStyle(
                     fontStyle: FontStyle.italic, fontSize: r.fontBody),
               ),
@@ -215,18 +208,18 @@ class _InfoAppState extends State<InfoApp> {
         color: Colors.grey,
         selectedIndex: _selectedIndex,
         onTabChange: _onItemTapped,
-        tabs: const [
+        tabs: [
           GButton(
             icon: Symbols.family_home,
-            text: 'MENU',
+            text: L10n.of(context).navMenu,
           ),
           GButton(
             icon: Symbols.ecg_heart,
-            text: 'MĚŘENÍ',
+            text: L10n.of(context).navMeasure,
           ),
           GButton(
             icon: Symbols.help,
-            text: 'INFO',
+            text: L10n.of(context).navInfo,
           ),
         ],
       ),

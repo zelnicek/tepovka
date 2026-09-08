@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/pages/about.dart';
 import 'package:tepovka/pages/info_app.dart';
 
@@ -78,7 +79,7 @@ class _IntroPageState extends State<IntroPage> {
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('DOMOVSKÁ STRÁNKA',
+            Text(L10n.of(context).introTitle,
                 style: Theme.of(context).textTheme.titleMedium),
           ],
         ),
@@ -173,7 +174,7 @@ class _IntroPageState extends State<IntroPage> {
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'ZAČÍT MĚŘENÍ',
+                                    L10n.of(context).introStartMeasurement,
                                     style: TextStyle(
                                       fontSize: fontSizeMedium,
                                       color: Color.fromARGB(255, 0, 0, 0),
@@ -258,12 +259,12 @@ class _IntroPageState extends State<IntroPage> {
                                   ),
                                 ],
                               ),
-                              child: const Column(
+                              child: Column(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'ZÁZNAMY',
+                                    L10n.of(context).introRecords,
                                     style: TextStyle(
                                       fontSize: 18,
                                       color: Color.fromARGB(255, 0, 0, 0),
@@ -496,18 +497,18 @@ class _IntroPageState extends State<IntroPage> {
         color: Colors.grey,
         selectedIndex: _selectedIndex,
         onTabChange: _onItemTapped,
-        tabs: const [
+        tabs: [
           GButton(
             icon: Symbols.family_home,
-            text: 'MENU',
+            text: L10n.of(context).navMenu,
           ),
           GButton(
             icon: Symbols.ecg_heart,
-            text: 'MĚŘENÍ',
+            text: L10n.of(context).navMeasure,
           ),
           GButton(
             icon: Symbols.help,
-            text: 'INFO',
+            text: L10n.of(context).navInfo,
           ),
         ],
       ),

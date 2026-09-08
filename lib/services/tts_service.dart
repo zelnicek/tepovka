@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:tepovka/elements/signal_quality_checker.dart';
 import 'package:tepovka/services/app_settings.dart';
 
 class TtsService {
@@ -8,7 +9,7 @@ class TtsService {
 
   final FlutterTts _tts = FlutterTts();
   bool _initialized = false;
-  String? _lastQualityAnnounced;
+  SignalQuality? _lastQualityAnnounced;
 
   Future<void> _ensureInit() async {
     if (_initialized) return;
@@ -91,48 +92,34 @@ class TtsService {
     }
   }
 
-  Future<void> announceCountdown() async {
+  /// [phrase] is supplied by the caller, which has a BuildContext to resolve it.
+  Future<void> announceCountdown(String phrase) async {
     if (!_seniorEnabled) return;
     await _ensureInit();
     // Single clear phrase to avoid overlapping ticks
-    await speak('Nahrávání začne za tři, dva, jedna.');
+    await speak(phrase);
   }
 
-  Future<void> announceMeasurementEnd() async {
-    await _speakWithTimeout(
-        'Měření ukončeno.', const Duration(milliseconds: 1500));
+  Future<void> announceMeasurementEnd(String phrase) async {
+    await _speakWithTimeout(phrase, const Duration(milliseconds: 1500));
   }
 
-  Future<void> announceQuality(String quality) async {
+  /// Announces a quality change. The caller passes the localised phrase,
+  /// because this service has no BuildContext to look one up with.
+  Future<void> announceQuality(SignalQuality quality, String phrase) async {
     if (!_seniorEnabled) return;
     // Avoid repeating same announcement
     if (_lastQualityAnnounced == quality) return;
     _lastQualityAnnounced = quality;
-    switch (quality) {
-      case 'Dobrá':
-        await speak('Signál je dobrý.');
-        break;
-      case 'Špatná':
-        await speak('Signál je horší, nehýbejte se.');
-        break;
-      case 'Špatný kontakt':
-        await speak('Špatný kontakt s kamerou.');
-        break;
-      case 'Žádný prst':
-        await speak('Přiložte prst na kameru.');
-        break;
-      default:
-        // No announcement for other custom labels
-        break;
-    }
+    await speak(phrase);
   }
 
   // Test helper: speak regardless of Senior mode (for diagnostics)
-  Future<void> testSpeak() async {
+  Future<void> testSpeak(String phrase) async {
     await _ensureInit();
     try {
       await _tts.stop();
-      await _tts.speak('Testovací hlas funguje.');
+      await _tts.speak(phrase);
     } catch (_) {
       // ignore
     }
