@@ -651,10 +651,14 @@ class _HomeState extends State<Home>
     if (!_hasInitializedCameraController) return;
     try {
       await _cameraController.setFocusMode(FocusMode.auto);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Focus unlock unavailable: $e');
+    }
     try {
       await _cameraController.setExposureMode(ExposureMode.auto);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Exposure unlock unavailable: $e');
+    }
   }
 
   /// Clears the incremental filter/plot state between measurements.
@@ -875,9 +879,13 @@ class _HomeState extends State<Home>
           await prefs.setInt('measurements_count', count + 1);
           await prefs.setString(
               'last_measurement_time', DateTime.now().toIso8601String());
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Failed to update measurement counter: $e');
+        }
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Failed to schedule counter update: $e');
+    }
 
     Navigator.pushReplacement(
       context,

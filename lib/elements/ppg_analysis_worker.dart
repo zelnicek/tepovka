@@ -3,7 +3,7 @@ import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:fftea/fftea.dart';
 
 /// Off-thread PPG analysis.
@@ -896,7 +896,10 @@ class PpgAnalysisWorker {
     _disposed = true;
     try {
       _toWorker?.send('shutdown');
-    } catch (_) {}
+    } catch (e) {
+      // Expected when the isolate is already gone.
+      debugPrint('Worker shutdown message not delivered: $e');
+    }
     _fromWorker?.close();
     _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;

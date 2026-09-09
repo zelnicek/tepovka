@@ -75,7 +75,9 @@ class _CameraBodyState extends State<CameraBody> {
         _cameraController = null;
         try {
           await controller.dispose();
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Discarding failed camera controller: $e');
+        }
       }
     }
   }
@@ -87,10 +89,14 @@ class _CameraBodyState extends State<CameraBody> {
         if (_cameraController!.value.isStreamingImages) {
           _cameraController!.stopImageStream();
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Stopping image stream on dispose failed: $e');
+      }
       try {
         _cameraController!.dispose();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Camera dispose failed: $e');
+      }
     }
     super.dispose();
   }

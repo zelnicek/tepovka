@@ -2088,7 +2088,7 @@ class _RecordsPageState extends State<RecordsPage> {
       final pts = (record.recoveryChart['points'] as List);
       for (final p in pts) {
         final t = (p['t'] as num?)?.toDouble() ?? 0.0;
-        final bpm = (p[L10n.of(context).homeBpmUnit] as num?)?.toDouble() ?? 0.0;
+        final bpm = (p['bpm'] as num?)?.toDouble() ?? 0.0;
         if (bpm > 0) spots.add(FlSpot(t, bpm));
       }
       final d = record.recoveryChart['durationSec'];

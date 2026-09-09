@@ -52,11 +52,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _loadLocalStats() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
       setState(() {
         _measurementsCount = prefs.getInt('measurements_count') ?? 0;
         _lastMeasurement = prefs.getString('last_measurement_time') ?? '-';
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Failed to load local stats: $e');
+    }
   }
 
   Future<void> _openLog() async {

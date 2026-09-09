@@ -1410,6 +1410,12 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Datum: {date}'**
   String pdfDate(String date);
+
+  /// No description provided for @summarySaveFailed.
+  ///
+  /// In cs, this message translates to:
+  /// **'Záznam se nepodařilo uložit.'**
+  String get summarySaveFailed;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

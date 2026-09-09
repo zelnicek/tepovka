@@ -675,7 +675,7 @@ class _SummaryState extends State<Summary> {
           'points': _recoverySpots
               .map((s) => {
                     't': s.x,
-                    L10n.of(context).homeBpmUnit: s.y,
+                    'bpm': s.y,
                   })
               .toList(),
         },
@@ -683,12 +683,29 @@ class _SummaryState extends State<Summary> {
       await storage.appendRecord(record);
       await storage.appendRecordTxt(record);
       // Cloud sync disabled in local-only mode.
+      _saveSucceeded = true;
     } catch (e) {
-      debugPrint('Chyba při ukládání: $e');
+      // A failed save used to be swallowed here while the caller navigated
+      // away as if it had worked, losing the measurement without a word.
+      debugPrint('Failed to save measurement: $e');
+      _saveSucceeded = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(L10n.of(context).summarySaveFailed),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } finally {
       _isSaving = false;
     }
   }
+
+  /// Whether the last [_saveMeasurement] call actually persisted the record.
+  /// The save buttons leave the screen only when it did.
+  bool _saveSucceeded = false;
 
   Future<void> _saveToAppleHealth(double bpm) async {
     // Guard against invalid BPM values (Health Connect requires >= 1)
@@ -1088,6 +1105,7 @@ class _SummaryState extends State<Summary> {
                   ? null
                   : () async {
                       await _saveMeasurement();
+                      if (!_saveSucceeded) return;
                       await _saveToAppleHealth(_effectiveAverageBpm);
                       if (!context.mounted) return;
                       Navigator.pushReplacement(
@@ -1102,6 +1120,7 @@ class _SummaryState extends State<Summary> {
                   ? null
                   : () async {
                       await _saveMeasurement();
+                      if (!_saveSucceeded) return;
                       await _saveToAppleHealth(_effectiveAverageBpm);
                       if (!context.mounted) return;
                       Navigator.pushReplacement(

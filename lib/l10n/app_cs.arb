@@ -349,5 +349,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "summarySaveFailed": "Záznam se nepodařilo uložit."
 }

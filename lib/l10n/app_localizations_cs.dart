@@ -741,4 +741,7 @@ class L10nCs extends L10n {
   String pdfDate(String date) {
     return 'Datum: $date';
   }
+
+  @override
+  String get summarySaveFailed => 'Záznam se nepodařilo uložit.';
 }

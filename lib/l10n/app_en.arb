@@ -218,5 +218,6 @@
   "infoWeb": "Website",
   "recordsBpmRange": "BPM range: {min}–{max}",
   "pdfHrvMetrics": "HRV metrics:",
-  "pdfDate": "Date: {date}"
+  "pdfDate": "Date: {date}",
+  "summarySaveFailed": "The record could not be saved."
 }

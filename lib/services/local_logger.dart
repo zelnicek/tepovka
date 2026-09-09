@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -29,7 +30,10 @@ class LocalLogger {
       };
       await _logFile!
           .writeAsString(jsonEncode(entry) + '\n', mode: FileMode.append);
-    } catch (_) {}
+    } catch (e) {
+      // The logger itself failed; debugPrint is the only channel left.
+      debugPrint('Local log write failed: $e');
+    }
   }
 
   static Future<String?> getLogFilePath() async {

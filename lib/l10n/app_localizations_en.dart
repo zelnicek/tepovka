@@ -741,4 +741,7 @@ class L10nEn extends L10n {
   String pdfDate(String date) {
     return 'Date: $date';
   }
+
+  @override
+  String get summarySaveFailed => 'The record could not be saved.';
 }
