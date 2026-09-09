@@ -107,7 +107,7 @@ class AnimatedSplashScreen extends StatefulWidget {
   const AnimatedSplashScreen({super.key});
 
   @override
-  _AnimatedSplashScreenState createState() => _AnimatedSplashScreenState();
+  State<AnimatedSplashScreen> createState() => _AnimatedSplashScreenState();
 }
 
 class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>

@@ -72,6 +72,7 @@ class _InfoAppState extends State<InfoApp> {
         ),
         actions: [
           IconButton(
+            tooltip: L10n.of(context).a11yOpenSettings,
             icon: const Icon(Symbols.settings),
             onPressed: () {
               Navigator.push(
@@ -135,6 +136,7 @@ class _InfoAppState extends State<InfoApp> {
                     label: Text(L10n.of(context).infoWeb),
                   ),
                   IconButton(
+                    tooltip: 'LinkedIn',
                     icon: Icon(
                       FontAwesomeIcons.linkedin,
                       size: socialIconSize,
@@ -151,6 +153,7 @@ class _InfoAppState extends State<InfoApp> {
                     },
                   ),
                   IconButton(
+                    tooltip: 'Instagram',
                     icon: Icon(
                       FontAwesomeIcons.instagram,
                       size: socialIconSize,

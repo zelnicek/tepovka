@@ -219,5 +219,11 @@
   "recordsBpmRange": "BPM range: {min}–{max}",
   "pdfHrvMetrics": "HRV metrics:",
   "pdfDate": "Date: {date}",
-  "summarySaveFailed": "The record could not be saved."
+  "summarySaveFailed": "The record could not be saved.",
+  "a11yHeartRateValue": "Heart rate {bpm} beats per minute",
+  "a11yHeartRateUnknown": "Heart rate not available yet",
+  "a11ySignalQuality": "Signal quality: {quality}",
+  "a11yLiveChart": "Live pulse waveform chart",
+  "a11yOpenSettings": "Open settings",
+  "a11yOpenWebsite": "Open website"
 }

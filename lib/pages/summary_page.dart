@@ -28,7 +28,7 @@ class TimeLabel {
 class Summary extends StatefulWidget {
   final double averageBPM;
   final List<double> data;
-  final List<int> bpm_list;
+  final List<int> bpmList;
   final List<double> frames;
   final int recordingDuration; // Přidáno: Délka měření
   /// Wall-clock start of the measurement itself, so the stored timestamp does
@@ -57,7 +57,7 @@ class Summary extends StatefulWidget {
     super.key,
     required this.averageBPM,
     required this.data,
-    required this.bpm_list,
+    required this.bpmList,
     required this.frames,
     required this.recordingDuration,
     required this.startedAt,
@@ -138,7 +138,7 @@ class _SummaryState extends State<Summary> {
   double _hr120 = 0.0;
   double _hrr60 = 0.0;
   double _hrr120 = 0.0;
-  double _slope60_bpmPerMin = 0.0;
+  double _slope60BpmPerMin = 0.0;
   double _tauSec = 0.0;
   final List<FlSpot> _recoverySpots = [];
   double _spo2 = 0.0;
@@ -236,7 +236,7 @@ class _SummaryState extends State<Summary> {
       final xs = List<double>.generate(endIdx + 1, (i) => i * secPerSample);
       final ys = hist.sublist(0, endIdx + 1).map((v) => v.toDouble()).toList();
       final m = _linRegSlope(xs, ys); // bpm per second
-      _slope60_bpmPerMin = m * 60.0;
+      _slope60BpmPerMin = m * 60.0;
     }
     if (dur >= 120) {
       _hr120 = avgIn(110, 120);
@@ -583,7 +583,7 @@ class _SummaryState extends State<Summary> {
       final averageBpm = _effectiveAverageBpm.toInt();
       final dataForPlot = widget.data;
       final notesContent = _notesController.text;
-      final bpmList = widget.bpm_list;
+      final bpmList = widget.bpmList;
       final frames = widget.frames.skip(2).toList();
       // Derived series for full record
       final smoothedWaveform = _smoothedData
@@ -671,7 +671,7 @@ class _SummaryState extends State<Summary> {
           'hr120': _hr120,
           'hrr60': _hrr60,
           'hrr120': _hrr120,
-          'slope60_bpmPerMin': _slope60_bpmPerMin,
+          'slope60_bpmPerMin': _slope60BpmPerMin,
           'tauSec': _tauSec,
         },
         'recoveryChart': {
@@ -1597,7 +1597,7 @@ class _SummaryState extends State<Summary> {
               _buildHRVCard('Pokles 0–60 s',
                   _hrr60 > 0 ? '${_hrr60.toStringAsFixed(1)} bpm' : '—'),
               _buildHRVCard('Sklon (0–60 s)',
-                  '${_slope60_bpmPerMin.toStringAsFixed(1)} bpm/min'),
+                  '${_slope60BpmPerMin.toStringAsFixed(1)} bpm/min'),
               _buildHRVCard('HR v 120. s',
                   _hr120 > 0 ? '${_hr120.toStringAsFixed(1)} bpm' : '—'),
               _buildHRVCard('Pokles 0–120 s',

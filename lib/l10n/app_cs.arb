@@ -350,5 +350,25 @@
       }
     }
   },
-  "summarySaveFailed": "Záznam se nepodařilo uložit."
+  "summarySaveFailed": "Záznam se nepodařilo uložit.",
+  "a11yHeartRateValue": "Tepová frekvence {bpm} úderů za minutu",
+  "@a11yHeartRateValue": {
+    "placeholders": {
+      "bpm": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yHeartRateUnknown": "Tepová frekvence zatím není k dispozici",
+  "a11ySignalQuality": "Kvalita signálu: {quality}",
+  "@a11ySignalQuality": {
+    "placeholders": {
+      "quality": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yLiveChart": "Živý graf pulzní vlny",
+  "a11yOpenSettings": "Otevřít nastavení",
+  "a11yOpenWebsite": "Otevřít web"
 }

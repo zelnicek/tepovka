@@ -1416,6 +1416,42 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Záznam se nepodařilo uložit.'**
   String get summarySaveFailed;
+
+  /// No description provided for @a11yHeartRateValue.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tepová frekvence {bpm} úderů za minutu'**
+  String a11yHeartRateValue(String bpm);
+
+  /// No description provided for @a11yHeartRateUnknown.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tepová frekvence zatím není k dispozici'**
+  String get a11yHeartRateUnknown;
+
+  /// No description provided for @a11ySignalQuality.
+  ///
+  /// In cs, this message translates to:
+  /// **'Kvalita signálu: {quality}'**
+  String a11ySignalQuality(String quality);
+
+  /// No description provided for @a11yLiveChart.
+  ///
+  /// In cs, this message translates to:
+  /// **'Živý graf pulzní vlny'**
+  String get a11yLiveChart;
+
+  /// No description provided for @a11yOpenSettings.
+  ///
+  /// In cs, this message translates to:
+  /// **'Otevřít nastavení'**
+  String get a11yOpenSettings;
+
+  /// No description provided for @a11yOpenWebsite.
+  ///
+  /// In cs, this message translates to:
+  /// **'Otevřít web'**
+  String get a11yOpenWebsite;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

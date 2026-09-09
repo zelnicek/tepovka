@@ -54,8 +54,8 @@ class _HomeState extends State<Home>
   bool _isRecording = false; // Tracks whether recording is active
   final bool _showBPM = true; // Determines whether BPM is displayed
   bool _isFlashOn = false; // Tracks flashlight state
-  String appbar_text = '';
-  List<int> bpm_list = [];
+  String appBarText = '';
+  List<int> bpmList = [];
   int _recordingDuration = 30; // Default recording duration in seconds
   int _remainingTime = 30; // Remaining time for countdown display
   double _currentTime = 0.0; // Kumulativní čas pro legendu
@@ -508,7 +508,7 @@ class _HomeState extends State<Home>
     setState(() {
       _isRecording = false;
       _isCountdownRunning = false;
-      appbar_text = L10n.of(context).homeReady;
+      appBarText = L10n.of(context).homeReady;
       _remainingTime = _recordingDuration;
       _signalQuality = SignalQuality.bad; // Reset kvality
       _buttonLabel = L10n.of(context).homeStartButton;
@@ -771,7 +771,7 @@ class _HomeState extends State<Home>
     setState(() {
       _progressController.duration = Duration(seconds: _recordingDuration);
       _isRecording = true;
-      appbar_text = L10n.of(context).homeMeasuring;
+      appBarText = L10n.of(context).homeMeasuring;
       _remainingTime = _recordingDuration;
       _buttonLabel = L10n.of(context).homeStopButton;
     });
@@ -806,7 +806,7 @@ class _HomeState extends State<Home>
 
     setState(() {
       _isCountdownRunning = true;
-      appbar_text = L10n.of(context).homeGetReady;
+      appBarText = L10n.of(context).homeGetReady;
       _buttonLabel = '3';
     });
     // Kamera i analýza se připraví na pozadí, zatímco běží odpočet.
@@ -832,7 +832,7 @@ class _HomeState extends State<Home>
 
   Future<void> _navigateToSummaryPage() async {
     double averageBPM = _ppgAlgorithm?.getSummary() ?? 0;
-    bpm_list.add(averageBPM.toInt());
+    bpmList.add(averageBPM.toInt());
     List<double> framesList = _ppgAlgorithm?.getFrames() ?? [];
     List<double> respiratoryRates = _ppgAlgorithm?.getRespiratoryRates() ?? [];
 
@@ -858,7 +858,7 @@ class _HomeState extends State<Home>
     setState(() {
       _isFlashOn = false;
       _isRecording = false; // Ensure recording state is reset
-      appbar_text = L10n.of(context).homeReady;
+      appBarText = L10n.of(context).homeReady;
       _remainingTime = _recordingDuration;
       _signalQuality = SignalQuality.bad; // Reset kvality
     });
@@ -893,7 +893,7 @@ class _HomeState extends State<Home>
         builder: (context) => Summary(
           averageBPM: averageBPM,
           data: _fullRecordData.map((s) => s.y).toList(),
-          bpm_list: bpm_list,
+          bpmList: bpmList,
           frames: framesList,
           recordingDuration:
               _recordingDuration, // Přidáno: Předání délky měření
@@ -982,7 +982,7 @@ class _HomeState extends State<Home>
     // Also re-fires when the locale changes, so an idle screen follows a
     // language switch instead of keeping the previous language's labels.
     if (!_isRecording && !_isCountdownRunning) {
-      appbar_text = L10n.of(context).homeReady;
+      appBarText = L10n.of(context).homeReady;
       _buttonLabel = L10n.of(context).homeStartButton;
     }
   }
@@ -1057,7 +1057,7 @@ class _HomeState extends State<Home>
               Padding(
                 padding: EdgeInsets.only(top: paddingSmall * 0.6),
                 child: Text(
-                  appbar_text,
+                  appBarText,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: fontSizeMedium,
@@ -1091,7 +1091,14 @@ class _HomeState extends State<Home>
                                 // Three digits at the full font size overflow
                                 // this column and wrap onto a second line, so
                                 // scale down instead of wrapping.
-                                return FittedBox(
+                                return Semantics(
+                                  liveRegion: true,
+                                  label: bpm > 0
+                                      ? L10n.of(context)
+                                          .a11yHeartRateValue('${bpm.round()}')
+                                      : L10n.of(context).a11yHeartRateUnknown,
+                                  excludeSemantics: true,
+                                  child: FittedBox(
                                   fit: BoxFit.scaleDown,
                                   child: Text(
                                     // No reading yet: say so instead of showing
@@ -1103,6 +1110,7 @@ class _HomeState extends State<Home>
                                       fontSize: fontSizeLarge,
                                       fontWeight: FontWeight.bold,
                                     ),
+                                  ),
                                   ),
                                 );
                               },
@@ -1206,7 +1214,12 @@ class _HomeState extends State<Home>
                           SizedBox(height: paddingSmall),
                           ValueListenableBuilder<SignalQuality>(
                             valueListenable: _qualityNotifier,
-                            builder: (context, quality, _) => FittedBox(
+                            builder: (context, quality, _) => Semantics(
+                              liveRegion: true,
+                              label: L10n.of(context)
+                                  .a11ySignalQuality(_qualityLabel(quality)),
+                              excludeSemantics: true,
+                              child: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1237,6 +1250,7 @@ class _HomeState extends State<Home>
                                 ],
                               ),
                             ),
+                            ),
                           ),
                         ],
                       ),
@@ -1252,7 +1266,10 @@ class _HomeState extends State<Home>
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final chartWidth = constraints.maxWidth;
-                    return RepaintBoundary(
+                    return Semantics(
+                      label: L10n.of(context).a11yLiveChart,
+                      excludeSemantics: true,
+                      child: RepaintBoundary(
                       // Only this subtree repaints on new samples; the rest of
                       // the screen is rebuilt only on real state changes.
                       child: ValueListenableBuilder<int>(
@@ -1365,6 +1382,7 @@ class _HomeState extends State<Home>
                           );
                         },
                       ),
+                    ),
                     );
                   },
                 ),

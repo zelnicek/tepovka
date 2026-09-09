@@ -1,30 +1,62 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
+import 'package:tepovka/services/app_settings.dart';
+import 'package:tepovka/widgets/privacy_consent.dart';
 
-import 'package:tepovka/main.dart';
-
+/// Smoke tests for screens that can be built without a camera. The measurement
+/// screen needs real hardware, so it is covered by the algorithm tests instead.
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  Widget wrap(Widget child, {Locale locale = const Locale('cs')}) {
+    return MaterialApp(
+      locale: locale,
+      localizationsDelegates: L10n.localizationsDelegates,
+      supportedLocales: L10n.supportedLocales,
+      home: child,
+    );
+  }
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('consent screen builds and shows both choices', (tester) async {
+    await tester.pumpWidget(wrap(const PrivacyConsentPage()));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    final BuildContext context = tester.element(find.byType(PrivacyConsentPage));
+    final L10n t = L10n.of(context);
+
+    expect(find.text(t.consentTitle), findsOneWidget);
+    expect(find.text(t.consentAgree), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('consent screen builds in English too', (tester) async {
+    await tester.pumpWidget(
+        wrap(const PrivacyConsentPage(), locale: const Locale('en')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Data processing consent'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('settings defaults are sane before anything is stored', () async {
+    await AppSettings.init();
+    final s = AppSettings.value;
+
+    expect(s.language, AppLanguage.system);
+    expect(s.textScale, 1.0);
+    expect(s.researchFields, isNotEmpty);
+  });
+
+  test('language preference round-trips through storage', () async {
+    await AppSettings.init();
+    AppSettings.setLanguage(AppLanguage.english);
+    expect(AppSettings.value.language, AppLanguage.english);
+
+    await AppSettings.init(); // re-read from disk
+    expect(AppSettings.value.language, AppLanguage.english);
   });
 }

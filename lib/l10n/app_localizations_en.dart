@@ -744,4 +744,26 @@ class L10nEn extends L10n {
 
   @override
   String get summarySaveFailed => 'The record could not be saved.';
+
+  @override
+  String a11yHeartRateValue(String bpm) {
+    return 'Heart rate $bpm beats per minute';
+  }
+
+  @override
+  String get a11yHeartRateUnknown => 'Heart rate not available yet';
+
+  @override
+  String a11ySignalQuality(String quality) {
+    return 'Signal quality: $quality';
+  }
+
+  @override
+  String get a11yLiveChart => 'Live pulse waveform chart';
+
+  @override
+  String get a11yOpenSettings => 'Open settings';
+
+  @override
+  String get a11yOpenWebsite => 'Open website';
 }

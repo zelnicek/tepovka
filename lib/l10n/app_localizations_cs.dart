@@ -744,4 +744,26 @@ class L10nCs extends L10n {
 
   @override
   String get summarySaveFailed => 'Záznam se nepodařilo uložit.';
+
+  @override
+  String a11yHeartRateValue(String bpm) {
+    return 'Tepová frekvence $bpm úderů za minutu';
+  }
+
+  @override
+  String get a11yHeartRateUnknown => 'Tepová frekvence zatím není k dispozici';
+
+  @override
+  String a11ySignalQuality(String quality) {
+    return 'Kvalita signálu: $quality';
+  }
+
+  @override
+  String get a11yLiveChart => 'Živý graf pulzní vlny';
+
+  @override
+  String get a11yOpenSettings => 'Otevřít nastavení';
+
+  @override
+  String get a11yOpenWebsite => 'Otevřít web';
 }
