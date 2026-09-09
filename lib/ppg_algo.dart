@@ -70,6 +70,11 @@ class PPGAlgorithm {
   /// Jak casto se analyza opakuje.
   static const double _analysisIntervalSeconds = 1.0;
 
+  /// Okno pro dechovou frekvenci. Dech je kolem 0,2 Hz, takze v 8,5s okne pro
+  /// tep jsou sotva dva cykly — z toho frekvenci urcit nejde. 40 s dava pri
+  /// 15 dechech/min asi deset cyklu.
+  static const double _respirationWindowSeconds = 40.0;
+
   /// Snimkovaci frekvence pouzita pro prepocet oken. Nez ji zmerime, drzi se
   /// nominalnich 30 Hz.
   double get _windowFps {
@@ -85,6 +90,13 @@ class PPGAlgorithm {
       (_minAnalysisWindowSeconds * _windowFps).round().clamp(32, 2048);
   int get _analysisIntervalSamples =>
       (_analysisIntervalSeconds * _windowFps).round().clamp(5, 240);
+  int get _respirationWindowSize =>
+      (_respirationWindowSeconds * _windowFps).round().clamp(256, 8192);
+
+  /// Kolik vzorku se drzi v bufferu: dost pro dechove okno i pro to, aby se
+  /// analyza tepu mela o co oprit.
+  int get _retainedSamples =>
+      max(_analysisWindowSize * 2, _respirationWindowSize + _analysisIntervalSamples);
 
   /// Total samples ingested since the last reset. Used both as a monotonic
   /// clock for throttling and to map window-local peak indices to absolute
@@ -317,18 +329,27 @@ class PPGAlgorithm {
         // Hand the window to the background isolate. Respiration is staggered
         // onto every third run because it roughly doubles the cost and changes
         // far too slowly to justify running it every second.
+        // Respiration gets its own, much longer window and only once enough
+        // of it has accumulated; before that it reports nothing rather than a
+        // number fitted to two breathing cycles.
+        final bool wantRespiration = _analysisTick % 3 == 1 &&
+            _intensityValues.length >= _respirationWindowSize;
         _worker.submit(PpgAnalysisRequest(
           window: Float64List.fromList(analysisWindow),
           frameRate: _localFrameRate,
           absBase: _sampleCount - windowSize,
           lastPeakAbsPosition: _lastPeakAbsPosition,
           smoothedHeartRate: _smoothedHeartRate,
-          computeRespiration: _analysisTick % 3 == 1,
+          computeRespiration: wantRespiration,
+          respirationWindow: wantRespiration
+              ? Float64List.fromList(_intensityValues
+                  .sublist(_intensityValues.length - _respirationWindowSize))
+              : null,
         ));
       }
 
-      if (_intensityValues.length > _analysisWindowSize * 2) {
-        final removeCount = _intensityValues.length - _analysisWindowSize;
+      if (_intensityValues.length > _retainedSamples) {
+        final removeCount = _intensityValues.length - _retainedSamples;
         _intensityValues.removeRange(0, removeCount);
         _timestamps.removeRange(0, min(removeCount, _timestamps.length));
         _ppgSignal.removeRange(0, min(removeCount, _ppgSignal.length));

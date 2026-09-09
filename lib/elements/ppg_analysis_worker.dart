@@ -25,6 +25,11 @@ class PpgAnalysisRequest {
   final double smoothedHeartRate;
   final bool computeRespiration;
 
+  /// Longer window used only for respiration. Breathing sits around 0.2 Hz, so
+  /// the heart-rate window holds barely two cycles of it — far too few to fit a
+  /// rate to. Null when respiration is not being computed this run.
+  final Float64List? respirationWindow;
+
   const PpgAnalysisRequest({
     required this.window,
     required this.frameRate,
@@ -32,6 +37,7 @@ class PpgAnalysisRequest {
     required this.lastPeakAbsPosition,
     required this.smoothedHeartRate,
     required this.computeRespiration,
+    this.respirationWindow,
   });
 }
 
@@ -89,7 +95,10 @@ class PpgAnalyzer {
 
     double respiratoryRate = -1.0;
     if (req.computeRespiration) {
-      respiratoryRate = _calculateRespiratoryRate(signal, fs);
+      final List<double>? respSignal = req.respirationWindow;
+      if (respSignal != null) {
+        respiratoryRate = _calculateRespiratoryRate(respSignal, fs);
+      }
     }
 
     if (signal.isEmpty || fs < 20.0) {
@@ -621,8 +630,13 @@ class PpgAnalyzer {
   /// Method: extract pulse band -> envelope -> respiratory band filter -> peak detection
   ///
   /// CHANGED: Now accepts signal and local frame rate as parameters.
+  /// Shortest window that can carry a believable respiratory rate. At the slow
+  /// end of normal breathing (6/min, one cycle per 10 s) 25 s is about two and
+  /// a half cycles; below that the estimate is guesswork.
+  static const double _minRespirationSeconds = 25.0;
+
   double _calculateRespiratoryRate(List<double> signal, double fs) {
-    if (signal.length < (fs * 4).round()) {
+    if (signal.length < (fs * _minRespirationSeconds).round()) {
       return 0.0;
     }
 
