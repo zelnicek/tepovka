@@ -115,7 +115,7 @@ class _LoginPageState extends State<LoginPage> {
                                     await Clipboard.setData(
                                       ClipboardData(text: uid),
                                     );
-                                    if (!mounted) return;
+                                    if (!context.mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content:
@@ -142,7 +142,7 @@ class _LoginPageState extends State<LoginPage> {
                             ElevatedButton.icon(
                               onPressed: () async {
                                 await LocalProfileService.signOutLocal();
-                                if (!mounted) return;
+                                if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(L10n.of(context).settingsLoggedOut),

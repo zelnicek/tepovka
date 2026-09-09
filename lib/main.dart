@@ -134,6 +134,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
         if (!mounted) return;
         // Check privacy consent and navigate accordingly
         SharedPreferences.getInstance().then((prefs) {
+          // The splash route can be gone by the time prefs resolve.
+          if (!mounted) return;
           final consent = prefs.getBool('privacy_consent') ?? false;
           if (consent) {
             Navigator.of(context).pushReplacement(

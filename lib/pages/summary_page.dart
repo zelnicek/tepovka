@@ -726,8 +726,9 @@ class _SummaryState extends State<Summary> {
       startTime: start,
       endTime: end,
     );
+    if (!mounted) return;
     if (success) {
-      print('Tepová frekvence byla úspěšně uložena do Apple Health');
+      debugPrint('Heart rate written to Apple Health');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -761,7 +762,7 @@ class _SummaryState extends State<Summary> {
         ),
       );
     } else {
-      print('Nepodařilo se uložit do Apple Health');
+      debugPrint('Failed to write to Apple Health');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(L10n.of(context).summaryHealthSaveError),
@@ -1100,6 +1101,7 @@ class _SummaryState extends State<Summary> {
                   : () async {
                       await _saveMeasurement();
                       await _saveToAppleHealth(_effectiveAverageBpm);
+                      if (!context.mounted) return;
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
@@ -1113,6 +1115,7 @@ class _SummaryState extends State<Summary> {
                   : () async {
                       await _saveMeasurement();
                       await _saveToAppleHealth(_effectiveAverageBpm);
+                      if (!context.mounted) return;
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(

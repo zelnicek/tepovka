@@ -368,6 +368,7 @@ class _RecordsPageState extends State<RecordsPage> {
       _selectionMode = false;
     });
     await _saveRecords();
+    if (!mounted) return;
     _applyFilters();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -396,6 +397,7 @@ class _RecordsPageState extends State<RecordsPage> {
         _records.removeAt(index);
       });
       await _saveRecords(); // Save after deletion
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           duration: Duration(seconds: 1),
@@ -1965,6 +1967,9 @@ class _RecordsPageState extends State<RecordsPage> {
                     Expanded(
                       child: TextButton(
                         onPressed: () async {
+                          // Resolve the PDF's text before the first await, so
+                          // no BuildContext is touched across an async gap.
+                          final pdfLabels = PdfLabels.of(L10n.of(context));
                           final chartImageBytes = await _captureChart(chartKey);
                           final hrvMetrics = {
                             'SDNN': '${sdnn.toStringAsFixed(2)} ms',
@@ -1980,7 +1985,7 @@ class _RecordsPageState extends State<RecordsPage> {
                             'Stress Index': '${stressIndex.toStringAsFixed(2)}',
                           };
                           final pdfPath = await createPdf(
-                            labels: PdfLabels.of(L10n.of(context)),
+                            labels: pdfLabels,
                             averageBPM: calculatedAverageBPM.toInt(),
                             notes: record.notesContent,
                             duration: record.duration,

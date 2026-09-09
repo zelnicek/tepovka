@@ -344,7 +344,9 @@ class _SettingsPageState extends State<SettingsPage> {
             title: Text(L10n.of(context).settingsTestVoice),
             subtitle: Text(L10n.of(context).settingsTestVoiceHint),
             onTap: () async {
-              await TtsService.instance.testSpeak(L10n.of(context).ttsTestVoice);
+              await TtsService.instance
+                  .testSpeak(L10n.of(context).ttsTestVoice);
+              if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(L10n.of(context).settingsPlayingTestVoice)),
               );
@@ -419,7 +421,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Text(L10n.of(context).settingsLogoutHint),
               onTap: () async {
                 await LocalProfileService.signOutLocal();
-                if (!mounted) return;
+                if (!context.mounted) return;
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

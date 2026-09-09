@@ -547,6 +547,9 @@ class _HomeState extends State<Home>
     }
     // Stop camera + timers before leaving measurement
     await _stopAllActivity(disposeCamera: true);
+    // Tearing down the camera takes long enough that the user can leave this
+    // screen first; touching setState or the Navigator afterwards throws.
+    if (!mounted) return;
     setState(() {
       _selectedIndex = index;
     });
@@ -858,6 +861,9 @@ class _HomeState extends State<Home>
     if (_hasInitializedCameraController) {
       await _cameraController.setFlashMode(FlashMode.off);
     }
+    // The torch call is a platform round-trip; the user may have navigated away
+    // in the meantime, and everything below touches context.
+    if (!mounted) return;
     setState(() {
       _isFlashOn = false;
       _isRecording = false; // Ensure recording state is reset
