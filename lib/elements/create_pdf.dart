@@ -1,6 +1,8 @@
 // pdf_create.dart
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -131,7 +133,7 @@ Future<String?> createPdf({
     await pdfFile.writeAsBytes(await pdf.save());
     return pdfFile.path;
   } catch (e) {
-    print('Error creating PDF: $e');
+    debugPrint('Error creating PDF: $e');
     return null;
   }
 }

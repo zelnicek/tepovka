@@ -216,13 +216,6 @@ class _HomeState extends State<Home>
       // allow cycling through all available cameras as a fallback.
       _backCameras = backCameras.length >= 2 ? backCameras : allCameras;
 
-      print(
-          'Camera debug: total=${allCameras.length}, back=${backCameras.length}, switchable=${_backCameras.length}');
-      for (final cam in allCameras) {
-        print(
-            'Camera debug: name=${cam.name}, dir=${cam.lensDirection}, sensorOrientation=${cam.sensorOrientation}');
-      }
-
       if (_backCameras.isNotEmpty) {
         // Prefer rear camera as default if present.
         final firstBackIndex = _backCameras
@@ -231,7 +224,7 @@ class _HomeState extends State<Home>
         setState(() {});
       }
     } catch (e) {
-      print('Error loading back cameras: $e');
+      debugPrint('Error loading back cameras: $e');
     }
   }
 
@@ -254,7 +247,7 @@ class _HomeState extends State<Home>
       if (!mounted) return;
       setState(() {});
     } catch (e) {
-      print('Error switching camera: $e');
+      debugPrint('Error switching camera: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -839,25 +832,19 @@ class _HomeState extends State<Home>
     List<double> frames_list = _ppgAlgorithm?.getFrames() ?? [];
     List<double> respiratoryRates = _ppgAlgorithm?.getRespiratoryRates() ?? [];
 
-    print(
-        'DEBUG: respiratoryRates = $respiratoryRates, isEmpty=${respiratoryRates.isEmpty}, length=${respiratoryRates.length}');
 
     double averageRR = 0.0;
     if (respiratoryRates.isNotEmpty) {
       // Filter out zero values and calculate average of valid measurements
       final validRates = respiratoryRates.where((r) => r > 0).toList();
-      print(
-          'DEBUG: validRates = $validRates (from ${respiratoryRates.length} total)');
       if (validRates.isNotEmpty) {
         averageRR = validRates.reduce((a, b) => a + b) / validRates.length;
-        print('DEBUG: calculated averageRR = $averageRR');
       } else {
         averageRR = 0.0; // validRates empty -> unknown RR
       }
     } else {
       averageRR = 0.0; // no RR available
     }
-    print('DEBUG: Final RR = $averageRR');
     if (_hasInitializedCameraController) {
       await _cameraController.setFlashMode(FlashMode.off);
     }
@@ -877,8 +864,6 @@ class _HomeState extends State<Home>
     // Fire-and-forget to avoid getting stuck on awaitSpeakCompletion
     // ignore: unawaited_futures
     TtsService.instance.announceMeasurementEnd(L10n.of(context).ttsMeasurementEnd);
-    print(
-        'DEBUG fullRecordData length: ${_fullRecordData.length}, recordingDuration: $_recordingDuration');
     // Log measurement completion locally and increment local counter
     try {
       // Local logger (non-blocking)

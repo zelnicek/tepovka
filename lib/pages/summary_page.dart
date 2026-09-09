@@ -164,9 +164,7 @@ class _SummaryState extends State<Summary> {
 
   @override
   void initState() {
-    print('bpm_list: ${widget.bpm_list}');
-    //print('red_channel: ${widget.data}');
-    print('Délka dat: ${widget.data.length}');
+    //debugPrint('red_channel: ${widget.data}');
     super.initState();
     _authorizeHealth();
     _respiratoryRate =
@@ -186,13 +184,9 @@ class _SummaryState extends State<Summary> {
     _bpmHarmonicScore = widget.bpmHarmonicScore.clamp(0.0, 1.0);
     _bpmAutocorrScore = widget.bpmAutocorrScore.clamp(0.0, 1.0);
     _computeBpmConfidenceInterval();
-    print(
-        'DEBUG HRV from algo: sdnn=${widget.sdnn}, rmssd=${widget.rmssd}, pnn50=${widget.pnn50}, sd1=${widget.sd1}, sd2=${widget.sd2}');
     _sd2sd1 = _sd1 > 0 ? _sd2 / _sd1 : 0.0;
 
     _computeSmoothedPeaksAndLabels();
-    print(
-        'DEBUG Summary peaks: ${_peakSpots.length}, smoothedData: ${_smoothedData.length}');
     _computeHRV(); // Compute remaining metrics (LF, HF, stress index)
     _computeHRRecovery();
     _buildRecoverySpots();
@@ -471,8 +465,6 @@ class _SummaryState extends State<Summary> {
     _hf = hrv.hfNorm;
     _lfhf = hrv.lfHfRatio;
 
-    print(
-        'DEBUG HRV recomputed: sdnn=$_sdnn, rmssd=$_rmssd, pnn50=$_pnn50, sd1=$_sd1, sd2=$_sd2, duration=${hrv.durationSec.toStringAsFixed(1)}s, freqOk=${hrv.canComputeFrequency}');
 
     // Fallback RR estimate from RR-interval modulation when algo RR is unavailable.
     if (_respiratoryRate == 0.0 && rrIntervals.length >= 10) {
@@ -532,14 +524,13 @@ class _SummaryState extends State<Summary> {
       permissions: [HealthDataAccess.READ_WRITE],
     );
     if (!permissionGranted) {
-      print('Oprávnění k zápisu do Apple Health nebylo uděleno.');
+      debugPrint('Oprávnění k zápisu do Apple Health nebylo uděleno.');
       return;
     }
     bool requested = await _health.requestAuthorization(types);
     if (!requested) {
-      print('Uživatel odmítl přístup k HealthKit');
+      debugPrint('Uživatel odmítl přístup k HealthKit');
     } else {
-      print('HealthKit autorizace proběhla úspěšně');
     }
   }
 
@@ -572,12 +563,10 @@ class _SummaryState extends State<Summary> {
 
   Future<void> _saveMeasurement() async {
     if (_isSaving) {
-      print('Ukládání již probíhá.');
       return;
     }
     _isSaving = true;
     try {
-      print('Začátek ukládání měření');
       final storage = StorageService();
       // Stamp the record with when the measurement was taken, not when the
       // user got around to tapping save.
@@ -694,9 +683,8 @@ class _SummaryState extends State<Summary> {
       await storage.appendRecord(record);
       await storage.appendRecordTxt(record);
       // Cloud sync disabled in local-only mode.
-      print('Ukládání úspěšně dokončeno');
     } catch (e) {
-      print('Chyba při ukládání: $e');
+      debugPrint('Chyba při ukládání: $e');
     } finally {
       _isSaving = false;
     }

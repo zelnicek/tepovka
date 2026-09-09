@@ -259,10 +259,9 @@ class _RecordsPageState extends State<RecordsPage> {
         // Save updated records
         await _saveRecords();
       } else {
-        print('Soubor nenalezen!');
       }
     } catch (e) {
-      print('Chyba při načítání záznamů: $e');
+      debugPrint('Chyba při načítání záznamů: $e');
     }
   }
 
@@ -385,9 +384,8 @@ class _RecordsPageState extends State<RecordsPage> {
           _records.map((record) => record.toJson()).toList();
       await _storage.writeSummary(jsonList);
 
-      print('Záznamy uloženy!');
     } catch (e) {
-      print('Chyba při ukládání záznamů: $e');
+      debugPrint('Chyba při ukládání záznamů: $e');
     }
   }
 
@@ -406,7 +404,7 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
       );
     } catch (e) {
-      print('Chyba při mazání záznamu: $e');
+      debugPrint('Chyba při mazání záznamu: $e');
     }
   }
 
@@ -1174,7 +1172,7 @@ class _RecordsPageState extends State<RecordsPage> {
       await file.writeAsString(sb.toString());
       return file.path;
     } catch (e) {
-      print('Error creating CSV: $e');
+      debugPrint('Error creating CSV: $e');
       return null;
     }
   }
@@ -1227,7 +1225,7 @@ class _RecordsPageState extends State<RecordsPage> {
           .writeAsString(const JsonEncoder.withIndent('  ').convert(payload));
       return file.path;
     } catch (e) {
-      print('Error creating JSON: $e');
+      debugPrint('Error creating JSON: $e');
       return null;
     }
   }
@@ -1293,7 +1291,7 @@ class _RecordsPageState extends State<RecordsPage> {
       await file.writeAsString(sb.toString());
       return file.path;
     } catch (e) {
-      print('Error creating TXT: $e');
+      debugPrint('Error creating TXT: $e');
       return null;
     }
   }
@@ -2076,7 +2074,7 @@ class _RecordsPageState extends State<RecordsPage> {
           await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     } catch (e) {
-      print('Error capturing chart: $e');
+      debugPrint('Error capturing chart: $e');
       return null;
     }
   }

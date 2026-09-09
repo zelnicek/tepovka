@@ -38,8 +38,10 @@ class SpO2Algorithm {
 
     // Strong guard for missing finger contact/flashlight.
     if (dcRed < 100.0) {
-      debugPrint(
-          'SPO2: baterka vypnuta nebo prst neni prilozen (dcRed=${dcRed.toStringAsFixed(1)})');
+      if (kDebugMode) {
+        debugPrint('SPO2: torch off or finger not placed '
+            '(dcRed=${dcRed.toStringAsFixed(1)})');
+      }
       return;
     }
 
@@ -67,7 +69,9 @@ class SpO2Algorithm {
     final double ratio = (acRed / dcRed) / (acGreen / dcGreen);
     if (ratio < 0.3 || ratio > 1.8) return;
 
-    debugPrint('SPO2_CAL: R=${ratio.toStringAsFixed(4)}, spo2_ref=???');
+    if (kDebugMode) {
+      debugPrint('SPO2_CAL: R=${ratio.toStringAsFixed(4)}');
+    }
 
     double spo2 = _calA - _calB * ratio;
     spo2 = spo2.clamp(70.0, 100.0);
