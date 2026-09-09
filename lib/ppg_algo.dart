@@ -1,6 +1,4 @@
-import 'dart:typed_data';
 import 'dart:math';
-import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 import 'package:tepovka/elements/spo2_algorithm.dart';

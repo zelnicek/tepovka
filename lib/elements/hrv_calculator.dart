@@ -338,7 +338,9 @@ class HrvCalculator {
     final numFreqs = ((fEnd - fStart) / df).ceil();
 
     double sumYY = 0.0;
-    for (final v in values) sumYY += v * v;
+    for (final v in values) {
+      sumYY += v * v;
+    }
     final variance = sumYY / n;
     if (variance < 1e-12) return 0.0;
 

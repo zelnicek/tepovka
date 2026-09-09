@@ -68,7 +68,7 @@ class _ResearchMetadataDialogState extends State<ResearchMetadataDialog> {
           children: [
             Text(
               L10n.of(context).researchDialogAutoStamp(stamp),
-              style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.6)),
+              style: TextStyle(fontSize: 12, color: Colors.black.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 12),
             for (final field in widget.fields) ...[

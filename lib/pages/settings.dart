@@ -83,7 +83,8 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final path = await LocalLogger.getLogFilePath();
       if (path != null && await File(path).exists()) {
-        await Share.shareXFiles([XFile(path)], text: 'Tepovka logs');
+        await SharePlus.instance
+            .share(ShareParams(files: [XFile(path)], text: 'Tepovka logs'));
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -123,13 +124,20 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => SimpleDialog(
         title: Text(L10n.of(context).settingsExportFormat),
         children: [
-          for (final format in ExportFormat.values)
-            RadioListTile<ExportFormat>(
-              value: format,
-              groupValue: _exportFormat,
-              title: Text(_exportFormatLabel(format)),
-              onChanged: (v) => Navigator.of(context).pop(v),
+          RadioGroup<ExportFormat>(
+            groupValue: _exportFormat,
+            onChanged: (v) => Navigator.of(context).pop(v),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final format in ExportFormat.values)
+                  RadioListTile<ExportFormat>(
+                    value: format,
+                    title: Text(_exportFormatLabel(format)),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -199,13 +207,20 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => SimpleDialog(
         title: Text(L10n.of(context).settingsAppLanguage),
         children: [
-          for (final AppLanguage option in AppLanguage.values)
-            RadioListTile<AppLanguage>(
-              value: option,
-              groupValue: current,
-              title: Text(_languageLabel(option)),
-              onChanged: (value) => Navigator.pop(context, value),
+          RadioGroup<AppLanguage>(
+            groupValue: current,
+            onChanged: (value) => Navigator.pop(context, value),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final AppLanguage option in AppLanguage.values)
+                  RadioListTile<AppLanguage>(
+                    value: option,
+                    title: Text(_languageLabel(option)),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -246,27 +261,28 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle:
                 Text(L10n.of(context).settingsDisplayModeHint),
           ),
-          RadioListTile<UserMode>(
-            value: UserMode.patient,
+          RadioGroup<UserMode>(
             groupValue: _userMode,
-            title: Text(L10n.of(context).settingsPatientMode),
-            subtitle: Text(L10n.of(context).settingsPatientModeHint),
             onChanged: (v) {
               if (v == null) return;
               setState(() => _userMode = v);
               AppSettings.setUserMode(v);
             },
-          ),
-          RadioListTile<UserMode>(
-            value: UserMode.doctor,
-            groupValue: _userMode,
-            title: Text(L10n.of(context).settingsDoctorMode),
-            subtitle: Text(L10n.of(context).settingsDoctorModeHint),
-            onChanged: (v) {
-              if (v == null) return;
-              setState(() => _userMode = v);
-              AppSettings.setUserMode(v);
-            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<UserMode>(
+                  value: UserMode.patient,
+                  title: Text(L10n.of(context).settingsPatientMode),
+                  subtitle: Text(L10n.of(context).settingsPatientModeHint),
+                ),
+                RadioListTile<UserMode>(
+                  value: UserMode.doctor,
+                  title: Text(L10n.of(context).settingsDoctorMode),
+                  subtitle: Text(L10n.of(context).settingsDoctorModeHint),
+                ),
+              ],
+            ),
           ),
           const Divider(height: 24),
           SwitchListTile(
@@ -488,7 +504,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             leading: const Icon(Icons.access_time),
             title: Text(L10n.of(context).settingsLastMeasurement),
-            subtitle: Text('$_lastMeasurement'),
+            subtitle: Text(_lastMeasurement),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

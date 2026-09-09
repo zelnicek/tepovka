@@ -221,7 +221,9 @@ class SignalQualityIndex {
     final m = DspUtils.mean(x);
     final centered = x.map((v) => v - m).toList();
     double r0 = 0.0;
-    for (final v in centered) r0 += v * v;
+    for (final v in centered) {
+      r0 += v * v;
+    }
     if (r0 < 1e-12) return 0.0;
 
     final minLag = (fs * 60.0 / maxBpm).floor().clamp(2, x.length ~/ 2);

@@ -561,7 +561,9 @@ class PpgAnalyzer {
 
     // Compute autocorrelation at lag 0 for normalization
     double r0 = 0.0;
-    for (final v in centered) r0 += v * v;
+    for (final v in centered) {
+      r0 += v * v;
+    }
     if (r0 < 1e-10) return 0.0;
 
     // Search lags corresponding to 42-210 BPM (0.7-3.5 Hz)

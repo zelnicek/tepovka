@@ -1,5 +1,4 @@
 // pdf_create.dart
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
@@ -102,7 +101,7 @@ Future<String?> createPdf({
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
                           font: ttf)),
-                  pw.Table.fromTextArray(
+                  pw.TableHelper.fromTextArray(
                     headers: ['Metrika', 'Hodnota'],
                     data: hrvMetrics.entries
                         .map((e) => [e.key, e.value])
@@ -129,7 +128,7 @@ Future<String?> createPdf({
 
     final directory = await getApplicationDocumentsDirectory();
     final pdfFile = File(
-        '${directory.path}/hrv_report_${formattedDate}_${formattedTime}.pdf');
+        '${directory.path}/hrv_report_${formattedDate}_$formattedTime.pdf');
     await pdfFile.writeAsBytes(await pdf.save());
     return pdfFile.path;
   } catch (e) {

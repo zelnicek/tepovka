@@ -52,7 +52,7 @@ class _HomeState extends State<Home>
   int _selectedIndex = 1;
   late AnimationController _progressController;
   bool _isRecording = false; // Tracks whether recording is active
-  bool _showBPM = true; // Determines whether BPM is displayed
+  final bool _showBPM = true; // Determines whether BPM is displayed
   bool _isFlashOn = false; // Tracks flashlight state
   String appbar_text = '';
   List<int> bpm_list = [];
@@ -833,7 +833,7 @@ class _HomeState extends State<Home>
   Future<void> _navigateToSummaryPage() async {
     double averageBPM = _ppgAlgorithm?.getSummary() ?? 0;
     bpm_list.add(averageBPM.toInt());
-    List<double> frames_list = _ppgAlgorithm?.getFrames() ?? [];
+    List<double> framesList = _ppgAlgorithm?.getFrames() ?? [];
     List<double> respiratoryRates = _ppgAlgorithm?.getRespiratoryRates() ?? [];
 
 
@@ -894,7 +894,7 @@ class _HomeState extends State<Home>
           averageBPM: averageBPM,
           data: _fullRecordData.map((s) => s.y).toList(),
           bpm_list: bpm_list,
-          frames: frames_list,
+          frames: framesList,
           recordingDuration:
               _recordingDuration, // Přidáno: Předání délky měření
           startedAt: _measurementStartedAt ??
@@ -1035,10 +1035,13 @@ class _HomeState extends State<Home>
 
     final currentCamera =
         _backCameras.isNotEmpty ? _backCameras[_currentBackCameraIndex] : null;
-    return WillPopScope(
-      onWillPop: () async {
-        await _stopAllActivity(disposeCamera: true);
-        return true;
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          // Fire-and-forget: the route is already going away.
+          unawaited(_stopAllActivity(disposeCamera: true));
+        }
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false, // Prevent keyboard from resizing UI
@@ -1281,7 +1284,7 @@ class _HomeState extends State<Home>
                                   borderData: FlBorderData(
                                     show: true,
                                     border: Border.all(
-                                        color: Colors.grey.withOpacity(0.3)),
+                                        color: Colors.grey.withValues(alpha: 0.3)),
                                   ),
                                   minX: minX,
                                   maxX: maxX,
@@ -1335,7 +1338,7 @@ class _HomeState extends State<Home>
                                   bottom: 0,
                                   child: Container(
                                     width: 1.0,
-                                    color: Colors.grey.withOpacity(0.5),
+                                    color: Colors.grey.withValues(alpha: 0.5),
                                   ),
                                 );
                               }),
@@ -1527,7 +1530,7 @@ class _HomeState extends State<Home>
                                     color: Colors.white,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.grey.withOpacity(0.3),
+                                        color: Colors.grey.withValues(alpha: 0.3),
                                         spreadRadius: 1,
                                         blurRadius: 3,
                                         offset: const Offset(0, 2),

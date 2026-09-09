@@ -29,7 +29,7 @@ class LocalLogger {
         'data': data ?? {}
       };
       await _logFile!
-          .writeAsString(jsonEncode(entry) + '\n', mode: FileMode.append);
+          .writeAsString('${jsonEncode(entry)}\n', mode: FileMode.append);
     } catch (e) {
       // The logger itself failed; debugPrint is the only channel left.
       debugPrint('Local log write failed: $e');

@@ -78,7 +78,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'ID: ${uid.isNotEmpty ? uid.substring(0, 6) + '…' : '—'}',
+                              'ID: ${uid.isNotEmpty ? '${uid.substring(0, 6)}…' : '—'}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.black54,
@@ -129,7 +129,8 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 TextButton.icon(
                                   onPressed: () async {
-                                    await Share.share('Tepovka ID: $uid');
+                                    await SharePlus.instance.share(
+                                        ShareParams(text: 'Tepovka ID: $uid'));
                                   },
                                   icon: const Icon(Icons.ios_share),
                                   label: Text(L10n.of(context).loginShare),

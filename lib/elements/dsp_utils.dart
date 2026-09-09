@@ -10,7 +10,9 @@ class DspUtils {
   static double mean(List<double> x) {
     if (x.isEmpty) return 0.0;
     double s = 0.0;
-    for (final v in x) s += v;
+    for (final v in x) {
+      s += v;
+    }
     return s / x.length;
   }
 

@@ -54,7 +54,7 @@ class Summary extends StatefulWidget {
   final double bpmHarmonicScore; // Harmonic component of confidence
   final double bpmAutocorrScore; // Autocorrelation component of confidence
   const Summary({
-    Key? key,
+    super.key,
     required this.averageBPM,
     required this.data,
     required this.bpm_list,
@@ -76,7 +76,7 @@ class Summary extends StatefulWidget {
     required this.bpmSnrScore,
     required this.bpmHarmonicScore,
     required this.bpmAutocorrScore,
-  }) : super(key: key);
+  });
   @override
   State<Summary> createState() => _SummaryState();
 }
@@ -85,12 +85,12 @@ class _SummaryState extends State<Summary> {
   int _selectedIndex = 0;
   final Health _health = Health();
   // ignore: unused_field
-  List<HealthDataPoint> _healthDataList = [];
+  final List<HealthDataPoint> _healthDataList = [];
   bool _isSaving = false;
   final TextEditingController _notesController = TextEditingController();
   List<FlSpot> _smoothedData = [];
   List<FlSpot> _peakSpots = [];
-  List<TimeLabel> _labels = [];
+  final List<TimeLabel> _labels = [];
   final ScrollController _signalScrollController = ScrollController();
   double _calculatedAverageBPM = 0.0;
 
@@ -140,7 +140,7 @@ class _SummaryState extends State<Summary> {
   double _hrr120 = 0.0;
   double _slope60_bpmPerMin = 0.0;
   double _tauSec = 0.0;
-  List<FlSpot> _recoverySpots = [];
+  final List<FlSpot> _recoverySpots = [];
   double _spo2 = 0.0;
   double _bpmConfidence = 0.0;
   double _bpmSnrScore = 0.0;
@@ -312,7 +312,7 @@ class _SummaryState extends State<Summary> {
         markerLines.add(LineChartBarData(
           spots: [FlSpot(x, minY), FlSpot(x, maxY)],
           isCurved: false,
-          color: color.withOpacity(0.35),
+          color: color.withValues(alpha: 0.35),
           barWidth: 1.5,
           dotData: const FlDotData(show: false),
         ));
@@ -350,12 +350,15 @@ class _SummaryState extends State<Summary> {
                     getTitlesWidget: (value, meta) {
                       String label = '';
                       if (value == 0) label = '0s';
-                      if ((value - 60).abs() < 0.01 && maxX >= 60)
+                      if ((value - 60).abs() < 0.01 && maxX >= 60) {
                         label = '60s';
-                      if ((value - 120).abs() < 0.01 && maxX >= 120)
+                      }
+                      if ((value - 120).abs() < 0.01 && maxX >= 120) {
                         label = '120s';
-                      if ((value - maxX).abs() < 0.01)
+                      }
+                      if ((value - maxX).abs() < 0.01) {
                         label = '${maxX.toInt()}s';
+                      }
                       return Text(label, style: const TextStyle(fontSize: 10));
                     },
                   ),
@@ -363,7 +366,7 @@ class _SummaryState extends State<Summary> {
               ),
               borderData: FlBorderData(
                 show: true,
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
               ),
               minX: minX,
               maxX: maxX,
@@ -428,8 +431,9 @@ class _SummaryState extends State<Summary> {
       double averageInterval = sumIntervals / (_peakSpots.length - 1);
       _calculatedAverageBPM = 60.0 / averageInterval;
       // Clamp to reasonable range to match home page behavior
-      if (_calculatedAverageBPM < 40 || _calculatedAverageBPM > 200)
+      if (_calculatedAverageBPM < 40 || _calculatedAverageBPM > 200) {
         _calculatedAverageBPM = 70.0;
+      }
     } else {
       _calculatedAverageBPM = 0.0;
     }
@@ -980,11 +984,11 @@ class _SummaryState extends State<Summary> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.red.withOpacity(1),
-                    Colors.orange.withOpacity(1),
-                    Colors.green.withOpacity(1),
-                    Colors.orange.withOpacity(1),
-                    Colors.red.withOpacity(1),
+                    Colors.red.withValues(alpha: 1),
+                    Colors.orange.withValues(alpha: 1),
+                    Colors.green.withValues(alpha: 1),
+                    Colors.orange.withValues(alpha: 1),
+                    Colors.red.withValues(alpha: 1),
                   ],
                   stops: const [
                     0.0,
@@ -1315,7 +1319,7 @@ class _SummaryState extends State<Summary> {
                         borderData: FlBorderData(
                           show: true,
                           border:
-                              Border.all(color: Colors.grey.withOpacity(0.3)),
+                              Border.all(color: Colors.grey.withValues(alpha: 0.3)),
                         ),
                         minX: minX,
                         maxX: maxX,
@@ -1362,10 +1366,10 @@ class _SummaryState extends State<Summary> {
                         bottom: 0,
                         child: Container(
                           width: 1.0,
-                          color: Colors.grey.withOpacity(0.5),
+                          color: Colors.grey.withValues(alpha: 0.5),
                         ),
                       );
-                    }).toList(),
+                    }),
                     ..._labels.map((label) {
                       final posX = ((label.x - minX) / (maxX - minX + 1e-6)) *
                           chartWidth;
@@ -1381,7 +1385,7 @@ class _SummaryState extends State<Summary> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ),
@@ -1405,7 +1409,7 @@ class _SummaryState extends State<Summary> {
               color: Colors.yellow[50],
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.orange.withOpacity(0.6)),
+                side: BorderSide(color: Colors.orange.withValues(alpha: 0.6)),
               ),
               child: Padding(
                 padding: EdgeInsets.all(10),
@@ -1443,13 +1447,13 @@ class _SummaryState extends State<Summary> {
               _buildHRVCard(L10n.of(context).metricsAverageRr, '${_meanRR.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
-              _buildHRVCard('SD2/SD1', '${_sd2sd1.toStringAsFixed(2)}'),
+              _buildHRVCard('SD2/SD1', _sd2sd1.toStringAsFixed(2)),
               _buildHRVCard('LF', '${_lf.toStringAsFixed(2)} %'),
               _buildHRVCard('HF', '${_hf.toStringAsFixed(2)} %'),
-              _buildHRVCard('LF/HF', '${_lfhf.toStringAsFixed(2)}'),
+              _buildHRVCard('LF/HF', _lfhf.toStringAsFixed(2)),
               _buildHRVCard(
                 'Index stresu',
-                '${_stressIndex.toStringAsFixed(2)}',
+                _stressIndex.toStringAsFixed(2),
                 valueColor: _getStressColor(_stressIndex),
               ),
             ],
@@ -1791,7 +1795,7 @@ class _SummaryState extends State<Summary> {
                   child: Icon(
                     Icons.info_outline_rounded,
                     size: 16,
-                    color: Colors.black.withOpacity(0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                   ),
                 ),
               ),

@@ -567,9 +567,9 @@ class _RecordsPageState extends State<RecordsPage> {
             SliderTheme(
               data: SliderThemeData(
                 activeTrackColor: Colors.lightBlue,
-                inactiveTrackColor: Colors.lightBlue.withOpacity(0.25),
+                inactiveTrackColor: Colors.lightBlue.withValues(alpha: 0.25),
                 thumbColor: Colors.lightBlue,
-                overlayColor: Colors.lightBlue.withOpacity(0.12),
+                overlayColor: Colors.lightBlue.withValues(alpha: 0.12),
               ),
               child: RangeSlider(
                 values: RangeValues(_minBpm.toDouble(), _maxBpm.toDouble()),
@@ -852,7 +852,7 @@ class _RecordsPageState extends State<RecordsPage> {
                           dotData: const FlDotData(show: false),
                           belowBarData: BarAreaData(
                             show: true,
-                            color: color.withOpacity(0.12),
+                            color: color.withValues(alpha: 0.12),
                           ),
                         ),
                       ],
@@ -883,9 +883,9 @@ class _RecordsPageState extends State<RecordsPage> {
       margin: EdgeInsets.symmetric(horizontal: r.spaceXs / 2),
       padding: EdgeInsets.symmetric(vertical: r.spaceXs + 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [
@@ -900,7 +900,7 @@ class _RecordsPageState extends State<RecordsPage> {
           Text(
             label,
             style: TextStyle(
-                fontSize: r.fontCaption - 1, color: color.withOpacity(0.9)),
+                fontSize: r.fontCaption - 1, color: color.withValues(alpha: 0.9)),
           ),
         ],
       ),
@@ -928,9 +928,9 @@ class _RecordsPageState extends State<RecordsPage> {
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.6)),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
       ),
       child: Text(
         label,
@@ -1020,7 +1020,7 @@ class _RecordsPageState extends State<RecordsPage> {
                   child: Icon(
                     Icons.info_outline_rounded,
                     size: 16,
-                    color: Colors.black.withOpacity(0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                   ),
                 ),
               ),
@@ -1610,11 +1610,11 @@ class _RecordsPageState extends State<RecordsPage> {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    Colors.red.withOpacity(1),
-                                    Colors.orange.withOpacity(1),
-                                    Colors.green.withOpacity(1),
-                                    Colors.orange.withOpacity(1),
-                                    Colors.red.withOpacity(1),
+                                    Colors.red.withValues(alpha: 1),
+                                    Colors.orange.withValues(alpha: 1),
+                                    Colors.green.withValues(alpha: 1),
+                                    Colors.orange.withValues(alpha: 1),
+                                    Colors.red.withValues(alpha: 1),
                                   ],
                                   stops: const [
                                     0.0,
@@ -1723,7 +1723,7 @@ class _RecordsPageState extends State<RecordsPage> {
                                         show: true,
                                         border: Border.all(
                                             color:
-                                                Colors.grey.withOpacity(0.3)),
+                                                Colors.grey.withValues(alpha: 0.3)),
                                       ),
                                       minX: minX,
                                       maxX: maxX,
@@ -1774,10 +1774,10 @@ class _RecordsPageState extends State<RecordsPage> {
                                       bottom: 0,
                                       child: Container(
                                         width: 1.0,
-                                        color: Colors.grey.withOpacity(0.5),
+                                        color: Colors.grey.withValues(alpha: 0.5),
                                       ),
                                     );
-                                  }).toList(),
+                                  }),
                                   ...labels.map((label) {
                                     final posX = ((label.x - minX) /
                                             (maxX - minX + 1e-6)) *
@@ -1796,7 +1796,7 @@ class _RecordsPageState extends State<RecordsPage> {
                                         ),
                                       ),
                                     );
-                                  }).toList(),
+                                  }),
                                 ],
                               ),
                             ),
@@ -1852,14 +1852,14 @@ class _RecordsPageState extends State<RecordsPage> {
                               _buildHRVCard(
                                   'SD2', '${sd2.toStringAsFixed(2)} ms'),
                               _buildHRVCard(
-                                  'SD2/SD1', '${sd2sd1.toStringAsFixed(2)}'),
+                                  'SD2/SD1', sd2sd1.toStringAsFixed(2)),
                               _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
                               _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
                               _buildHRVCard(
-                                  'LF/HF', '${lfhf.toStringAsFixed(2)}'),
+                                  'LF/HF', lfhf.toStringAsFixed(2)),
                               _buildHRVCard(
                                 L10n.of(context).metricsStressIndex,
-                                '${stressIndex.toStringAsFixed(2)}',
+                                stressIndex.toStringAsFixed(2),
                                 valueColor: _getStressColor(stressIndex),
                               ),
                             ],
@@ -1976,11 +1976,11 @@ class _RecordsPageState extends State<RecordsPage> {
                             'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
                             'SD1': '${sd1.toStringAsFixed(2)} ms',
                             'SD2': '${sd2.toStringAsFixed(2)} ms',
-                            'SD2/SD1': '${sd2sd1.toStringAsFixed(2)}',
+                            'SD2/SD1': sd2sd1.toStringAsFixed(2),
                             'LF': '${lf.toStringAsFixed(2)} %',
                             'HF': '${hf.toStringAsFixed(2)} %',
-                            'LF/HF': '${lfhf.toStringAsFixed(2)}',
-                            'Stress Index': '${stressIndex.toStringAsFixed(2)}',
+                            'LF/HF': lfhf.toStringAsFixed(2),
+                            'Stress Index': stressIndex.toStringAsFixed(2),
                           };
                           final pdfPath = await createPdf(
                             labels: pdfLabels,
@@ -2124,7 +2124,7 @@ class _RecordsPageState extends State<RecordsPage> {
         markerLines.add(LineChartBarData(
           spots: [FlSpot(x, minY), FlSpot(x, maxY)],
           isCurved: false,
-          color: color.withOpacity(0.35),
+          color: color.withValues(alpha: 0.35),
           barWidth: 1.5,
           dotData: const FlDotData(show: false),
         ));
@@ -2162,12 +2162,15 @@ class _RecordsPageState extends State<RecordsPage> {
                     getTitlesWidget: (value, meta) {
                       String label = '';
                       if (value == 0) label = '0s';
-                      if ((value - 60).abs() < 0.01 && maxX >= 60)
+                      if ((value - 60).abs() < 0.01 && maxX >= 60) {
                         label = '60s';
-                      if ((value - 120).abs() < 0.01 && maxX >= 120)
+                      }
+                      if ((value - 120).abs() < 0.01 && maxX >= 120) {
                         label = '120s';
-                      if ((value - maxX).abs() < 0.01)
+                      }
+                      if ((value - maxX).abs() < 0.01) {
                         label = '${maxX.toInt()}s';
+                      }
                       return Text(label, style: const TextStyle(fontSize: 10));
                     },
                   ),
@@ -2175,7 +2178,7 @@ class _RecordsPageState extends State<RecordsPage> {
               ),
               borderData: FlBorderData(
                 show: true,
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
               ),
               minX: minX,
               maxX: maxX,
@@ -2451,7 +2454,7 @@ class _RecordsPageState extends State<RecordsPage> {
                             key: ValueKey(recordKey),
                             direction: DismissDirection.endToStart,
                             background: Container(
-                              color: Colors.red.withOpacity(0.7),
+                              color: Colors.red.withValues(alpha: 0.7),
                               padding: const EdgeInsets.only(right: 20),
                               child: const Align(
                                 alignment: Alignment.centerRight,
@@ -2474,7 +2477,7 @@ class _RecordsPageState extends State<RecordsPage> {
                                   borderRadius: BorderRadius.circular(15),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
+                                      color: Colors.black.withValues(alpha: 0.1),
                                       blurRadius: 5,
                                       spreadRadius: 1,
                                     ),
@@ -2490,7 +2493,7 @@ class _RecordsPageState extends State<RecordsPage> {
                                       ),
                                     Icon(
                                       Icons.history,
-                                      color: Colors.black.withOpacity(0.7),
+                                      color: Colors.black.withValues(alpha: 0.7),
                                     ),
                                     const SizedBox(width: 10),
                                     // Datum a čas pod sebou. Na jednom řádku se
@@ -2519,7 +2522,7 @@ class _RecordsPageState extends State<RecordsPage> {
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.black
-                                                  .withOpacity(0.55),
+                                                  .withValues(alpha: 0.55),
                                             ),
                                           ),
                                         ],

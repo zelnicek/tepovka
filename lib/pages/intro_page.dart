@@ -162,7 +162,7 @@ class _IntroPageState extends State<IntroPage> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.15),
+                                    color: Colors.black.withValues(alpha: 0.15),
                                     spreadRadius: 0,
                                     blurRadius: 10,
                                     offset: const Offset(0, 0),
@@ -252,7 +252,7 @@ class _IntroPageState extends State<IntroPage> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.15),
+                                    color: Colors.black.withValues(alpha: 0.15),
                                     spreadRadius: 0,
                                     blurRadius: 10,
                                     offset: const Offset(0, 0),
@@ -342,7 +342,7 @@ class _IntroPageState extends State<IntroPage> {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.15),
+                                        color: Colors.black.withValues(alpha: 0.15),
                                         spreadRadius: 0,
                                         blurRadius: 10,
                                         offset: const Offset(0, 0),
@@ -428,7 +428,7 @@ class _IntroPageState extends State<IntroPage> {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.15),
+                                        color: Colors.black.withValues(alpha: 0.15),
                                         spreadRadius: 0,
                                         blurRadius: 10,
                                         offset: const Offset(0, 0),
