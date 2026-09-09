@@ -59,5 +59,14 @@
 	     network requests (external links are handed to Safari). -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- iOS filters NSLocale.preferredLanguages against this list, and
+	     Flutter reads its locale from there. Without it the app is only
+	     ever offered its development region, so the Czech UI would not
+	     be selected on a Czech device. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>cs</string>
+		<string>en</string>
+	</array>
 </dict>
 </plist>
