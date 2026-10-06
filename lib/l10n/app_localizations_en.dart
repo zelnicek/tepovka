@@ -89,6 +89,17 @@ class L10nEn extends L10n {
       'For HRV analysis we recommend measuring for at least 60 seconds.';
 
   @override
+  String get homeAdjustingCamera => 'Adjusting the camera…';
+
+  @override
+  String get homeCameraSettingsChanged =>
+      'Camera settings changed during the measurement. The recording is not suitable for SpO₂ analysis — please repeat it.';
+
+  @override
+  String get homeRedChannelClipped =>
+      'The red channel was saturated. Reposition your finger and repeat the measurement.';
+
+  @override
   String get qualityGood => 'Good';
 
   @override

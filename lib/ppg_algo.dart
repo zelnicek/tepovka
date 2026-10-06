@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 import 'package:tepovka/elements/spo2_algorithm.dart';
+import 'package:tepovka/elements/channel_clipping.dart';
 import 'package:tepovka/elements/ppg_analysis_worker.dart';
 
 /// Advanced Photoplethysmography (PPG) algorithm for heart rate estimation
@@ -46,6 +47,24 @@ class PPGAlgorithm {
 
   /// Raw RGB samples captured for export.
   final List<RgbMeans> _rawRgbSamples = [];
+
+  /// Přepálené pixely za celý záznam. Nuluje se na začátku záznamu (viz
+  /// [resetRecordingClipping]), aby se nezapočítal odpočet, během kterého se
+  /// expozice teprve dolaďuje.
+  final ChannelClipping recordingClipping = ChannelClipping();
+
+  /// Přepálené pixely od posledního [takeClipWindow]; podle nich se před
+  /// záznamem ladí expozice.
+  final ChannelClipping _clipWindow = ChannelClipping();
+
+  void resetRecordingClipping() => recordingClipping.reset();
+
+  /// Vrátí statistiku přepálení od posledního volání a začne počítat znovu.
+  ChannelClipping takeClipWindow() {
+    final window = _clipWindow.copy();
+    _clipWindow.reset();
+    return window;
+  }
 
   // Okna se odvozuji z casu, ne z poctu vzorku. Kdyz se zvedne snimkovaci
   // frekvence, musi analyzovat stejne dlouhy usek signalu - jinak by se
@@ -481,6 +500,8 @@ class PPGAlgorithm {
   RgbMeans _calculateRgbMeans(final CameraImage image) {
     int totalRed = 0, totalGreen = 0, totalBlue = 0;
     int pixelCount = 0;
+    int clippedRed = 0, clippedGreen = 0, clippedBlue = 0;
+    const int clipLevel = ChannelClipping.level;
 
     final int width = image.width;
     final int height = image.height;
@@ -512,9 +533,15 @@ class PPGAlgorithm {
         for (int w = startX; w < endX; w += stride) {
           final int i = rowStart + (w << 2);
           if (i > maxIndex) break;
-          totalBlue += bytes[i];
-          totalGreen += bytes[i + 1];
-          totalRed += bytes[i + 2];
+          final int b = bytes[i];
+          final int g = bytes[i + 1];
+          final int r = bytes[i + 2];
+          totalBlue += b;
+          totalGreen += g;
+          totalRed += r;
+          if (r >= clipLevel) clippedRed++;
+          if (g >= clipLevel) clippedGreen++;
+          if (b >= clipLevel) clippedBlue++;
           pixelCount++;
         }
       }
@@ -542,11 +569,17 @@ class PPGAlgorithm {
           final int y = yBuffer[yIndex];
           final int u = uBuffer[uvIndex] - offset;
           final int v = vBuffer[uvIndex] - offset;
-          totalRed += ((y + (v * 1436 ~/ 1024)) - 179).clamp(0, 255);
-          totalGreen +=
+          final int r = ((y + (v * 1436 ~/ 1024)) - 179).clamp(0, 255);
+          final int g =
               ((y - (u * 46549 ~/ 131072) + 44 - (v * 93604 ~/ 131072) + 91))
                   .clamp(0, 255);
-          totalBlue += ((y + (u * 1814 ~/ 1024)) - 227).clamp(0, 255);
+          final int b = ((y + (u * 1814 ~/ 1024)) - 227).clamp(0, 255);
+          totalRed += r;
+          totalGreen += g;
+          totalBlue += b;
+          if (r >= clipLevel) clippedRed++;
+          if (g >= clipLevel) clippedGreen++;
+          if (b >= clipLevel) clippedBlue++;
           pixelCount++;
         }
       }
@@ -555,6 +588,18 @@ class PPGAlgorithm {
     if (pixelCount == 0) {
       return const RgbMeans(red: 0.0, green: 0.0, blue: 0.0);
     }
+    // Přepálení se počítá tady, protože jen tady jsou vidět jednotlivé
+    // pixely; průměr ROI ho neprozradí, dokud není přepálená většina.
+    recordingClipping.addFrame(
+        samples: pixelCount,
+        red: clippedRed,
+        green: clippedGreen,
+        blue: clippedBlue);
+    _clipWindow.addFrame(
+        samples: pixelCount,
+        red: clippedRed,
+        green: clippedGreen,
+        blue: clippedBlue);
     return RgbMeans(
       red: totalRed / pixelCount,
       green: totalGreen / pixelCount,
@@ -745,6 +790,8 @@ class PPGAlgorithm {
     _ppgSignal.clear();
     _fullRecordBuffer.clear();
     _rawRgbSamples.clear();
+    recordingClipping.reset();
+    _clipWindow.reset();
     _timestamps.clear();
     _bpmHistory.clear();
     _frameRates.clear();

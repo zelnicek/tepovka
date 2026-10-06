@@ -45,6 +45,9 @@
   "homeCameraSwitchFailed": "Nepodařilo se přepnout kameru. Zkuste to znovu.",
   "homeDurationOutOfRange": "Zadejte dobu trvání mezi 10 a 300 sekundami",
   "homeHrvDurationHint": "Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.",
+  "homeAdjustingCamera": "Nastavuji kameru…",
+  "homeCameraSettingsChanged": "Nastavení kamery se během měření změnilo. Záznam není vhodný pro výpočet saturace — zopakujte ho.",
+  "homeRedChannelClipped": "Červený kanál byl přepálený. Upravte přiložení prstu a měření zopakujte.",
   "qualityGood": "Dobrá",
   "@qualityGood": {
     "description": "Signal quality label. Also used as a filter value in records."

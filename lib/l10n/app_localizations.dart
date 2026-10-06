@@ -247,6 +247,24 @@ abstract class L10n {
   /// **'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.'**
   String get homeHrvDurationHint;
 
+  /// No description provided for @homeAdjustingCamera.
+  ///
+  /// In cs, this message translates to:
+  /// **'Nastavuji kameru…'**
+  String get homeAdjustingCamera;
+
+  /// No description provided for @homeCameraSettingsChanged.
+  ///
+  /// In cs, this message translates to:
+  /// **'Nastavení kamery se během měření změnilo. Záznam není vhodný pro výpočet saturace — zopakujte ho.'**
+  String get homeCameraSettingsChanged;
+
+  /// No description provided for @homeRedChannelClipped.
+  ///
+  /// In cs, this message translates to:
+  /// **'Červený kanál byl přepálený. Upravte přiložení prstu a měření zopakujte.'**
+  String get homeRedChannelClipped;
+
   /// Signal quality label. Also used as a filter value in records.
   ///
   /// In cs, this message translates to:

@@ -89,6 +89,17 @@ class L10nCs extends L10n {
       'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.';
 
   @override
+  String get homeAdjustingCamera => 'Nastavuji kameru…';
+
+  @override
+  String get homeCameraSettingsChanged =>
+      'Nastavení kamery se během měření změnilo. Záznam není vhodný pro výpočet saturace — zopakujte ho.';
+
+  @override
+  String get homeRedChannelClipped =>
+      'Červený kanál byl přepálený. Upravte přiložení prstu a měření zopakujte.';
+
+  @override
   String get qualityGood => 'Dobrá';
 
   @override

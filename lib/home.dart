@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:tepovka/elements/research_metadata_dialog.dart';
 import 'package:tepovka/services/app_settings.dart';
+import 'package:tepovka/services/camera_lock.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
@@ -112,6 +113,29 @@ class _HomeState extends State<Home>
 
   /// Doba na ustaleni filtru v analyze po jejim resetu, jeste pred zaznamem.
   static const Duration _analysisWarmupDelay = Duration(milliseconds: 700);
+
+  /// Nastavení kamery hned po zamčení a po případném ubrání expozice kvůli
+  /// přepálené červené (bez ubírání jsou totožná). Na iOS; jinde null.
+  CameraSettings? _cameraAtLock;
+  CameraSettings? _cameraLocked;
+  int _exposureReductionSteps = 0;
+
+  /// Proč se stahování expozice zastavilo (jen ve výzkumném režimu); jde do
+  /// exportu, aby se dalo poznat, jestli zbylé přepálení šlo vůbec odstranit.
+  String? _exposureStopReason;
+
+  /// Zvyšuje se při každém zrušení měření. Příprava kamery běží souběžně
+  /// s odpočtem a podle změny pozná, že už na kameru nesmí sahat — jinak by
+  /// po zrušení zamkla vyvážení bílé, které by přežilo do dalšího měření.
+  int _captureGeneration = 0;
+
+  /// Kolikrát nejvýš se ubere 1 EV, a jak dlouho se po každém kroku sbírají
+  /// snímky pro rozhodnutí o dalším. Čtyři kroky = šestnáctkrát méně světla,
+  /// víc už by zelený kanál zapadl do šumu.
+  static const int _maxExposureReductionSteps = 4;
+  static const Duration _clipProbeWindow = Duration(milliseconds: 300);
+
+  String get _cameraId => _cameraController.description.name;
 
   /// Incremental filter state, so each new sample is O(1) instead of
   /// re-filtering the whole visible window on every update.
@@ -572,6 +596,7 @@ class _HomeState extends State<Home>
   Future<void> _stopAllActivity({bool disposeCamera = false}) async {
     if (_isTeardown) return;
     _isTeardown = true;
+    _captureGeneration++;
     try {
       _elapsed.stop();
       _navigationTimer?.cancel();
@@ -611,8 +636,6 @@ class _HomeState extends State<Home>
     });
   }
 
-  /// Freezes focus and exposure so auto-adjustment cannot track the pulse.
-  /// Failures are non-fatal: not every device exposes these controls.
   /// Zapne nebo zhasne svitilnu a udrzi [_isFlashOn] v souladu se skutecnosti.
   Future<void> _setTorch(bool on) async {
     if (!_hasInitializedCameraController || _isTeardown) return;
@@ -632,7 +655,14 @@ class _HomeState extends State<Home>
     }
   }
 
+  /// Freezes focus, exposure and — on iOS — white balance, so the camera's
+  /// automatics can neither track the pulse nor rebalance the colour channels.
+  /// Failures are non-fatal: not every device exposes these controls.
   Future<void> _lockCaptureSettings() async {
+    _cameraAtLock = null;
+    _cameraLocked = null;
+    _exposureReductionSteps = 0;
+    _exposureStopReason = null;
     if (!_hasInitializedCameraController) return;
     try {
       await _cameraController.setFocusMode(FocusMode.locked);
@@ -644,11 +674,97 @@ class _HomeState extends State<Home>
     } catch (e) {
       debugPrint('Exposure lock unavailable: $e');
     }
+    // Plugin camera vyvážení bílé zamknout neumí, takže by celé měření
+    // přepočítávalo poměr kanálů. Nativní zámek ho přidá, expozici a ostření
+    // zmrazí na přesných hodnotách a vrátí je pro export.
+    _cameraAtLock = await CameraLock.lock(_cameraId);
+    _cameraLocked = _cameraAtLock;
   }
 
-  /// Restores auto focus/exposure once a measurement ends.
+  /// Ubírá expozici po 1 EV, dokud červený kanál naráží na strop rozsahu.
+  ///
+  /// Automatika expozice měří hlavně zelenou, která je přes prst s bleskem
+  /// tmavá, a vytáhne expozici tak vysoko, že červená přepálí. Pro tep je to
+  /// jedno, ale přepálená červená nemá pulzní složku, kterou potřebuje odhad
+  /// saturace. Vrací true, pokud se expozice změnila.
+  Future<bool> _keepRedBelowClipping(int generation) async {
+    final algorithm = _ppgAlgorithm;
+    final locked = _cameraLocked;
+    if (algorithm == null || locked == null) return false;
+    CameraSettings camera = locked;
+    CameraSettings? beforeLastStep;
+    var changed = false;
+    for (var step = 0;; step++) {
+      algorithm.takeClipWindow();
+      await Future.delayed(_clipProbeWindow);
+      if (!mounted ||
+          generation != _captureGeneration ||
+          !_hasInitializedCameraController) {
+        break;
+      }
+      final window = algorithm.takeClipWindow();
+      final decision = decideExposureStep(
+        frames: window.frames,
+        redClipFraction: window.redFraction,
+        greenMean: algorithm.getLastRgbMeans().green,
+        stepsTaken: _exposureReductionSteps,
+        maxSteps: _maxExposureReductionSteps,
+      );
+      _exposureStopReason = decision.reason;
+
+      if (decision.action == ExposureAction.revert) {
+        // Poslední krok stáhl zelenou do tmy: vrátit ho. Červená pak zůstane
+        // přepálená, ale tep ze zelené je důležitější a přepálení je vidět.
+        final previous = beforeLastStep;
+        final duration = previous?.exposureDurationS;
+        final iso = previous?.iso;
+        if (duration != null && iso != null) {
+          final restored = await CameraLock.setExposure(
+              _cameraId, ExposureTarget(durationS: duration, iso: iso));
+          if (restored != null) {
+            camera = restored;
+            _exposureReductionSteps--;
+          }
+        }
+        break;
+      }
+      if (decision.action != ExposureAction.reduce) break;
+
+      final target = reducedExposure(camera);
+      if (target == null) {
+        _exposureStopReason = 'min_exposure';
+        break;
+      }
+      final applied = await CameraLock.setExposure(_cameraId, target);
+      if (generation != _captureGeneration) {
+        // Měření se mezitím zrušilo a kamera je odemčená; nastavená expozice
+        // by na ní jinak zůstala viset.
+        await CameraLock.unlock(_cameraId);
+        return false;
+      }
+      if (applied == null) {
+        _exposureStopReason = 'unavailable';
+        break;
+      }
+      if (!changed && mounted) {
+        setState(() {
+          appBarText = L10n.of(context).homeAdjustingCamera;
+        });
+      }
+      beforeLastStep = camera;
+      camera = applied;
+      _exposureReductionSteps++;
+      changed = true;
+    }
+    _cameraLocked = camera;
+    return changed;
+  }
+
+
+  /// Restores auto focus, exposure and white balance once a measurement ends.
   Future<void> _unlockCaptureSettings() async {
     if (!_hasInitializedCameraController) return;
+    await CameraLock.unlock(_cameraId);
     try {
       await _cameraController.setFocusMode(FocusMode.auto);
     } catch (e) {
@@ -711,6 +827,7 @@ class _HomeState extends State<Home>
   /// sekundě víc než dvojnásobný rozkmit a ustálení trvalo 2–4 s. Teď to celé
   /// proběhne během odpočtu, takže záznam začíná na ustáleném signálu.
   Future<void> _prepareCapture() async {
+    final generation = _captureGeneration;
     _signalQualityChecker.reset();
     _ppgAlgorithm?.reset();
 
@@ -718,6 +835,12 @@ class _HomeState extends State<Home>
     // naprazdno a vysledkem by byl prazdny soubor.
     if (_hasInitializedCameraController && !_isStreamingImages) {
       _startImageStream();
+    }
+
+    // Zámek z přerušeného měření by jinak přežil a vyvážení bílé by se
+    // nedorovnalo na právě přiložený prst.
+    if (_hasInitializedCameraController) {
+      await CameraLock.unlock(_cameraId);
     }
 
     // Svitilna uz obvykle sviti od prichodu na obrazovku mereni. Kdyz ji
@@ -730,11 +853,25 @@ class _HomeState extends State<Home>
       await Future.delayed(_fingerSettleDelay);
     }
 
-    // Lock focus/exposure now that the torch is on and the finger is in place.
-    // Auto-exposure otherwise keeps chasing the pulse-driven brightness change
-    // and cancels out the very modulation we are trying to measure. Locking at
-    // camera init instead would freeze the settings of the empty scene.
+    // Zrušeno během ustalování: zamykat už nic, kamera je zpátky v automatice.
+    if (generation != _captureGeneration) return;
+
+    // Lock focus, exposure and white balance now that the torch is on and the
+    // finger is in place. Auto-exposure otherwise keeps chasing the
+    // pulse-driven brightness change and cancels out the very modulation we
+    // are trying to measure. Locking at camera init instead would freeze the
+    // settings of the empty scene.
     await _lockCaptureSettings();
+    // Ve výzkumném režimu se navíc hlídá přepálení červeného kanálu. Krok
+    // expozice je pro filtry skok jasu, takže se analýza po něm spustí znovu
+    // a zobrazovací pipeline dostane celé okno nulové linie na srovnání.
+    if (AppSettings.value.researchMode &&
+        await _keepRedBelowClipping(generation)) {
+      _signalQualityChecker.reset();
+      _ppgAlgorithm?.reset();
+      await Future.delayed(
+          Duration(milliseconds: (_baselineWindowSeconds * 1000).round()));
+    }
     await Future.delayed(_analysisWarmupDelay);
   }
 
@@ -776,6 +913,7 @@ class _HomeState extends State<Home>
       _buttonLabel = L10n.of(context).homeStopButton;
     });
     _startRecordBuffer();
+    _ppgAlgorithm?.resetRecordingClipping();
     _initializeTimers();
     _startAccelerometerStream();
     _progressController.forward();
@@ -849,6 +987,24 @@ class _HomeState extends State<Home>
     } else {
       averageRR = 0.0; // no RR available
     }
+    // Přepálení se zkopíruje hned: po odemčení se expozice znovu rozjede
+    // a další snímky už k záznamu nepatří.
+    final clipping = _ppgAlgorithm?.recordingClipping.copy();
+    // Nastavení kamery se odečte ještě zamčené, aby šlo porovnat se stavem
+    // na začátku; teprve pak se kamera vrátí do automatiky.
+    CameraSettings? cameraAtEnd;
+    if (_hasInitializedCameraController) {
+      cameraAtEnd = await CameraLock.snapshot(_cameraId);
+      await _unlockCaptureSettings();
+    }
+    final cameraReport = buildCameraReport(
+      initial: _cameraAtLock,
+      locked: _cameraLocked,
+      atEnd: cameraAtEnd,
+      exposureReductionSteps: _exposureReductionSteps,
+      clipping: clipping,
+      exposureStopReason: _exposureStopReason,
+    );
     if (_hasInitializedCameraController) {
       await _cameraController.setFlashMode(FlashMode.off);
     }
@@ -862,6 +1018,20 @@ class _HomeState extends State<Home>
       _remainingTime = _recordingDuration;
       _signalQuality = SignalQuality.bad; // Reset kvality
     });
+    // Ve výzkumném režimu se na problém s kamerou upozorní hned, aby šlo
+    // měření zopakovat, dokud je proband na místě.
+    if (AppSettings.value.researchMode) {
+      final l10n = L10n.of(context);
+      final warning = cameraReport.settingsHeld == false
+          ? l10n.homeCameraSettingsChanged
+          : (cameraReport.redClipped ? l10n.homeRedChannelClipped : null);
+      if (warning != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(warning),
+          duration: const Duration(seconds: 6),
+        ));
+      }
+    }
     // Haptics for UX: signal completion
     HapticFeedback.lightImpact();
     // Voice announcement for seniors (do not block navigation)
@@ -910,6 +1080,7 @@ class _HomeState extends State<Home>
           rawRgbSamples: _ppgAlgorithm?.getRawRgbSamples() ?? const [],
           frameTimestampsMs: _ppgAlgorithm?.getFrameTimestamps() ?? const [],
           metadata: _measurementMetadata,
+          cameraSettings: cameraReport.lines,
           bpmConfidence: _ppgAlgorithm?.currentBpmConfidence ?? 0.0,
           bpmSnrScore: _ppgAlgorithm?.currentBpmSnrScore ?? 0.0,
           bpmHarmonicScore: _ppgAlgorithm?.currentBpmHarmonicScore ?? 0.0,
@@ -1181,6 +1352,11 @@ class _HomeState extends State<Home>
                                     setState(() {
                                       _cameraController = controller;
                                     });
+                                    // Zámek vyvážení bílé drží na zařízení
+                                    // i po zavření kamery; nová obrazovka
+                                    // musí začínat v automatice.
+                                    unawaited(CameraLock.unlock(
+                                        controller.description.name));
                                     _startImageStream();
                                     _startGraphUpdates();
                                     // Bez svetla se merit neda, takze se

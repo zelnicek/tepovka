@@ -56,6 +56,9 @@ class Record {
 
   /// Údaje vyplněné ve výzkumném režimu před měřením (ID probanda, protokol…).
   final Map<String, String> metadata;
+
+  /// Nastavení kamery za měření a přepálení kanálů, viz `buildCameraReport`.
+  final Map<String, String> cameraSettings;
   final Map<String, dynamic> hrv; // HRV metrics
   final double respiratoryRate; // RR breaths/min
   final List<double> bpmHistory; // BPM time series for recovery
@@ -78,6 +81,7 @@ class Record {
     this.sampleRateHz = 0.0,
     this.frameTimestampsMs = const [],
     this.metadata = const {},
+    this.cameraSettings = const {},
     required this.hrv,
     required this.respiratoryRate,
     required this.bpmHistory,
@@ -126,6 +130,7 @@ class Record {
       'sampleRateHz': sampleRateHz,
       'frameTimestampsMs': frameTimestampsMs,
       'metadata': metadata,
+      'cameraSettings': cameraSettings,
       'hrv': hrv,
       'respiratoryRate': respiratoryRate,
       'bpmHistory': bpmHistory,
@@ -165,6 +170,10 @@ class Record {
           : const <int>[],
       metadata: json['metadata'] != null
           ? Map<String, String>.from((json['metadata'] as Map)
+              .map((k, v) => MapEntry(k.toString(), v.toString())))
+          : const <String, String>{},
+      cameraSettings: json['cameraSettings'] != null
+          ? Map<String, String>.from((json['cameraSettings'] as Map)
               .map((k, v) => MapEntry(k.toString(), v.toString())))
           : const <String, String>{},
       hrv: json['hrv'] ?? {}, // Default to empty map if null
@@ -242,6 +251,7 @@ class _RecordsPageState extends State<RecordsPage> {
             sampleRateHz: rec.sampleRateHz,
             frameTimestampsMs: rec.frameTimestampsMs,
             metadata: rec.metadata,
+            cameraSettings: rec.cameraSettings,
             hrv: rec.hrv,
             respiratoryRate: rec.respiratoryRate,
             bpmHistory: rec.bpmHistory,
@@ -1158,6 +1168,8 @@ class _RecordsPageState extends State<RecordsPage> {
               '(${b.quality.score.toStringAsFixed(0)}/100)');
       meta('notes', record.notesContent.replaceAll(',', ' '));
       record.metadata.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
+      record.cameraSettings
+          .forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
 
       sb.writeln(b.raws.isEmpty
           ? 'time_s,timestamp,signal,peak,foot'
@@ -1194,6 +1206,11 @@ class _RecordsPageState extends State<RecordsPage> {
         'averageBpm': record.averageBPM,
         'notes': record.notesContent,
         'metadata': record.metadata,
+        // Čísla zpět jako čísla, ať je analýza nemusí převádět.
+        'camera': {
+          for (final e in record.cameraSettings.entries)
+            e.key: _numberOrText(e.value),
+        },
         'sampleRateHz': b.fs,
         'sampleRateSource': b.sampleRateSource,
         'signalPipeline':
@@ -1263,6 +1280,7 @@ class _RecordsPageState extends State<RecordsPage> {
       sb.writeln('Signal Value pipeline: '
           'median(5) -> baseline removal -> EMA(alpha=0.4), inverted');
       sb.writeln('Timing landmark: pulse foot');
+      record.cameraSettings.forEach((key, value) => sb.writeln('$key: $value'));
       sb.writeln('');
       sb.writeln(b.hasRaw
           ? 'Time (s),Timestamp,Signal Value,Raw Green,Raw Red,Raw Blue'
@@ -1294,6 +1312,11 @@ class _RecordsPageState extends State<RecordsPage> {
       debugPrint('Error creating TXT: $e');
       return null;
     }
+  }
+
+  static Object _numberOrText(String value) {
+    final n = num.tryParse(value);
+    return n != null && n.isFinite ? n : value;
   }
 
   double _calculateAverageBPM(Record record) {

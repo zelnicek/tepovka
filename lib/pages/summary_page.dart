@@ -43,6 +43,10 @@ class Summary extends StatefulWidget {
 
   /// Udaje vyplnene ve vyzkumnem rezimu pred merenim (ID probanda apod.).
   final Map<String, String> metadata;
+
+  /// Nastavení kamery za měření a podíl přepálených pixelů (řádky hlavičky
+  /// exportu). Drží se odděleně od [metadata], to jsou údaje o probandovi.
+  final Map<String, String> cameraSettings;
   final double sdnn; // HRV: SDNN
   final double rmssd; // HRV: RMSSD
   final double pnn50; // HRV: pNN50
@@ -66,6 +70,7 @@ class Summary extends StatefulWidget {
     required this.rawRgbSamples,
     this.frameTimestampsMs = const [],
     this.metadata = const {},
+    this.cameraSettings = const {},
     required this.sdnn,
     required this.rmssd,
     required this.pnn50,
@@ -625,6 +630,7 @@ class _SummaryState extends State<Summary> {
         'frames': frames,
         'sampleRateHz': _fs,
         'metadata': widget.metadata,
+        'cameraSettings': widget.cameraSettings,
         'frameTimestampsMs': frameTimestampsMs,
         'waveformSmoothed': smoothedWaveform,
         'peakTimesSec': peakTimesSec,
