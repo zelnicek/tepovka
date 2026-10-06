@@ -15,6 +15,7 @@ import 'package:numberpicker/numberpicker.dart';
 import 'package:tepovka/elements/research_metadata_dialog.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/services/camera_lock.dart';
+import 'package:tepovka/pages/measure_guide.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
@@ -129,6 +130,9 @@ class _HomeState extends State<Home>
   /// po zrušení zamkla vyvážení bílé, které by přežilo do dalšího měření.
   int _captureGeneration = 0;
 
+  /// Je otevřený návod, jak měřit. Svítilna mezitím zůstává zhasnutá.
+  bool _guideOpen = false;
+
   /// Kolikrát nejvýš se ubere 1 EV, a jak dlouho se po každém kroku sbírají
   /// snímky pro rozhodnutí o dalším. Čtyři kroky = šestnáctkrát méně světla,
   /// víc už by zelený kanál zapadl do šumu.
@@ -208,6 +212,8 @@ class _HomeState extends State<Home>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Kdo sem přichází poprvé, uvidí nejdřív návod, jak měřit.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowGuide());
     // Inicializace samostatné třídy pro kvalitu
     _signalQualityChecker = SignalQualityChecker();
     // Initialize back cameras list
@@ -639,6 +645,9 @@ class _HomeState extends State<Home>
   /// Zapne nebo zhasne svitilnu a udrzi [_isFlashOn] v souladu se skutecnosti.
   Future<void> _setTorch(bool on) async {
     if (!_hasInitializedCameraController || _isTeardown) return;
+    // Nad obrazovkou je návod: svítit uživateli do ruky, zatímco čte, nemá
+    // smysl a telefon se zbytečně zahřívá. Rozsvítí se po zavření návodu.
+    if (on && _guideOpen) return;
     if (_isFlashOn == on) return;
     try {
       await _cameraController
@@ -658,6 +667,26 @@ class _HomeState extends State<Home>
   /// Freezes focus, exposure and — on iOS — white balance, so the camera's
   /// automatics can neither track the pulse nor rebalance the colour channels.
   /// Failures are non-fatal: not every device exposes these controls.
+  Future<void> _maybeShowGuide() async {
+    if (!mounted || !await MeasureGuide.shouldShowOnFirstVisit()) return;
+    if (!mounted) return;
+    await _openGuide();
+  }
+
+  /// Otevře návod, jak měřit; svítilnu zatím zhasne a pak ji zase rozsvítí.
+  Future<void> _openGuide() async {
+    if (_guideOpen || _isRecording || _isCountdownRunning) return;
+    _guideOpen = true;
+    await _setTorch(false);
+    if (!mounted) {
+      _guideOpen = false;
+      return;
+    }
+    await MeasureGuide.open(context);
+    _guideOpen = false;
+    if (mounted) await _setTorch(true);
+  }
+
   Future<void> _lockCaptureSettings() async {
     _cameraAtLock = null;
     _cameraLocked = null;
@@ -1222,6 +1251,15 @@ class _HomeState extends State<Home>
           backgroundColor: const Color.fromARGB(255, 242, 242, 242),
           centerTitle: true,
           toolbarHeight: 76,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              tooltip: L10n.of(context).homeHelp,
+              // Během odpočtu a měření by návod měření přerušil.
+              onPressed:
+                  _isRecording || _isCountdownRunning ? null : _openGuide,
+            ),
+          ],
           title: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1434,7 +1472,38 @@ class _HomeState extends State<Home>
                   ],
                 ),
               ),
-              SizedBox(height: paddingMedium * 2.2),
+              // Konkrétní pokyn podle kvality signálu: štítek vedle náhledu
+              // říká, co je špatně, tahle věta co s tím. Výška je pevná na dva
+              // řádky, aby graf neposkakoval, když se pokyn změní.
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    paddingMedium, paddingSmall, paddingMedium, 0),
+                child: SizedBox(
+                  height: MediaQuery.textScalerOf(context)
+                          .scale(fontSizeSmall) *
+                      1.35 *
+                      2,
+                  child: Center(
+                    child: ValueListenableBuilder<SignalQuality>(
+                      valueListenable: _qualityNotifier,
+                      builder: (context, quality, _) => Text(
+                        measureHint(L10n.of(context), quality),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: fontSizeSmall,
+                          fontWeight: FontWeight.w500,
+                          color: quality == SignalQuality.good
+                              ? Colors.green.shade700
+                              : Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: paddingMedium * 1.2),
               Container(
                 padding: EdgeInsets.only(top: paddingSmall),
                 width: double.infinity,

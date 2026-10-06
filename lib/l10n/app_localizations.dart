@@ -1470,6 +1470,144 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Otevřít web'**
   String get a11yOpenWebsite;
+
+  /// No description provided for @guideTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jak správně měřit'**
+  String get guideTitle;
+
+  /// No description provided for @guideSkip.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přeskočit'**
+  String get guideSkip;
+
+  /// No description provided for @guideNext.
+  ///
+  /// In cs, this message translates to:
+  /// **'Další'**
+  String get guideNext;
+
+  /// No description provided for @guideDone.
+  ///
+  /// In cs, this message translates to:
+  /// **'Rozumím, měřit'**
+  String get guideDone;
+
+  /// No description provided for @guideStepOf.
+  ///
+  /// In cs, this message translates to:
+  /// **'Krok {step} z {total}'**
+  String guideStepOf(int step, int total);
+
+  /// No description provided for @guideRestTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Najděte si klid'**
+  String get guideRestTitle;
+
+  /// No description provided for @guideRestBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měřte vsedě po minutě odpočinku. Během měření nemluvte a dýchejte normálně.'**
+  String get guideRestBody;
+
+  /// No description provided for @guideCoverTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zakryjte fotoaparát i blesk'**
+  String get guideCoverTitle;
+
+  /// No description provided for @guideCoverBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Bříškem ukazováčku zakryjte zadní fotoaparát i blesk vedle něj. Blesk se rozsvítí sám.'**
+  String get guideCoverBody;
+
+  /// No description provided for @guidePreviewTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Náhled musí být celý červený'**
+  String get guidePreviewTitle;
+
+  /// No description provided for @guidePreviewBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Když prst sedí správně, kruh s náhledem je rovnoměrně červený a po chvíli mu zezelená okraj. Pokud ne, posuňte prst. U telefonu s více fotoaparáty můžete kameru přepnout.'**
+  String get guidePreviewBody;
+
+  /// No description provided for @guideStillTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Lehce a v klidu'**
+  String get guideStillTitle;
+
+  /// No description provided for @guideStillBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Prst jen lehce položte, silný tlak vytlačí krev z bříška a signál zeslábne. Ruku opřete o stůl a nehýbejte se. Studené prsty si nejdřív zahřejte.'**
+  String get guideStillBody;
+
+  /// No description provided for @guideResultTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měření a výsledek'**
+  String get guideResultTitle;
+
+  /// No description provided for @guideResultBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Po stisku tlačítka běží odpočet 3–2–1 a pak měření. Na tep stačí 30 sekund, pro variabilitu tepu (HRV) měřte aspoň 60 sekund. Když je kvalita signálu špatná, měření zopakujte.'**
+  String get guideResultBody;
+
+  /// No description provided for @guideDisclaimer.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tepovka není zdravotnický prostředek.'**
+  String get guideDisclaimer;
+
+  /// No description provided for @homeHelp.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jak měřit'**
+  String get homeHelp;
+
+  /// No description provided for @hintPlaceFinger.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přiložte prst na zadní fotoaparát i blesk.'**
+  String get hintPlaceFinger;
+
+  /// No description provided for @hintPoorContact.
+  ///
+  /// In cs, this message translates to:
+  /// **'Prst kryje čočku jen zčásti. Posuňte ho, ať je náhled celý červený.'**
+  String get hintPoorContact;
+
+  /// No description provided for @hintWeakSignal.
+  ///
+  /// In cs, this message translates to:
+  /// **'Signál je slabý. Netlačte tolik a držte ruku v klidu.'**
+  String get hintWeakSignal;
+
+  /// No description provided for @hintGood.
+  ///
+  /// In cs, this message translates to:
+  /// **'Výborně, takhle vydržte.'**
+  String get hintGood;
+
+  /// No description provided for @aboutPageTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'JAK TO FUNGUJE?'**
+  String get aboutPageTitle;
+
+  /// No description provided for @aboutGuideSubtitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pět kroků ke spolehlivému měření'**
+  String get aboutGuideSubtitle;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

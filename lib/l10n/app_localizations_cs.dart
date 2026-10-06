@@ -777,4 +777,82 @@ class L10nCs extends L10n {
 
   @override
   String get a11yOpenWebsite => 'Otevřít web';
+
+  @override
+  String get guideTitle => 'Jak správně měřit';
+
+  @override
+  String get guideSkip => 'Přeskočit';
+
+  @override
+  String get guideNext => 'Další';
+
+  @override
+  String get guideDone => 'Rozumím, měřit';
+
+  @override
+  String guideStepOf(int step, int total) {
+    return 'Krok $step z $total';
+  }
+
+  @override
+  String get guideRestTitle => 'Najděte si klid';
+
+  @override
+  String get guideRestBody =>
+      'Měřte vsedě po minutě odpočinku. Během měření nemluvte a dýchejte normálně.';
+
+  @override
+  String get guideCoverTitle => 'Zakryjte fotoaparát i blesk';
+
+  @override
+  String get guideCoverBody =>
+      'Bříškem ukazováčku zakryjte zadní fotoaparát i blesk vedle něj. Blesk se rozsvítí sám.';
+
+  @override
+  String get guidePreviewTitle => 'Náhled musí být celý červený';
+
+  @override
+  String get guidePreviewBody =>
+      'Když prst sedí správně, kruh s náhledem je rovnoměrně červený a po chvíli mu zezelená okraj. Pokud ne, posuňte prst. U telefonu s více fotoaparáty můžete kameru přepnout.';
+
+  @override
+  String get guideStillTitle => 'Lehce a v klidu';
+
+  @override
+  String get guideStillBody =>
+      'Prst jen lehce položte, silný tlak vytlačí krev z bříška a signál zeslábne. Ruku opřete o stůl a nehýbejte se. Studené prsty si nejdřív zahřejte.';
+
+  @override
+  String get guideResultTitle => 'Měření a výsledek';
+
+  @override
+  String get guideResultBody =>
+      'Po stisku tlačítka běží odpočet 3–2–1 a pak měření. Na tep stačí 30 sekund, pro variabilitu tepu (HRV) měřte aspoň 60 sekund. Když je kvalita signálu špatná, měření zopakujte.';
+
+  @override
+  String get guideDisclaimer => 'Tepovka není zdravotnický prostředek.';
+
+  @override
+  String get homeHelp => 'Jak měřit';
+
+  @override
+  String get hintPlaceFinger => 'Přiložte prst na zadní fotoaparát i blesk.';
+
+  @override
+  String get hintPoorContact =>
+      'Prst kryje čočku jen zčásti. Posuňte ho, ať je náhled celý červený.';
+
+  @override
+  String get hintWeakSignal =>
+      'Signál je slabý. Netlačte tolik a držte ruku v klidu.';
+
+  @override
+  String get hintGood => 'Výborně, takhle vydržte.';
+
+  @override
+  String get aboutPageTitle => 'JAK TO FUNGUJE?';
+
+  @override
+  String get aboutGuideSubtitle => 'Pět kroků ke spolehlivému měření';
 }

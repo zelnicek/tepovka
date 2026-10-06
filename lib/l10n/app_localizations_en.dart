@@ -777,4 +777,83 @@ class L10nEn extends L10n {
 
   @override
   String get a11yOpenWebsite => 'Open website';
+
+  @override
+  String get guideTitle => 'How to measure correctly';
+
+  @override
+  String get guideSkip => 'Skip';
+
+  @override
+  String get guideNext => 'Next';
+
+  @override
+  String get guideDone => 'Got it, let\'s measure';
+
+  @override
+  String guideStepOf(int step, int total) {
+    return 'Step $step of $total';
+  }
+
+  @override
+  String get guideRestTitle => 'Find a calm moment';
+
+  @override
+  String get guideRestBody =>
+      'Measure sitting down after a minute of rest. Don\'t talk during the measurement and breathe normally.';
+
+  @override
+  String get guideCoverTitle => 'Cover the camera and the flash';
+
+  @override
+  String get guideCoverBody =>
+      'Cover the rear camera and the flash next to it with the pad of your index finger. The flash turns on by itself.';
+
+  @override
+  String get guidePreviewTitle => 'The preview must turn fully red';
+
+  @override
+  String get guidePreviewBody =>
+      'When your finger sits right, the round preview is evenly red and after a moment its border turns green. If not, move your finger. On a phone with several cameras you can switch the camera.';
+
+  @override
+  String get guideStillTitle => 'Lightly and still';
+
+  @override
+  String get guideStillBody =>
+      'Rest your finger lightly: pressing hard squeezes the blood out of the fingertip and weakens the signal. Rest your hand on a table and stay still. Warm up cold fingers first.';
+
+  @override
+  String get guideResultTitle => 'Measurement and result';
+
+  @override
+  String get guideResultBody =>
+      'After you press the button, a 3–2–1 countdown runs, then the measurement. 30 seconds is enough for heart rate; for heart rate variability (HRV), measure at least 60 seconds. If the signal quality is poor, repeat the measurement.';
+
+  @override
+  String get guideDisclaimer => 'Tepovka is not a medical device.';
+
+  @override
+  String get homeHelp => 'How to measure';
+
+  @override
+  String get hintPlaceFinger =>
+      'Place your finger over the rear camera and the flash.';
+
+  @override
+  String get hintPoorContact =>
+      'Your finger only partly covers the lens. Move it until the preview is fully red.';
+
+  @override
+  String get hintWeakSignal =>
+      'The signal is weak. Press more lightly and keep your hand still.';
+
+  @override
+  String get hintGood => 'Great, hold it just like this.';
+
+  @override
+  String get aboutPageTitle => 'HOW IT WORKS';
+
+  @override
+  String get aboutGuideSubtitle => 'Five steps to a reliable measurement';
 }

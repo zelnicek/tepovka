@@ -4,7 +4,7 @@ import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:tepovka/pages/intro_page.dart';
 import 'package:tepovka/home.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:card_swiper/card_swiper.dart';
+import 'package:tepovka/pages/measure_guide.dart';
 import 'package:tepovka/elements/responsive.dart';
 
 class About extends StatefulWidget {
@@ -53,7 +53,6 @@ class _AboutState extends State<About> {
   @override
   Widget build(BuildContext context) {
     final r = Responsive.of(context);
-    final double swiperHeight = (r.height * 0.48).clamp(220.0, 460.0);
 
     Widget heading(String text) => Padding(
           padding: EdgeInsets.only(bottom: r.spaceSm),
@@ -79,7 +78,7 @@ class _AboutState extends State<About> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'JAK TO FUNGUJE?',
+              L10n.of(context).aboutPageTitle,
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: r.fontTitleLg),
             ),
@@ -94,32 +93,30 @@ class _AboutState extends State<About> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: SizedBox(
-                    width: r.width,
-                    height: swiperHeight,
-                    child: Swiper(
-                      itemBuilder: (BuildContext context, int index) {
-                        return Padding(
-                          padding: EdgeInsets.symmetric(horizontal: r.spaceSm),
-                          child: Image.asset(
-                            'assets/swipe/Quide${index + 1}.png',
-                            fit: BoxFit.contain,
-                          ),
-                        );
-                      },
-                      itemCount: 7,
-                      pagination: const SwiperPagination(
-                        alignment: Alignment.bottomCenter,
-                        builder: DotSwiperPaginationBuilder(
-                          activeColor: Colors.blue,
-                          color: Color.fromARGB(255, 202, 202, 202),
-                          size: 8.0,
-                          activeSize: 12.0,
-                        ),
-                      ),
-                      control: const SwiperControl(color: Colors.black),
+                // Návod krok za krokem. Dřív tu byla série obrázků se starým
+                // postupem (obrazovka „Kalibrace") a s českým textem přímo
+                // v obrázcích, takže v angličtině ani neodpovídal aplikaci.
+                Card(
+                  elevation: 0,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  child: ListTile(
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: r.spaceLg, vertical: r.spaceSm),
+                    leading: Icon(Icons.help_outline,
+                        color: const Color(0xFFE53935), size: r.iconLg),
+                    title: Text(
+                      L10n.of(context).guideTitle,
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: r.fontTitle),
                     ),
+                    subtitle: Text(
+                      L10n.of(context).aboutGuideSubtitle,
+                      style: TextStyle(fontSize: r.fontBody),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => MeasureGuide.open(context),
                   ),
                 ),
                 SizedBox(height: r.spaceXl),
