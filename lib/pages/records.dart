@@ -3,11 +3,9 @@ import 'package:tepovka/l10n/app_localizations.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:tepovka/services/storage_service.dart';
-import 'package:tepovka/pages/intro_page.dart';
 import 'package:tepovka/home.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:tepovka/pages/info_app.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
@@ -20,6 +18,9 @@ import 'package:tepovka/elements/signal_quality_index.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'dart:convert';
 import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/widgets/info_widgets.dart';
+import 'package:tepovka/pages/about.dart';
+import 'package:intl/intl.dart';
 import 'dart:math';
 import 'package:fftea/fftea.dart';
 import 'dart:typed_data';
@@ -203,13 +204,22 @@ class _RecordsPageState extends State<RecordsPage> {
   static const double pixelsPerSecond = 20.0; // Used for chart width
   List<Record> _records = [];
   final ScrollController _chartScrollController = ScrollController();
-  int _selectedIndex = -1;
+
+  /// Bumped after returning from a page opened from the bottom bar.
+  int _navResets = 0;
   final StorageService _storage = StorageService();
   // UX filters state
   List<Record> _visible = [];
   String _searchQuery = '';
-  int _minBpm = 40;
-  int _maxBpm = 200;
+
+  /// The heart-rate filter's full range; at these ends it filters nothing.
+  /// The default used to be 40–200, which silently hid readings outside it.
+  static const int _bpmFloor = 30;
+  static const int _bpmCeiling = 220;
+  int _minBpm = _bpmFloor;
+  int _maxBpm = _bpmCeiling;
+  bool _searchOpen = false;
+  final TextEditingController _searchController = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
   String _qualityFilter = 'all'; // all|good|medium|poor
@@ -272,8 +282,7 @@ class _RecordsPageState extends State<RecordsPage> {
         });
         _applyFilters();
         // Deliberately no save here: viewing the history must not rewrite it.
-      } else {
-      }
+      } else {}
     } catch (e) {
       debugPrint('Chyba při načítání záznamů: $e');
     }
@@ -296,42 +305,53 @@ class _RecordsPageState extends State<RecordsPage> {
     }
   }
 
-  String _qualityFor(Record r) {
-    final sdnn = (r.hrv['sdnn'] ?? 0.0).toDouble();
-    final rmssd = (r.hrv['rmssd'] ?? 0.0).toDouble();
-    final stress = (r.hrv['stressIndex'] ?? 999.0).toDouble();
-    final frameAvg = r.frames.isNotEmpty ? r.frames.last : 0.0;
-    int score = 0;
-    if (sdnn >= 40) score++;
-    if (rmssd >= 25) score++;
-    if (stress <= 100) score++;
-    if (frameAvg >= 25) score++;
-    if (r.duration >= 25) score++;
-    if (score >= 4) return 'good';
-    if (score >= 2) return 'medium';
+  /// When the measurement was taken; older records carry only date and time.
+  DateTime _instantOf(Record r) =>
+      _parseRecordStart(r) ?? _parseRecordDateTime(r);
+
+  /// Signal quality from the confidence the analysis reported for the
+  /// measurement: 'good', 'medium' or 'poor', or null for records saved before
+  /// it was stored. The list used to grade records by HRV thresholds instead,
+  /// so every record without HRV showed up as "poor".
+  static String? _signalQualityOf(Record r) {
+    final Object? confidence = r.hrv['confidence'];
+    if (confidence is! Map) return null;
+    final Object? value = confidence['bpmConfidence'];
+    if (value is! num) return null;
+    if (value >= 0.6) return 'good';
+    if (value >= 0.3) return 'medium';
     return 'poor';
   }
 
   void _applyFilters() {
     List<Record> out = List<Record>.from(_records);
-    // Search
+    // Search, including the dates as the list now shows them.
     if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
+      final String q = _searchQuery.toLowerCase();
       out = out.where((r) {
+        final DateTime when = _instantOf(r);
+        String shown = '';
+        try {
+          shown = '${DateFormat.yMMMMEEEEd(_locale).format(when)} '
+              '${DateFormat.yMd(_locale).format(when)} ${_formatTime(when)}';
+        } catch (_) {}
         return r.notesContent.toLowerCase().contains(q) ||
             r.date.contains(q) ||
             r.time.contains(q) ||
+            shown.toLowerCase().contains(q) ||
             r.averageBPM.toString().contains(q);
       }).toList();
     }
-    // BPM range
-    out = out
-        .where((r) => r.averageBPM >= _minBpm && r.averageBPM <= _maxBpm)
-        .toList();
+    // BPM range; the full range filters nothing.
+    if (_minBpm > _bpmFloor || _maxBpm < _bpmCeiling) {
+      out = out
+          .where((r) => r.averageBPM >= _minBpm && r.averageBPM <= _maxBpm)
+          .toList();
+    }
     // Date range
     if (_startDate != null || _endDate != null) {
       out = out.where((r) {
-        final dt = _parseRecordDateTime(r);
+        final dt = _instantOf(r);
         final after = _startDate == null || !dt.isBefore(_startDate!);
         final before = _endDate == null || !dt.isAfter(_endDate!);
         return after && before;
@@ -339,20 +359,20 @@ class _RecordsPageState extends State<RecordsPage> {
     }
     // Quality
     if (_qualityFilter != 'all') {
-      out = out.where((r) => _qualityFor(r) == _qualityFilter).toList();
+      out = out.where((r) => _signalQualityOf(r) == _qualityFilter).toList();
     }
     // Sort
     out.sort((a, b) {
       switch (_sortMode) {
         case 'date_asc':
-          return _parseRecordDateTime(a).compareTo(_parseRecordDateTime(b));
+          return _instantOf(a).compareTo(_instantOf(b));
         case 'bpm_desc':
           return b.averageBPM.compareTo(a.averageBPM);
         case 'bpm_asc':
           return a.averageBPM.compareTo(b.averageBPM);
         case 'date_desc':
         default:
-          return _parseRecordDateTime(b).compareTo(_parseRecordDateTime(a));
+          return _instantOf(b).compareTo(_instantOf(a));
       }
     });
     setState(() {
@@ -371,6 +391,11 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   Future<void> _deleteSelected() async {
+    if (!await _confirmDelete(
+        body: L10n.of(context)
+            .recordsConfirmDeleteSelectedBody(_selectedKeys.length))) {
+      return;
+    }
     final toDelete = _records
         .where((r) => _selectedKeys.contains('${r.date}_${r.time}'))
         .toList();
@@ -397,22 +422,48 @@ class _RecordsPageState extends State<RecordsPage> {
       final List<Map<String, dynamic>> jsonList =
           _records.map((record) => record.toJson()).toList();
       await _storage.writeSummary(jsonList);
-
     } catch (e) {
       debugPrint('Chyba při ukládání záznamů: $e');
     }
   }
 
-  Future<void> _deleteRecord(int index) async {
+  /// Asks before deleting. Returns whether to go ahead.
+  Future<bool> _confirmDelete({String? body}) async {
+    final L10n t = L10n.of(context);
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(t.recordsConfirmDeleteTitle),
+        content: Text(body ?? t.recordsConfirmDeleteBody),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.black87),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(t.commonCancel),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: kInfoAccent),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(t.commonDelete),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  Future<void> _deleteRecord(Record record) async {
     try {
-      setState(() {
-        _records.removeAt(index);
-      });
-      await _saveRecords(); // Save after deletion
+      setState(() => _records.remove(record));
+      // The swiped row has to leave the list in the same frame, or Flutter
+      // complains that a dismissed item is still in the tree.
+      _applyFilters();
+      await _saveRecords();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          duration: Duration(seconds: 1),
+          duration: const Duration(seconds: 1),
           content: Text(L10n.of(context).recordsDeleted),
           behavior: SnackBarBehavior.floating,
         ),
@@ -422,373 +473,472 @@ class _RecordsPageState extends State<RecordsPage> {
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
+  Future<void> _onItemTapped(int index) async {
     switch (index) {
       case 0:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const IntroPage()),
-        );
-        break;
+        // The home screen is the root route and is still underneath; pushing
+        // a new one stacked another copy on top every time.
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        return;
       case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const Home()),
-        );
+        await Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const Home()));
         break;
       case 2:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const InfoApp()),
-        );
+        await Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const About()));
         break;
     }
+    // Back here: a measurement may have been added, and the bar must not stay
+    // on the tab that was used to leave.
+    if (!mounted) return;
+    setState(() => _navResets++);
+    _loadRecords();
   }
 
-  void _refreshPage() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-          builder: (context) => RecordsPage()), // Název vaší aktuální stránky
-    );
+  bool get _filtersActive =>
+      _qualityFilter != 'all' ||
+      _startDate != null ||
+      _endDate != null ||
+      _minBpm > _bpmFloor ||
+      _maxBpm < _bpmCeiling ||
+      _sortMode != 'date_desc';
+
+  void _clearFilters() {
+    setState(() {
+      _qualityFilter = 'all';
+      _startDate = null;
+      _endDate = null;
+      _minBpm = _bpmFloor;
+      _maxBpm = _bpmCeiling;
+      _sortMode = 'date_desc';
+    });
+    _applyFilters();
   }
 
-  Future<void> _showDeleteConfirmation(int index) async {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          title: Text(L10n.of(context).recordsConfirmDeleteTitle),
-          content: Text(L10n.of(context).recordsConfirmDeleteBody),
-          actions: <Widget>[
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-              ),
-              onPressed: () {
-                Navigator.of(context).pop(); // Zavře dialog
-                _refreshPage(); // Obnoví stránku
-              },
-              child: Text(L10n.of(context).commonCancel),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.onSurface,
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteRecord(index);
-              },
-              child: Text(L10n.of(context).commonDelete),
-            ),
-          ],
-        );
-      },
-    );
+  void _toggleSearch() {
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (!_searchOpen) {
+        _searchController.clear();
+        _searchQuery = '';
+      }
+    });
+    _applyFilters();
   }
 
-  Widget _buildFilterBar(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Search
-        TextField(
-          decoration: InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            hintText: L10n.of(context).recordsSearchHint,
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (v) {
-            _searchQuery = v.trim();
-            _applyFilters();
-          },
-        ),
-        const SizedBox(height: 8),
-        // Quality chips
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            ChoiceChip(
-              label: Text(L10n.of(context).recordsFilterAll),
-              selected: _qualityFilter == 'all',
-              onSelected: (_) {
-                setState(() => _qualityFilter = 'all');
-                _applyFilters();
-              },
-            ),
-            ChoiceChip(
-              label: Text(L10n.of(context).qualityGood),
-              selected: _qualityFilter == 'good',
-              onSelected: (_) {
-                setState(() => _qualityFilter = 'good');
-                _applyFilters();
-              },
-            ),
-            ChoiceChip(
-              label: Text(L10n.of(context).qualityMedium),
-              selected: _qualityFilter == 'medium',
-              onSelected: (_) {
-                setState(() => _qualityFilter = 'medium');
-                _applyFilters();
-              },
-            ),
-            ChoiceChip(
-              label: Text(L10n.of(context).qualityBad),
-              selected: _qualityFilter == 'poor',
-              onSelected: (_) {
-                setState(() => _qualityFilter = 'poor');
-                _applyFilters();
-              },
-            ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.lightBlue,
-                side: const BorderSide(color: Colors.lightBlue),
-              ),
-              icon: const Icon(Icons.date_range),
-              label: Text(_startDate == null && _endDate == null
-                  ? 'Datum'
-                  : '${_startDate?.toIso8601String().substring(0, 10) ?? '...'} — ${_endDate?.toIso8601String().substring(0, 10) ?? '...'}'),
-              onPressed: () async {
-                final picked = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2024),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) {
-                  setState(() {
-                    _startDate = picked.start;
-                    _endDate = picked.end;
-                  });
-                  _applyFilters();
-                }
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // BPM range
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(L10n.of(context).recordsBpmRange('$_minBpm', '$_maxBpm')),
-            SliderTheme(
-              data: SliderThemeData(
-                activeTrackColor: Colors.lightBlue,
-                inactiveTrackColor: Colors.lightBlue.withValues(alpha: 0.25),
-                thumbColor: Colors.lightBlue,
-                overlayColor: Colors.lightBlue.withValues(alpha: 0.12),
-              ),
-              child: RangeSlider(
-                values: RangeValues(_minBpm.toDouble(), _maxBpm.toDouble()),
-                min: 30,
-                max: 220,
-                divisions: 190,
-                labels: RangeLabels('$_minBpm', '$_maxBpm'),
-                onChanged: (v) {
-                  setState(() {
-                    _minBpm = v.start.round();
-                    _maxBpm = v.end.round();
-                  });
-                  _applyFilters();
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  String get _locale => Localizations.localeOf(context).toString();
 
-  Widget _buildTrendsSection() {
-    if (_visible.length < 2) {
-      return const SizedBox.shrink();
+  String _formatTime(DateTime when) {
+    try {
+      return DateFormat.jm(_locale).format(when);
+    } catch (_) {
+      return '${when.hour}:${when.minute.toString().padLeft(2, '0')}';
     }
+  }
 
-    final sorted = List<Record>.from(_visible)
-      ..sort(
-          (a, b) => _parseRecordDateTime(a).compareTo(_parseRecordDateTime(b)));
+  String _formatShortDate(DateTime when) {
+    try {
+      return DateFormat.yMMMd(_locale).format(when);
+    } catch (_) {
+      return '${when.day}. ${when.month}. ${when.year}';
+    }
+  }
 
-    List<FlSpot> seriesFor(double Function(Record r) extractor) {
-      final spots = <FlSpot>[];
-      for (int i = 0; i < sorted.length; i++) {
-        final value = extractor(sorted[i]);
-        if (value.isNaN || value.isInfinite) continue;
-        spots.add(FlSpot(i.toDouble(), value));
+  /// "Today", "Yesterday", or the weekday and date, with the year only when
+  /// it is not this one.
+  String _dayLabel(DateTime day) {
+    final L10n t = L10n.of(context);
+    final DateTime now = DateTime.now();
+    final int daysAgo =
+        DateTime(now.year, now.month, now.day).difference(day).inDays;
+    if (daysAgo == 0) return t.recordsToday;
+    if (daysAgo == 1) return t.recordsYesterday;
+    String text;
+    try {
+      text = (day.year == now.year
+              ? DateFormat.MMMMEEEEd(_locale)
+              : DateFormat.yMMMMEEEEd(_locale))
+          .format(day);
+    } catch (_) {
+      text = '${day.day}. ${day.month}. ${day.year}';
+    }
+    // Czech writes weekdays in lower case; as a heading it starts upper case.
+    return text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);
+  }
+
+  /// Quality, date range, heart-rate range and sort order in one sheet, so
+  /// the list itself starts at the top of the screen. Changes apply live.
+  Future<void> _openFilterSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final r = Responsive.of(context);
+          final L10n t = L10n.of(context);
+
+          void update(VoidCallback change) {
+            setState(change);
+            setSheetState(() {});
+            _applyFilters();
+          }
+
+          Widget heading(String text) => Padding(
+                padding: EdgeInsets.only(top: r.spaceLg, bottom: r.spaceSm),
+                child: Text(
+                  text,
+                  style: TextStyle(
+                      fontSize: r.fontSmall,
+                      fontWeight: FontWeight.w600,
+                      color: kInfoSecondaryText),
+                ),
+              );
+
+          Widget choice(String label, bool selected, VoidCallback select) =>
+              ChoiceChip(
+                label: Text(label),
+                selected: selected,
+                showCheckmark: false,
+                selectedColor: kInfoAccentTint,
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                    color: selected ? kInfoAccent : const Color(0xFFDDDDDD)),
+                labelStyle: TextStyle(
+                  fontSize: r.fontBody,
+                  color: selected ? const Color(0xFFB3261E) : Colors.black87,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                onSelected: (_) => update(select),
+              );
+
+          final bool hasDates = _startDate != null || _endDate != null;
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(r.spaceXl, 0, r.spaceXl, r.spaceLg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.recordsFilters,
+                    style: TextStyle(
+                        fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+                  ),
+                  heading(t.recordsSignalQuality),
+                  Wrap(
+                    spacing: r.spaceSm,
+                    runSpacing: r.spaceSm,
+                    children: [
+                      choice(t.recordsFilterAll, _qualityFilter == 'all',
+                          () => _qualityFilter = 'all'),
+                      choice(t.qualityGood, _qualityFilter == 'good',
+                          () => _qualityFilter = 'good'),
+                      choice(t.qualityMedium, _qualityFilter == 'medium',
+                          () => _qualityFilter = 'medium'),
+                      choice(t.qualityBad, _qualityFilter == 'poor',
+                          () => _qualityFilter = 'poor'),
+                    ],
+                  ),
+                  heading(t.recordsDateRange),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            side: const BorderSide(color: Color(0xFFDDDDDD)),
+                            alignment: Alignment.centerLeft,
+                            padding: EdgeInsets.symmetric(
+                                horizontal: r.spaceMd, vertical: r.spaceSm + 2),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon:
+                              const Icon(Icons.date_range, color: kInfoAccent),
+                          label: Text(
+                            hasDates
+                                ? '${_startDate != null ? _formatShortDate(_startDate!) : '…'} – ${_endDate != null ? _formatShortDate(_endDate!) : '…'}'
+                                : t.recordsAnyDate,
+                          ),
+                          onPressed: () async {
+                            final DateTimeRange? picked =
+                                await showDateRangePicker(
+                              context: context,
+                              firstDate: DateTime(2024),
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 1)),
+                            );
+                            if (picked == null) return;
+                            update(() {
+                              _startDate = picked.start;
+                              // Through the end of the last day, not its
+                              // first second.
+                              _endDate = DateTime(picked.end.year,
+                                  picked.end.month, picked.end.day, 23, 59, 59);
+                            });
+                          },
+                        ),
+                      ),
+                      if (hasDates)
+                        IconButton(
+                          tooltip: t.recordsAnyDate,
+                          icon: const Icon(Icons.close),
+                          onPressed: () => update(() {
+                            _startDate = null;
+                            _endDate = null;
+                          }),
+                        ),
+                    ],
+                  ),
+                  heading(t.recordsBpmRange('$_minBpm', '$_maxBpm')),
+                  SliderTheme(
+                    data: SliderThemeData(
+                      activeTrackColor: kInfoAccent,
+                      inactiveTrackColor: kInfoAccentTint,
+                      thumbColor: kInfoAccent,
+                      overlayColor: kInfoAccent.withValues(alpha: 0.12),
+                      valueIndicatorColor: kInfoAccent,
+                    ),
+                    child: RangeSlider(
+                      values:
+                          RangeValues(_minBpm.toDouble(), _maxBpm.toDouble()),
+                      min: _bpmFloor.toDouble(),
+                      max: _bpmCeiling.toDouble(),
+                      divisions: _bpmCeiling - _bpmFloor,
+                      labels: RangeLabels('$_minBpm', '$_maxBpm'),
+                      onChanged: (v) => update(() {
+                        _minBpm = v.start.round();
+                        _maxBpm = v.end.round();
+                      }),
+                    ),
+                  ),
+                  heading(t.recordsSort),
+                  Wrap(
+                    spacing: r.spaceSm,
+                    runSpacing: r.spaceSm,
+                    children: [
+                      choice(t.recordsSortDateNewest, _sortMode == 'date_desc',
+                          () => _sortMode = 'date_desc'),
+                      choice(t.recordsSortDateOldest, _sortMode == 'date_asc',
+                          () => _sortMode = 'date_asc'),
+                      choice(t.recordsSortBpmHighest, _sortMode == 'bpm_desc',
+                          () => _sortMode = 'bpm_desc'),
+                      choice(t.recordsSortBpmLowest, _sortMode == 'bpm_asc',
+                          () => _sortMode = 'bpm_asc'),
+                    ],
+                  ),
+                  SizedBox(height: r.spaceXl),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            minimumSize: Size.fromHeight(r.iconXl * 1.3),
+                          ),
+                          onPressed: _filtersActive
+                              ? () {
+                                  _clearFilters();
+                                  setSheetState(() {});
+                                }
+                              : null,
+                          child: Text(t.recordsClearFilters),
+                        ),
+                      ),
+                      SizedBox(width: r.spaceMd),
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kInfoAccent,
+                            minimumSize: Size.fromHeight(r.iconXl * 1.3),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () => Navigator.pop(sheetContext),
+                          child: Text(
+                            t.commonDone,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Average, range and the latest readings as bars. HRV trends fold out
+  /// below, and only when the records actually carry HRV, instead of four
+  /// tiles of zeros.
+  Widget _buildSummaryCard() {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final List<Record> sorted = List<Record>.from(_visible)
+      ..sort((a, b) => _instantOf(a).compareTo(_instantOf(b)));
+    final List<int> bpms = [
+      for (final Record rec in sorted)
+        if (rec.averageBPM > 0) rec.averageBPM
+    ];
+    if (bpms.isEmpty) return const SizedBox.shrink();
+    final int avg = (bpms.reduce((a, b) => a + b) / bpms.length).round();
+    final int lo = bpms.reduce(min);
+    final int hi = bpms.reduce(max);
+    final List<int> recent = bpms.sublist(max(0, bpms.length - 14));
+
+    List<FlSpot> seriesFor(String key) {
+      final List<FlSpot> spots = [];
+      for (final Record rec in sorted) {
+        final num? value = rec.hrv[key] is num ? rec.hrv[key] as num : null;
+        if (value == null || value <= 0 || !value.isFinite) continue;
+        spots.add(FlSpot(spots.length.toDouble(), value.toDouble()));
       }
       return spots;
     }
 
-    final bpmSpots = seriesFor((r) => r.averageBPM.toDouble());
-    final sdnnSpots = seriesFor((r) => (r.hrv['sdnn'] ?? 0.0).toDouble());
-    final rmssdSpots = seriesFor((r) => (r.hrv['rmssd'] ?? 0.0).toDouble());
-    final stressSpots =
-        seriesFor((r) => (r.hrv['stressIndex'] ?? 0.0).toDouble());
-
-    double mean(Iterable<double> values) =>
-        values.isEmpty ? 0.0 : values.reduce((a, b) => a + b) / values.length;
-    double minV(Iterable<double> values) =>
-        values.isEmpty ? 0.0 : values.reduce(min);
-    double maxV(Iterable<double> values) =>
-        values.isEmpty ? 0.0 : values.reduce(max);
-
-    final List<double> bpmValues =
-        sorted.map<double>((r) => r.averageBPM.toDouble()).toList();
-    final List<double> sdnnValues = sorted
-        .map<double>((r) => (r.hrv['sdnn'] ?? 0.0).toDouble())
-        .where((value) => value > 0)
-        .toList();
-    final List<double> rmssdValues = sorted
-        .map<double>((r) => (r.hrv['rmssd'] ?? 0.0).toDouble())
-        .where((value) => value > 0)
-        .toList();
-
-    double trendDelta(List<double> values) {
-      if (values.length < 4) return 0.0;
-      final headEnd = (values.length * 0.3).ceil();
-      final tailStart = values.length - headEnd;
-      final head = values.sublist(0, headEnd);
-      final tail = values.sublist(tailStart);
-      return mean(tail) - mean(head);
+    Widget? hrvTile(
+        String title, String unit, List<FlSpot> spots, Color color) {
+      if (spots.length < 2) return null;
+      final List<double> ys = spots.map((s) => s.y).toList();
+      return _buildTrendTile(
+        r: r,
+        title: title,
+        unit: unit,
+        spots: spots,
+        color: color,
+        avg: ys.reduce((a, b) => a + b) / ys.length,
+        lo: ys.reduce(min),
+        hi: ys.reduce(max),
+      );
     }
 
-    final bpmTrend = trendDelta(bpmValues);
+    final List<Widget> hrvTiles = [
+      hrvTile('SDNN', 'ms', seriesFor('sdnn'), const Color(0xFF1A73E8)),
+      hrvTile('RMSSD', 'ms', seriesFor('rmssd'), Colors.teal),
+      hrvTile(t.metricsStressIndex, '', seriesFor('stressIndex'),
+          Colors.deepOrange),
+    ].whereType<Widget>().toList();
 
-    int good = 0;
-    int medium = 0;
-    int poor = 0;
-    for (final record in sorted) {
-      switch (_qualityFor(record)) {
-        case 'good':
-          good++;
-          break;
-        case 'medium':
-          medium++;
-          break;
-        default:
-          poor++;
-      }
-    }
-
-    final total = sorted.length;
-
-    final r = Responsive.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: r.spaceSm),
-      child: Card(
-        color: Colors.white,
-        elevation: 1,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
-        ),
-        child: ExpansionTile(
-          initiallyExpanded: true,
-          tilePadding: EdgeInsets.symmetric(horizontal: r.spaceMd + 2),
-          title: Row(
+    final double barArea = r.iconXl;
+    return InfoCard(
+      padding: EdgeInsets.fromLTRB(
+          r.spaceLg, r.spaceLg, r.spaceLg, hrvTiles.isEmpty ? r.spaceLg : 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Icon(Icons.insights, color: Colors.blue, size: r.iconMd),
-              SizedBox(width: r.spaceSm),
-              Text(
-                L10n.of(context).recordsLongTermTrends,
-                style: TextStyle(
-                    fontSize: r.fontBodyLg, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.recordsAverageLabel,
+                        style: TextStyle(
+                            fontSize: r.fontSmall, color: kInfoSecondaryText)),
+                    Text.rich(TextSpan(children: [
+                      TextSpan(
+                        text: '$avg',
+                        style: TextStyle(
+                            fontSize: r.fontDisplay,
+                            fontWeight: FontWeight.bold,
+                            height: 1.1),
+                      ),
+                      TextSpan(
+                        text: ' ${t.homeBpmUnit}',
+                        style: TextStyle(
+                            fontSize: r.fontBody, color: kInfoSecondaryText),
+                      ),
+                    ])),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(t.recordsRangeLabel,
+                      style: TextStyle(
+                          fontSize: r.fontSmall, color: kInfoSecondaryText)),
+                  Text(
+                    lo == hi
+                        ? '$lo ${t.homeBpmUnit}'
+                        : '$lo–$hi ${t.homeBpmUnit}',
+                    style: TextStyle(
+                        fontSize: r.fontBodyLg, fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ],
           ),
-          subtitle: Text(
-            L10n.of(context)
-                    .recordsTrendSummary(
-                        total, mean(bpmValues).toStringAsFixed(0)) +
-                (bpmTrend.abs() < 0.5
-                    ? ''
-                    : '  •  ${bpmTrend > 0 ? '↑' : '↓'} ${bpmTrend.abs().toStringAsFixed(1)} bpm'),
-            style: TextStyle(fontSize: r.fontSmall, color: Colors.black54),
-          ),
-          childrenPadding:
-              EdgeInsets.fromLTRB(r.spaceMd, 0, r.spaceMd, r.spaceMd),
-          children: [
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: r.gridColumns,
-              childAspectRatio: r.gridColumns == 1 ? 2.6 : 1.35,
-              crossAxisSpacing: r.spaceSm + 2,
-              mainAxisSpacing: r.spaceSm + 2,
-              children: [
-                _buildTrendTile(
-                  r: r,
-                  title: L10n.of(context).metricsHeartRate,
-                  unit: L10n.of(context).homeBpmUnit,
-                  spots: bpmSpots,
-                  color: const Color.fromARGB(255, 246, 41, 0),
-                  avg: mean(bpmValues),
-                  lo: minV(bpmValues),
-                  hi: maxV(bpmValues),
-                ),
-                _buildTrendTile(
-                  r: r,
-                  title: 'SDNN',
-                  unit: 'ms',
-                  spots: sdnnSpots,
-                  color: Colors.blue,
-                  avg: mean(sdnnValues),
-                  lo: sdnnValues.isEmpty ? 0 : minV(sdnnValues),
-                  hi: sdnnValues.isEmpty ? 0 : maxV(sdnnValues),
-                ),
-                _buildTrendTile(
-                  r: r,
-                  title: 'RMSSD',
-                  unit: 'ms',
-                  spots: rmssdSpots,
-                  color: Colors.teal,
-                  avg: mean(rmssdValues),
-                  lo: rmssdValues.isEmpty ? 0 : minV(rmssdValues),
-                  hi: rmssdValues.isEmpty ? 0 : maxV(rmssdValues),
-                ),
-                _buildTrendTile(
-                  r: r,
-                  title: L10n.of(context).metricsStressIndex,
-                  unit: '',
-                  spots: stressSpots,
-                  color: Colors.deepOrange,
-                  avg: mean(stressSpots.map((spot) => spot.y)),
-                  lo: stressSpots.isEmpty
-                      ? 0
-                      : minV(stressSpots.map((spot) => spot.y)),
-                  hi: stressSpots.isEmpty
-                      ? 0
-                      : maxV(stressSpots.map((spot) => spot.y)),
-                ),
-              ],
-            ),
+          if (recent.length >= 2) ...[
             SizedBox(height: r.spaceMd),
-            Row(
-              children: [
-                Expanded(
-                  flex: good,
-                  child: _qualityBar(r, Colors.green, L10n.of(context).qualityGood, good),
+            ExcludeSemantics(
+              child: SizedBox(
+                height: barArea,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (int i = 0; i < recent.length; i++) ...[
+                      if (i > 0) SizedBox(width: r.spaceXs),
+                      Expanded(
+                        child: Container(
+                          height: hi == lo
+                              ? barArea * 0.6
+                              : barArea *
+                                  (0.3 + 0.7 * (recent[i] - lo) / (hi - lo)),
+                          decoration: BoxDecoration(
+                            color: i == recent.length - 1
+                                ? kInfoAccent
+                                : const Color(0xFFF6C9C6),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (medium > 0)
-                  Expanded(
-                    flex: medium,
-                    child: _qualityBar(r, Colors.orange, L10n.of(context).qualityMedium, medium),
-                  ),
-                if (poor > 0)
-                  Expanded(
-                    flex: poor,
-                    child: _qualityBar(r, Colors.red, L10n.of(context).qualityBad, poor),
-                  ),
-              ],
+              ),
             ),
           ],
-        ),
+          SizedBox(height: r.spaceSm),
+          Text(
+            t.recordsMeasurementsCount(bpms.length),
+            style: TextStyle(fontSize: r.fontCaption, color: Colors.black45),
+          ),
+          if (hrvTiles.isNotEmpty)
+            Theme(
+              data:
+                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.only(bottom: r.spaceLg),
+                iconColor: kInfoAccent,
+                collapsedIconColor: kInfoSecondaryText,
+                title: Text(
+                  t.recordsHrvTrends,
+                  style: TextStyle(
+                      fontSize: r.fontBodyLg, fontWeight: FontWeight.w600),
+                ),
+                children: [
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: r.gridColumns,
+                    childAspectRatio: r.gridColumns == 1 ? 2.6 : 1.35,
+                    crossAxisSpacing: r.spaceSm + 2,
+                    mainAxisSpacing: r.spaceSm + 2,
+                    children: hrvTiles,
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -892,63 +1042,284 @@ class _RecordsPageState extends State<RecordsPage> {
     );
   }
 
-  Widget _qualityBar(Responsive r, Color color, String label, int count) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: r.spaceXs / 2),
-      padding: EdgeInsets.symmetric(vertical: r.spaceXs + 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
+  /// Records under a heading per day when sorted by date; as one flat card,
+  /// with the date in each row, when sorted by heart rate.
+  List<Widget> _buildRecordGroups(BuildContext context) {
+    final r = Responsive.of(context);
+    if (!_sortMode.startsWith('date')) {
+      return [
+        SizedBox(height: r.spaceLg),
+        _recordGroupCard(context, _visible, showDate: true),
+      ];
+    }
+    final List<Widget> groups = [];
+    DateTime? day;
+    List<Record> bucket = [];
+    void flush() {
+      if (bucket.isEmpty) return;
+      groups
+        ..add(InfoSectionLabel(_dayLabel(day!)))
+        ..add(_recordGroupCard(context, bucket, showDate: false));
+      bucket = [];
+    }
+
+    for (final Record rec in _visible) {
+      final DateTime when = _instantOf(rec);
+      final DateTime thatDay = DateTime(when.year, when.month, when.day);
+      if (thatDay != day) {
+        flush();
+        day = thatDay;
+      }
+      bucket.add(rec);
+    }
+    flush();
+    return groups;
+  }
+
+  Widget _recordGroupCard(BuildContext context, List<Record> records,
+      {required bool showDate}) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Text(
-            '$count',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontSize: r.fontBody,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-                fontSize: r.fontCaption - 1, color: color.withValues(alpha: 0.9)),
-          ),
+          for (int i = 0; i < records.length; i++) ...[
+            if (i > 0)
+              const Divider(height: 1, indent: 16, color: Color(0xFFE6E6E6)),
+            _recordRow(context, records[i], showDate: showDate),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildQualityChip(Record record) {
-    final q = _qualityFor(record);
-    Color color;
-    String label;
-    switch (q) {
-      case 'good':
-        color = Colors.green;
-        label = L10n.of(context).qualityGood.toLowerCase();
-        break;
-      case 'medium':
-        color = Colors.orange;
-        label = L10n.of(context).qualityMedium.toLowerCase();
-        break;
-      default:
-        color = Colors.red;
-        label = L10n.of(context).qualityBad.toLowerCase();
-    }
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.6)),
+  /// One measurement: time (and date when not grouped), length and note on
+  /// the left, heart rate and a signal-quality dot on the right. Swipe left
+  /// to delete, long-press to start selecting.
+  Widget _recordRow(BuildContext context, Record record,
+      {required bool showDate}) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final String key = '${record.date}_${record.time}';
+    final bool selected = _selectedKeys.contains(key);
+    final DateTime when = _instantOf(record);
+    final String time = _formatTime(when);
+    final String title = showDate ? '${_formatShortDate(when)} · $time' : time;
+    final String note =
+        record.notesContent.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final String subtitle = [
+      t.homeSecondsSuffix(record.duration),
+      if (note.isNotEmpty) note,
+    ].join(' · ');
+
+    final Widget row = InkWell(
+      onTap: () =>
+          _selectionMode ? _toggleSelection(key) : _showRecordDetail(record),
+      onLongPress: _selectionMode
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _selectionMode = true;
+                _selectedKeys
+                  ..clear()
+                  ..add(key);
+              });
+            },
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(_selectionMode ? r.spaceXs : r.spaceLg,
+            r.spaceSm + 2, r.spaceMd, r.spaceSm + 2),
+        child: Row(
+          children: [
+            if (_selectionMode)
+              Checkbox(
+                value: selected,
+                activeColor: kInfoAccent,
+                onChanged: (_) => _toggleSelection(key),
+              ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: r.fontBodyLg, fontWeight: FontWeight.w600),
+                  ),
+                  SizedBox(height: r.spaceXs / 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: r.fontSmall, color: kInfoSecondaryText),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: r.spaceSm),
+            Text.rich(TextSpan(children: [
+              TextSpan(
+                text: record.averageBPM > 0
+                    ? '${record.averageBPM}'
+                    : t.homeNoReading,
+                style: TextStyle(
+                    fontSize: r.fontTitle,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black),
+              ),
+              TextSpan(
+                text: ' ${t.homeBpmUnit}',
+                style:
+                    TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText),
+              ),
+            ])),
+            SizedBox(width: r.spaceSm),
+            _qualityDot(_signalQualityOf(record)),
+            if (!_selectionMode) ...[
+              SizedBox(width: r.spaceXs),
+              Icon(Icons.chevron_right, color: Colors.black26, size: r.iconMd),
+            ],
+          ],
+        ),
       ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+    );
+
+    if (_selectionMode) return row;
+    return Dismissible(
+      key: ValueKey(key),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: kInfoAccent,
+        alignment: Alignment.centerRight,
+        padding: EdgeInsets.only(right: r.spaceXl),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      // Cancelling springs the row back instead of reloading the whole page.
+      confirmDismiss: (_) => _confirmDelete(),
+      onDismissed: (_) => _deleteRecord(record),
+      child: row,
+    );
+  }
+
+  /// Green, amber or red by the signal quality measured at the time; no
+  /// dot for records saved before that was stored.
+  Widget _qualityDot(String? quality) {
+    const double size = 8;
+    if (quality == null) return const SizedBox(width: size);
+    final L10n t = L10n.of(context);
+    final (Color color, String label) = switch (quality) {
+      'good' => (const Color(0xFF1E8E3E), t.qualityGood),
+      'medium' => (const Color(0xFFE8A317), t.qualityMedium),
+      _ => (kInfoAccent, t.qualityBad),
+    };
+    return Semantics(
+      label: t.a11ySignalQuality(label),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+    );
+  }
+
+  Widget _searchField(BuildContext context) {
+    final r = Responsive.of(context);
+    return TextField(
+      controller: _searchController,
+      autofocus: true,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: L10n.of(context).recordsSearchHint,
+        prefixIcon: const Icon(Icons.search),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: EdgeInsets.symmetric(vertical: r.spaceMd),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      onChanged: (v) {
+        _searchQuery = v.trim();
+        _applyFilters();
+      },
+    );
+  }
+
+  Widget _noMatch(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: r.spaceXxl),
+      child: Column(
+        children: [
+          Icon(Icons.filter_alt_off_outlined,
+              size: r.iconXl, color: Colors.black26),
+          SizedBox(height: r.spaceSm),
+          Text(
+            t.recordsNoMatch,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: r.fontBody, color: kInfoSecondaryText),
+          ),
+          if (_filtersActive)
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: kInfoAccent),
+              onPressed: _clearFilters,
+              child: Text(t.recordsClearFilters),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Scrollable even when empty, so pull-to-refresh still works.
+  Widget _emptyState(BuildContext context) {
+    final r = Responsive.of(context);
+    return ListView(
+      padding: EdgeInsets.symmetric(horizontal: r.spaceXl),
+      children: [
+        SizedBox(height: r.height * 0.22),
+        Icon(Symbols.ecg_heart, size: r.iconXl * 1.5, color: Colors.black26),
+        SizedBox(height: r.spaceMd),
+        Text(
+          L10n.of(context).recordsEmpty,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: r.fontBodyLg, color: kInfoSecondaryText),
+        ),
+      ],
+    );
+  }
+
+  Widget _selectionBar(BuildContext context) {
+    final r = Responsive.of(context);
+    final int count = _selectedKeys.length;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            r.pagePadding.left, r.spaceSm, r.pagePadding.right, r.spaceSm),
+        child: SizedBox(
+          height: r.iconXl * 1.4,
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: kInfoAccent,
+              disabledBackgroundColor: const Color(0xFFE0E0E0),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: count == 0 ? null : _deleteSelected,
+            icon: const Icon(Icons.delete_outline),
+            label: Text(
+              L10n.of(context).recordsDeleteSelected(count),
+              style: TextStyle(
+                  fontSize: r.fontBodyLg, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1172,8 +1543,7 @@ class _RecordsPageState extends State<RecordsPage> {
               '(${b.quality.score.toStringAsFixed(0)}/100)');
       meta('notes', record.notesContent.replaceAll(',', ' '));
       record.metadata.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
-      record.cameraSettings
-          .forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
+      record.cameraSettings.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
 
       sb.writeln(b.raws.isEmpty
           ? 'time_s,timestamp,signal,peak,foot'
@@ -1543,18 +1913,25 @@ class _RecordsPageState extends State<RecordsPage> {
         }
       }
     } else {
-      // Use saved HRV
-      sdnn = record.hrv['sdnn'] ?? 0.0;
-      rmssd = record.hrv['rmssd'] ?? 0.0;
-      pnn50 = record.hrv['pnn50'] ?? 0.0;
-      meanRR = record.hrv['meanRR'] ?? 0.0;
-      sd1 = record.hrv['sd1'] ?? 0.0;
-      sd2 = record.hrv['sd2'] ?? 0.0;
-      sd2sd1 = record.hrv['sd2sd1'] ?? 0.0;
-      lf = record.hrv['lf'] ?? 0.0;
-      hf = record.hrv['hf'] ?? 0.0;
-      lfhf = record.hrv['lfhf'] ?? 0.0;
-      stressIndex = record.hrv['stressIndex'] ?? 0.0;
+      // Use saved HRV. JSON gives back an int for a whole number written
+      // without a decimal point, and assigning that to a double throws, which
+      // left the detail silently unopened.
+      double saved(String key) {
+        final Object? value = record.hrv[key];
+        return value is num ? value.toDouble() : 0.0;
+      }
+
+      sdnn = saved('sdnn');
+      rmssd = saved('rmssd');
+      pnn50 = saved('pnn50');
+      meanRR = saved('meanRR');
+      sd1 = saved('sd1');
+      sd2 = saved('sd2');
+      sd2sd1 = saved('sd2sd1');
+      lf = saved('lf');
+      hf = saved('hf');
+      lfhf = saved('lfhf');
+      stressIndex = saved('stressIndex');
     }
 
     // Removed duplicate totalTime declaration
@@ -1574,520 +1951,450 @@ class _RecordsPageState extends State<RecordsPage> {
 
     GlobalKey chartKey = GlobalKey();
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        final r = Responsive.of(context);
-        return AlertDialog(
-          insetPadding: r.dialogInsetPadding,
-          backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-          contentPadding: const EdgeInsets.all(0),
-          title: Text(
-            '${record.date} ve ${record.time}',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
+    Future<void> exportPdf(BuildContext context) async {
+      // Resolve the PDF's text before the first await, so no BuildContext is
+      // touched across an async gap.
+      final pdfLabels = PdfLabels.of(L10n.of(context));
+      final chartImageBytes = await _captureChart(chartKey);
+      final hrvMetrics = {
+        'SDNN': '${sdnn.toStringAsFixed(2)} ms',
+        'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
+        'pNN50': '${pnn50.toStringAsFixed(2)} %',
+        'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
+        'SD1': '${sd1.toStringAsFixed(2)} ms',
+        'SD2': '${sd2.toStringAsFixed(2)} ms',
+        'SD2/SD1': sd2sd1.toStringAsFixed(2),
+        'LF': '${lf.toStringAsFixed(2)} %',
+        'HF': '${hf.toStringAsFixed(2)} %',
+        'LF/HF': lfhf.toStringAsFixed(2),
+        'Stress Index': stressIndex.toStringAsFixed(2),
+      };
+      final pdfPath = await createPdf(
+        labels: pdfLabels,
+        averageBPM: calculatedAverageBPM.toInt(),
+        notes: record.notesContent,
+        duration: record.duration,
+        hrvMetrics: hrvMetrics,
+        chartImageBytes: chartImageBytes,
+        formattedDate: record.date,
+        formattedTime: record.time,
+      );
+      if (pdfPath != null) {
+        await OpenFilex.open(pdfPath);
+      }
+    }
+
+    Future<void> exportTxt() async {
+      final txtPath = await _createExport(record);
+      if (txtPath != null) {
+        await OpenFilex.open(txtPath);
+      }
+    }
+
+    // A full page rather than a dialog: the detail is long, and the dialog
+    // squeezed it between a title and three buttons.
+    Navigator.of(context).push(MaterialPageRoute(builder: (context) {
+      final r = Responsive.of(context);
+      final L10n t = L10n.of(context);
+      final DateTime when = _instantOf(record);
+      final String? quality = _signalQualityOf(record);
+      final String? qualityLabel = switch (quality) {
+        'good' => t.qualityGood,
+        'medium' => t.qualityMedium,
+        'poor' => t.qualityBad,
+        _ => null,
+      };
+
+      Widget section(String title, List<Widget> children) => InfoCard(
+            padding: EdgeInsets.zero,
+            child: Theme(
+              data:
+                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.symmetric(horizontal: r.spaceLg),
+                childrenPadding:
+                    EdgeInsets.fromLTRB(r.spaceMd, 0, r.spaceMd, r.spaceMd),
+                iconColor: kInfoAccent,
+                collapsedIconColor: kInfoSecondaryText,
+                title: Text(
+                  title,
+                  style: TextStyle(
+                      fontSize: r.fontBodyLg, fontWeight: FontWeight.w600),
+                ),
+                children: children,
+              ),
             ),
-            textAlign: TextAlign.center,
+          );
+
+      Widget metricGrid(List<Widget> cards) => GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 1.55,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            children: cards,
+          );
+
+      return Scaffold(
+        backgroundColor: _canvas,
+        appBar: AppBar(
+          backgroundColor: _canvas,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          centerTitle: true,
+          title: Text(
+            '${_formatShortDate(when)} · ${_formatTime(when)}',
+            style:
+                TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
           ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 20),
-                    child: Column(
-                      children: [
-                        Text(
-                          L10n.of(context).summaryAverageHeartRate,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 20,
+          actions: [
+            IconButton(
+              tooltip: t.recordsDownloadPdf,
+              icon: const Icon(FontAwesomeIcons.filePdf,
+                  size: 20, color: kInfoAccent),
+              onPressed: () => exportPdf(context),
+            ),
+            IconButton(
+              tooltip: t.recordsExportTxt,
+              icon: const Icon(FontAwesomeIcons.fileLines, size: 20),
+              onPressed: exportTxt,
+            ),
+          ],
+        ),
+        // Not a ListView: that would stop building the chart once it scrolls
+        // out of view, and the PDF export captures it from the screen.
+        body: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+              r.pagePadding.left, r.spaceSm, r.pagePadding.right, r.spaceXl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              InfoCard(
+                child: Column(
+                  children: [
+                    Text(
+                      t.summaryAverageHeartRate
+                          .replaceAll(RegExp(r':\s*$'), ''),
+                      style: TextStyle(
+                          fontSize: r.fontBody, color: kInfoSecondaryText),
+                    ),
+                    Text.rich(TextSpan(children: [
+                      TextSpan(
+                        text: '${calculatedAverageBPM.toInt()}',
+                        style: TextStyle(
+                            fontSize: r.fontDisplayXl,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: ' ${t.homeBpmUnit}',
+                        style: TextStyle(
+                            fontSize: r.fontBodyLg, color: kInfoSecondaryText),
+                      ),
+                    ])),
+                    Text(
+                      [
+                        t.homeSecondsSuffix(record.duration),
+                        if (qualityLabel != null)
+                          t.a11ySignalQuality(qualityLabel),
+                      ].join(' · '),
+                      style: TextStyle(
+                          fontSize: r.fontSmall, color: kInfoSecondaryText),
+                    ),
+                    SizedBox(height: r.spaceLg),
+                    _bpmScale(context, calculatedAverageBPM),
+                  ],
+                ),
+              ),
+              if (record.notesContent.trim().isNotEmpty) ...[
+                SizedBox(height: r.spaceMd),
+                InfoCard(
+                  child: Text(
+                    record.notesContent,
+                    style: TextStyle(fontSize: r.fontBody, height: 1.4),
+                  ),
+                ),
+              ],
+              SizedBox(height: r.spaceMd),
+              InfoCard(
+                padding: EdgeInsets.fromLTRB(
+                    r.spaceMd, r.spaceMd, r.spaceMd, r.spaceSm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.measurePulseWave,
+                      style: TextStyle(
+                          fontSize: r.fontCaption, color: kInfoSecondaryText),
+                    ),
+                    SizedBox(height: r.spaceXs),
+                    if (smoothedData.isEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: r.spaceXl),
+                        child: Center(
+                          child: Text(
+                            t.recordsNoWaveform,
+                            style: TextStyle(
+                                fontSize: r.fontBody,
+                                color: kInfoSecondaryText),
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '${calculatedAverageBPM.toInt()} bpm',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 40,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 20, horizontal: 20),
-                    child: Container(
-                      height: 40,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.red.withValues(alpha: 1),
-                                    Colors.orange.withValues(alpha: 1),
-                                    Colors.green.withValues(alpha: 1),
-                                    Colors.orange.withValues(alpha: 1),
-                                    Colors.red.withValues(alpha: 1),
-                                  ],
-                                  stops: const [
-                                    0.0,
-                                    0.11,
-                                    0.20,
-                                    0.55,
-                                    0.75,
-                                  ],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: ((calculatedAverageBPM.clamp(30, 220) - 30) /
-                                    (220 - 30)) *
-                                (MediaQuery.of(context).size.width - 40),
-                            child: Container(
-                              width: 10,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                          Center(
-                            child: Text(
-                              '${calculatedAverageBPM.toInt()} bpm',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          const Positioned(
-                            left: 10,
-                            top: 10,
-                            child: Text(
-                              '30',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const Positioned(
-                            right: 10,
-                            top: 10,
-                            child: Text(
-                              '220',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      record.notesContent,
-                      style: const TextStyle(
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  SizedBox(
-                    height: 170,
-                    child: Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: Scrollbar(
-                        controller: _chartScrollController,
-                        thumbVisibility: true,
-                        child: SingleChildScrollView(
+                      )
+                    else
+                      SizedBox(
+                        height: 150,
+                        child: Scrollbar(
                           controller: _chartScrollController,
-                          scrollDirection: Axis.horizontal,
-                          child: SizedBox(
-                            width: chartWidth,
-                            child: RepaintBoundary(
-                              key: chartKey,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  LineChart(
-                                    LineChartData(
-                                      clipData: const FlClipData(
-                                        left: false,
-                                        right: true, // Allow overflow on right
-                                        top: true,
-                                        bottom: true,
-                                      ),
-                                      gridData: const FlGridData(show: false),
-                                      titlesData:
-                                          const FlTitlesData(show: false),
-                                      borderData: FlBorderData(
-                                        show: true,
-                                        border: Border.all(
-                                            color:
-                                                Colors.grey.withValues(alpha: 0.3)),
-                                      ),
-                                      minX: minX,
-                                      maxX: maxX,
-                                      minY: minY,
-                                      maxY: maxY,
-                                      lineBarsData: [
-                                        LineChartBarData(
-                                          spots: smoothedData,
-                                          isCurved: false,
-                                          color: const Color.fromARGB(
-                                              255, 246, 41, 0),
-                                          barWidth: 2.0,
-                                          isStrokeCapRound: true,
-                                          dotData: const FlDotData(show: false),
-                                          belowBarData: BarAreaData(
-                                            show: false,
-                                          ),
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _chartScrollController,
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(
+                              width: chartWidth,
+                              child: RepaintBoundary(
+                                key: chartKey,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    LineChart(
+                                      LineChartData(
+                                        clipData: const FlClipData(
+                                          left: false,
+                                          right: true,
+                                          top: true,
+                                          bottom: true,
                                         ),
-                                        LineChartBarData(
-                                          spots: peakSpots,
-                                          isCurved: false,
-                                          color: Colors.transparent,
-                                          barWidth: 0,
-                                          dotData: FlDotData(
-                                            show: true,
-                                            getDotPainter: (spot, percent,
-                                                    barData, index) =>
-                                                FlDotCirclePainter(
-                                              radius: 3,
-                                              color: Colors.blue,
-                                              strokeWidth: 0,
+                                        gridData: const FlGridData(show: false),
+                                        titlesData:
+                                            const FlTitlesData(show: false),
+                                        borderData: FlBorderData(show: false),
+                                        minX: minX,
+                                        maxX: maxX,
+                                        minY: minY,
+                                        maxY: maxY,
+                                        lineBarsData: [
+                                          LineChartBarData(
+                                            spots: smoothedData,
+                                            isCurved: false,
+                                            color: kInfoAccent,
+                                            barWidth: 2.0,
+                                            isStrokeCapRound: true,
+                                            dotData:
+                                                const FlDotData(show: false),
+                                            belowBarData:
+                                                BarAreaData(show: false),
+                                          ),
+                                          LineChartBarData(
+                                            spots: peakSpots,
+                                            isCurved: false,
+                                            color: Colors.transparent,
+                                            barWidth: 0,
+                                            dotData: FlDotData(
+                                              show: true,
+                                              getDotPainter: (spot, percent,
+                                                      barData, index) =>
+                                                  FlDotCirclePainter(
+                                                radius: 3,
+                                                color: const Color(0xFF1A73E8),
+                                                strokeWidth: 0,
+                                              ),
                                             ),
+                                            belowBarData:
+                                                BarAreaData(show: false),
                                           ),
-                                          belowBarData:
-                                              BarAreaData(show: false),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
+                                      duration: Duration.zero,
                                     ),
-                                    duration: Duration.zero,
-                                  ),
-                                  ...labels.map((label) {
-                                    final posX = ((label.x - minX) /
-                                            (maxX - minX + 1e-6)) *
-                                        chartWidth;
-                                    return Positioned(
-                                      left: posX,
-                                      top: 0,
-                                      bottom: 0,
-                                      child: Container(
-                                        width: 1.0,
-                                        color: Colors.grey.withValues(alpha: 0.5),
-                                      ),
-                                    );
-                                  }),
-                                  ...labels.map((label) {
-                                    final posX = ((label.x - minX) /
-                                            (maxX - minX + 1e-6)) *
-                                        chartWidth;
-                                    return Positioned(
-                                      left: posX,
-                                      bottom: 0,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 4),
-                                        child: Text(
-                                          label.time,
-                                          style: const TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.black),
+                                    ...labels.map((label) {
+                                      final posX = ((label.x - minX) /
+                                              (maxX - minX + 1e-6)) *
+                                          chartWidth;
+                                      return Positioned(
+                                        left: posX,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          width: 1.0,
+                                          color: Colors.black
+                                              .withValues(alpha: 0.08),
                                         ),
-                                      ),
-                                    );
-                                  }),
-                                ],
+                                      );
+                                    }),
+                                    ...labels.map((label) {
+                                      final posX = ((label.x - minX) /
+                                              (maxX - minX + 1e-6)) *
+                                          chartWidth;
+                                      return Positioned(
+                                        left: posX,
+                                        bottom: 0,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 4),
+                                          child: Text(
+                                            label.time,
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.black45),
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
+                  ],
+                ),
+              ),
+              SizedBox(height: r.spaceMd),
+              section(t.metricsHrvAnalysis, [
+                metricGrid([
+                  _buildHRVCard(
+                      t.metricsRespiratoryRate,
+                      t.metricsBreathsPerMinute(
+                          record.respiratoryRate.toStringAsFixed(1))),
+                  _buildHRVCard('SDNN', '${sdnn.toStringAsFixed(2)} ms'),
+                  _buildHRVCard('RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
+                  _buildHRVCard('pNN50', '${pnn50.toStringAsFixed(2)} %'),
+                  _buildHRVCard(
+                      t.metricsAverageRr, '${meanRR.toStringAsFixed(2)} ms'),
+                  _buildHRVCard('SD1', '${sd1.toStringAsFixed(2)} ms'),
+                  _buildHRVCard('SD2', '${sd2.toStringAsFixed(2)} ms'),
+                  _buildHRVCard('SD2/SD1', sd2sd1.toStringAsFixed(2)),
+                  _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
+                  _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
+                  _buildHRVCard('LF/HF', lfhf.toStringAsFixed(2)),
+                  _buildHRVCard(
+                    t.metricsStressIndex,
+                    stressIndex.toStringAsFixed(2),
+                    valueColor: _getStressColor(stressIndex),
+                  ),
+                ]),
+              ]),
+              SizedBox(height: r.spaceMd),
+              section(t.metricsHeartRateRecovery, [
+                Text(
+                  t.metricsRecoveryIntro,
+                  style:
+                      TextStyle(fontSize: r.fontSmall, color: Colors.black54),
+                ),
+                SizedBox(height: r.spaceSm),
+                _buildRecordRecoveryChart(record),
+                SizedBox(height: r.spaceSm),
+                metricGrid([
+                  _buildHRVCard(
+                      'HR (0–10 s)',
+                      (record.hrr['hr0'] ?? 0.0) > 0
+                          ? '${(record.hrr['hr0'] ?? 0.0).toStringAsFixed(1)} bpm'
+                          : '—'),
+                  _buildHRVCard(
+                      'HR v 60. s',
+                      (record.hrr['hr60'] ?? 0.0) > 0
+                          ? '${(record.hrr['hr60'] ?? 0.0).toStringAsFixed(1)} bpm'
+                          : '—'),
+                  _buildHRVCard(
+                      'Pokles 0–60 s',
+                      (record.hrr['hrr60'] ?? 0.0) > 0
+                          ? '${(record.hrr['hrr60'] ?? 0.0).toStringAsFixed(1)} bpm'
+                          : '—'),
+                  _buildHRVCard('Sklon (0–60 s)',
+                      '${(record.hrr['slope60_bpmPerMin'] ?? 0.0).toStringAsFixed(1)} bpm/min'),
+                  _buildHRVCard(
+                      'HR v 120. s',
+                      (record.hrr['hr120'] ?? 0.0) > 0
+                          ? '${(record.hrr['hr120'] ?? 0.0).toStringAsFixed(1)} bpm'
+                          : '—'),
+                  _buildHRVCard(
+                      'Pokles 0–120 s',
+                      (record.hrr['hrr120'] ?? 0.0) > 0
+                          ? '${(record.hrr['hrr120'] ?? 0.0).toStringAsFixed(1)} bpm'
+                          : '—'),
+                  _buildHRVCard(
+                      'Tau (odhad)',
+                      (record.hrr['tauSec'] ?? 0.0) > 0
+                          ? '${(record.hrr['tauSec'] ?? 0.0).toStringAsFixed(1)} s'
+                          : '—'),
+                ]),
+              ]),
+            ],
+          ),
+        ),
+      );
+    }));
+  }
+
+  /// Where the reading falls between 30 and 220 bpm. The marker is placed
+  /// from the bar's real width; it used to use the screen width, which put it
+  /// in the wrong spot inside the old dialog.
+  Widget _bpmScale(BuildContext context, double bpm) {
+    final r = Responsive.of(context);
+    const double lo = 30;
+    const double hi = 220;
+    final double fraction = ((bpm.clamp(lo, hi) - lo) / (hi - lo)).toDouble();
+    TextStyle labelStyle() =>
+        TextStyle(fontSize: r.fontCaption, color: kInfoSecondaryText);
+    return ExcludeSemantics(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+        const double marker = 6;
+        final double x =
+            (fraction * width).clamp(marker / 2, width - marker / 2);
+        return Column(
+          children: [
+            SizedBox(
+              height: 12,
+              width: width,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        gradient: const LinearGradient(
+                          colors: [
+                            Colors.red,
+                            Colors.orange,
+                            Colors.green,
+                            Colors.orange,
+                            Colors.red,
+                          ],
+                          stops: [0.0, 0.11, 0.20, 0.55, 0.75],
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Collapsible HRV section
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Card(
-                      color: Colors.white,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(
-                            color: Color.fromARGB(120, 158, 158, 158)),
-                      ),
-                      child: ExpansionTile(
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-                        initiallyExpanded: false,
-                        title: Text(
-                          L10n.of(context).metricsHrvAnalysis,
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        childrenPadding:
-                            const EdgeInsets.symmetric(horizontal: 12),
-                        children: [
-                          const SizedBox(height: 8),
-                          GridView.count(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 2,
-                            childAspectRatio: 1.55,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            children: [
-                              _buildHRVCard(L10n.of(context).metricsRespiratoryRate,
-                                  L10n.of(context).metricsBreathsPerMinute(record.respiratoryRate.toStringAsFixed(1))),
-                              _buildHRVCard(
-                                  'SDNN', '${sdnn.toStringAsFixed(2)} ms'),
-                              _buildHRVCard(
-                                  'RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
-                              _buildHRVCard(
-                                  'pNN50', '${pnn50.toStringAsFixed(2)} %'),
-                              _buildHRVCard(L10n.of(context).metricsAverageRr,
-                                  '${meanRR.toStringAsFixed(2)} ms'),
-                              _buildHRVCard(
-                                  'SD1', '${sd1.toStringAsFixed(2)} ms'),
-                              _buildHRVCard(
-                                  'SD2', '${sd2.toStringAsFixed(2)} ms'),
-                              _buildHRVCard(
-                                  'SD2/SD1', sd2sd1.toStringAsFixed(2)),
-                              _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
-                              _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
-                              _buildHRVCard(
-                                  'LF/HF', lfhf.toStringAsFixed(2)),
-                              _buildHRVCard(
-                                L10n.of(context).metricsStressIndex,
-                                stressIndex.toStringAsFixed(2),
-                                valueColor: _getStressColor(stressIndex),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Collapsible HRR section
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Card(
-                      color: Colors.white,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(
-                            color: Color.fromARGB(120, 158, 158, 158)),
-                      ),
-                      child: ExpansionTile(
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-                        initiallyExpanded: true,
-                        title: Text(
-                          L10n.of(context).metricsHeartRateRecovery,
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        childrenPadding:
-                            const EdgeInsets.symmetric(horizontal: 12),
-                        children: [
-                          const SizedBox(height: 6),
-                          Text(
-                            L10n.of(context).metricsRecoveryIntro,
-                            style:
-                                TextStyle(fontSize: 13, color: Colors.black54),
-                          ),
-                          const SizedBox(height: 6),
-                          _buildRecordRecoveryChart(record),
-                          const SizedBox(height: 6),
-                          GridView.count(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 2,
-                            childAspectRatio: 1.55,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            children: [
-                              _buildHRVCard(
-                                  'HR (0–10 s)',
-                                  (record.hrr['hr0'] ?? 0.0) > 0
-                                      ? '${(record.hrr['hr0'] ?? 0.0).toStringAsFixed(1)} bpm'
-                                      : '—'),
-                              _buildHRVCard(
-                                  'HR v 60. s',
-                                  (record.hrr['hr60'] ?? 0.0) > 0
-                                      ? '${(record.hrr['hr60'] ?? 0.0).toStringAsFixed(1)} bpm'
-                                      : '—'),
-                              _buildHRVCard(
-                                  'Pokles 0–60 s',
-                                  (record.hrr['hrr60'] ?? 0.0) > 0
-                                      ? '${(record.hrr['hrr60'] ?? 0.0).toStringAsFixed(1)} bpm'
-                                      : '—'),
-                              _buildHRVCard('Sklon (0–60 s)',
-                                  '${(record.hrr['slope60_bpmPerMin'] ?? 0.0).toStringAsFixed(1)} bpm/min'),
-                              _buildHRVCard(
-                                  'HR v 120. s',
-                                  (record.hrr['hr120'] ?? 0.0) > 0
-                                      ? '${(record.hrr['hr120'] ?? 0.0).toStringAsFixed(1)} bpm'
-                                      : '—'),
-                              _buildHRVCard(
-                                  'Pokles 0–120 s',
-                                  (record.hrr['hrr120'] ?? 0.0) > 0
-                                      ? '${(record.hrr['hrr120'] ?? 0.0).toStringAsFixed(1)} bpm'
-                                      : '—'),
-                              _buildHRVCard(
-                                  'Tau (odhad)',
-                                  (record.hrr['tauSec'] ?? 0.0) > 0
-                                      ? '${(record.hrr['tauSec'] ?? 0.0).toStringAsFixed(1)} s'
-                                      : '—'),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                        ],
+                  Positioned(
+                    left: x - marker / 2,
+                    top: -4,
+                    bottom: -4,
+                    child: Container(
+                      width: marker,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: Colors.black87, width: 1.5),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          // Tři tlačítka ve Wrapu se na užších displejích lámala tak, že
-          // „Zavřít" zůstalo samo na druhém řádku. Teď je rozvržení záměrné:
-          // dva exporty vedle sebe, zavření pod nimi.
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          actions: <Widget>[
-            Column(
-              mainAxisSize: MainAxisSize.min,
+            SizedBox(height: r.spaceXs + 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () async {
-                          // Resolve the PDF's text before the first await, so
-                          // no BuildContext is touched across an async gap.
-                          final pdfLabels = PdfLabels.of(L10n.of(context));
-                          final chartImageBytes = await _captureChart(chartKey);
-                          final hrvMetrics = {
-                            'SDNN': '${sdnn.toStringAsFixed(2)} ms',
-                            'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
-                            'pNN50': '${pnn50.toStringAsFixed(2)} %',
-                            'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
-                            'SD1': '${sd1.toStringAsFixed(2)} ms',
-                            'SD2': '${sd2.toStringAsFixed(2)} ms',
-                            'SD2/SD1': sd2sd1.toStringAsFixed(2),
-                            'LF': '${lf.toStringAsFixed(2)} %',
-                            'HF': '${hf.toStringAsFixed(2)} %',
-                            'LF/HF': lfhf.toStringAsFixed(2),
-                            'Stress Index': stressIndex.toStringAsFixed(2),
-                          };
-                          final pdfPath = await createPdf(
-                            labels: pdfLabels,
-                            averageBPM: calculatedAverageBPM.toInt(),
-                            notes: record.notesContent,
-                            duration: record.duration,
-                            hrvMetrics: hrvMetrics,
-                            chartImageBytes: chartImageBytes,
-                            formattedDate: record.date,
-                            formattedTime: record.time,
-                          );
-                          if (pdfPath != null) {
-                            await OpenFilex.open(pdfPath);
-                          }
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.blue,
-                        ),
-                        child: Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 5,
-                          children: [
-                            Icon(
-                              FontAwesomeIcons.filePdf,
-                              size: 18,
-                              color: Colors.red,
-                            ),
-                            Text(
-                              L10n.of(context).recordsDownloadPdf,
-                              style: TextStyle(color: Colors.black),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () async {
-                          final txtPath = await _createExport(record);
-                          if (txtPath != null) {
-                            await OpenFilex.open(txtPath);
-                          }
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.blue,
-                        ),
-                        child: Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 5,
-                          children: [
-                            Icon(
-                              FontAwesomeIcons.fileLines,
-                              size: 18,
-                              color: Colors.black,
-                            ),
-                            Text(
-                              L10n.of(context).recordsExportTxt,
-                              style: TextStyle(color: Colors.black),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color.fromARGB(255, 0, 0, 0),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(L10n.of(context).commonClose),
-                  ),
-                ),
+                Text('${lo.toInt()}', style: labelStyle()),
+                Text('${hi.toInt()}', style: labelStyle()),
               ],
             ),
           ],
         );
-      },
+      }),
     );
   }
 
@@ -2398,235 +2705,126 @@ class _RecordsPageState extends State<RecordsPage> {
     return sum;
   }
 
+  static const Color _canvas = Color.fromARGB(255, 242, 242, 242);
+
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final TextStyle titleStyle =
+        TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600);
+    if (_selectionMode) {
+      return AppBar(
+        backgroundColor: _canvas,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          icon: const Icon(Icons.close),
+          onPressed: () => setState(() {
+            _selectionMode = false;
+            _selectedKeys.clear();
+          }),
+        ),
+        title: Text(t.recordsSelectedCount(_selectedKeys.length),
+            style: titleStyle),
+      );
+    }
+    return AppBar(
+      backgroundColor: _canvas,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      centerTitle: true,
+      title: Text(t.recordsTitle, style: titleStyle),
+      actions: [
+        IconButton(
+          tooltip: t.recordsSearch,
+          icon: Icon(_searchOpen ? Icons.search_off : Icons.search),
+          onPressed: _toggleSearch,
+        ),
+        IconButton(
+          tooltip: t.recordsFilters,
+          onPressed: _openFilterSheet,
+          icon: Badge(
+            isLabelVisible: _filtersActive,
+            backgroundColor: kInfoAccent,
+            smallSize: 8,
+            child: const Icon(Icons.tune),
+          ),
+        ),
+        PopupMenuButton<String>(
+          tooltip: t.recordsMore,
+          color: Colors.white,
+          icon: const Icon(Icons.more_vert),
+          onSelected: (_) => setState(() {
+            _selectionMode = true;
+            _selectedKeys.clear();
+          }),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+                value: 'select', child: Text(t.recordsSelectMultiple)),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 0,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              L10n.of(context).recordsTitle,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: r.fontTitleLg,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: L10n.of(context).recordsSelectMultiple,
-            icon: Icon(_selectionMode
-                ? Icons.check_box
-                : Icons.check_box_outline_blank),
-            onPressed: () {
-              setState(() {
-                _selectionMode = !_selectionMode;
-                _selectedKeys.clear();
-              });
-            },
-          ),
-          PopupMenuButton<String>(
-            tooltip: L10n.of(context).recordsSort,
-            onSelected: (value) {
-              setState(() {
-                _sortMode = value;
-              });
-              _applyFilters();
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                  value: 'date_desc', child: Text(L10n.of(context).recordsSortDateNewest)),
-              PopupMenuItem(value: 'date_asc', child: Text(L10n.of(context).recordsSortDateOldest)),
-              PopupMenuItem(value: 'bpm_desc', child: Text(L10n.of(context).recordsSortBpmHighest)),
-              PopupMenuItem(value: 'bpm_asc', child: Text(L10n.of(context).recordsSortBpmLowest)),
-            ],
-            icon: const Icon(Icons.sort),
-          ),
-        ],
-      ),
+      backgroundColor: _canvas,
+      appBar: _buildAppBar(context),
       body: RefreshIndicator.adaptive(
-          onRefresh: () async {
-            // Simulace načítání
-            await Future.delayed(const Duration(milliseconds: 10));
-          },
-          displacement: 50.0, // Vzdálenost indikátoru
-          edgeOffset: 0.0, // Okraj indikátoru
-          color: Colors.grey, // Barva rotujícího srdíčka
-          backgroundColor: Colors.white, // Bílé pozadí
-          strokeWidth: 3.0, // Tloušťka indikátoru
-          child: _records.isEmpty
-              ? Center(child: Text(L10n.of(context).recordsEmpty))
-              : ListView(
-                  padding: const EdgeInsets.all(10),
-                  children: [
-                    _buildFilterBar(context),
-                    const SizedBox(height: 8),
-                    _buildTrendsSection(),
-                    if (_visible.isNotEmpty) const SizedBox(height: 8),
-                    ...List.generate(_visible.length, (index) {
-                      final record = _visible[index];
-                      final recordKey = '${record.date}_${record.time}';
-                      final selected = _selectedKeys.contains(recordKey);
-                      return Column(
-                        children: [
-                          Dismissible(
-                            key: ValueKey(recordKey),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              color: Colors.red.withValues(alpha: 0.7),
-                              padding: const EdgeInsets.only(right: 20),
-                              child: const Align(
-                                alignment: Alignment.centerRight,
-                                child: Icon(
-                                  Icons.delete,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            onDismissed: (direction) {
-                              final idx = _records.indexOf(record);
-                              _showDeleteConfirmation(idx);
-                            },
-                            child: GestureDetector(
-                              onTap: () => _showRecordDetail(record),
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 5,
-                                      spreadRadius: 1,
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    if (_selectionMode)
-                                      Checkbox(
-                                        value: selected,
-                                        onChanged: (_) =>
-                                            _toggleSelection(recordKey),
-                                      ),
-                                    Icon(
-                                      Icons.history,
-                                      color: Colors.black.withValues(alpha: 0.7),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    // Datum a čas pod sebou. Na jednom řádku se
-                                    // dlouhé datum lámalo do tří řádků a celý
-                                    // řádek se rozjel.
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            record.date,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.blue,
-                                            ),
-                                          ),
-                                          Text(
-                                            record.time,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black
-                                                  .withValues(alpha: 0.55),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${record.averageBPM} bpm',
-                                      maxLines: 1,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                    _buildQualityChip(record),
-                                    const Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: Colors.black45,
-                                      size: 16,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const Divider(),
-                        ],
-                      );
-                    }),
-                    if (_selectionMode && _selectedKeys.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Center(
-                          child: ElevatedButton.icon(
-                            onPressed: _deleteSelected,
-                            icon: const Icon(Icons.delete_forever),
-                            label: Text(
-                              L10n.of(context).recordsDeleteSelected(_selectedKeys.length),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                )),
-      bottomNavigationBar: GNav(
-        tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
-        gap: 0,
-        activeColor: Colors.black,
-        iconSize: r.iconMd,
+        onRefresh: _loadRecords,
+        color: kInfoAccent,
         backgroundColor: Colors.white,
-        color: Colors.grey,
-        selectedIndex: _selectedIndex,
-        onTabChange: _onItemTapped,
-        tabs: [
-          GButton(
-            icon: Symbols.family_home,
-            text: L10n.of(context).navMenu,
-          ),
-          GButton(
-            icon: Symbols.ecg_heart,
-            text: L10n.of(context).navMeasure,
-          ),
-          GButton(
-            icon: Symbols.help,
-            text: L10n.of(context).navInfo,
-          ),
-        ],
+        child: _records.isEmpty
+            ? _emptyState(context)
+            : ListView(
+                padding: EdgeInsets.fromLTRB(r.pagePadding.left, r.spaceSm,
+                    r.pagePadding.right, r.spaceXl),
+                children: [
+                  if (_searchOpen) ...[
+                    _searchField(context),
+                    SizedBox(height: r.spaceMd),
+                  ],
+                  _buildSummaryCard(),
+                  if (_visible.isEmpty)
+                    _noMatch(context)
+                  else
+                    ..._buildRecordGroups(context),
+                ],
+              ),
       ),
+      bottomNavigationBar: _selectionMode
+          ? _selectionBar(context)
+          : GNav(
+              // A new key after returning resets the bar, which otherwise
+              // keeps showing the tab that was used to leave.
+              key: ValueKey(_navResets),
+              tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
+              gap: 0,
+              activeColor: Colors.black,
+              iconSize: r.iconMd,
+              backgroundColor: Colors.white,
+              color: Colors.grey,
+              selectedIndex: -1,
+              onTabChange: _onItemTapped,
+              tabs: [
+                GButton(icon: Symbols.family_home, text: t.navMenu),
+                GButton(icon: Symbols.ecg_heart, text: t.navMeasure),
+                GButton(icon: Symbols.help, text: t.navInfo),
+              ],
+            ),
     );
   }
 
   @override
   void dispose() {
     _chartScrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 }

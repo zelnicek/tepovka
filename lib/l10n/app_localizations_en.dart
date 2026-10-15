@@ -290,7 +290,7 @@ class L10nEn extends L10n {
       'Estimated time constant of the exponential heart rate decay toward baseline (lower means faster recovery).';
 
   @override
-  String get recordsTitle => 'MEASUREMENT HISTORY';
+  String get recordsTitle => 'Measurement history';
 
   @override
   String get recordsSearchHint => 'Search notes, date, time, BPM';
@@ -1005,4 +1005,67 @@ class L10nEn extends L10n {
 
   @override
   String get measureDurationHrvOk => 'Long enough for HRV analysis';
+
+  @override
+  String get recordsToday => 'Today';
+
+  @override
+  String get recordsYesterday => 'Yesterday';
+
+  @override
+  String get recordsAverageLabel => 'Average';
+
+  @override
+  String get recordsRangeLabel => 'Range';
+
+  @override
+  String recordsMeasurementsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count measurements',
+      one: '1 measurement',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get recordsHrvTrends => 'HRV trends';
+
+  @override
+  String get recordsFilters => 'Filters';
+
+  @override
+  String get recordsSignalQuality => 'Signal quality';
+
+  @override
+  String get recordsDateRange => 'Date range';
+
+  @override
+  String get recordsAnyDate => 'Any time';
+
+  @override
+  String get recordsClearFilters => 'Clear filters';
+
+  @override
+  String get recordsNoMatch => 'No measurements match the filters.';
+
+  @override
+  String recordsSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get recordsNoWaveform => 'This record has no pulse wave.';
+
+  @override
+  String get recordsSearch => 'Search';
+
+  @override
+  String get recordsMore => 'More options';
+
+  @override
+  String recordsConfirmDeleteSelectedBody(int count) {
+    return 'Delete the $count selected measurements?';
+  }
 }

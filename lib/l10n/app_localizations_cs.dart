@@ -289,7 +289,7 @@ class L10nCs extends L10n {
       'Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).';
 
   @override
-  String get recordsTitle => 'HISTORIE MĚŘENÍ';
+  String get recordsTitle => 'Historie měření';
 
   @override
   String get recordsSearchHint => 'Hledat poznámku, datum, čas, BPM';
@@ -1005,4 +1005,61 @@ class L10nCs extends L10n {
 
   @override
   String get measureDurationHrvOk => 'Dost dlouhé i pro analýzu HRV';
+
+  @override
+  String get recordsToday => 'Dnes';
+
+  @override
+  String get recordsYesterday => 'Včera';
+
+  @override
+  String get recordsAverageLabel => 'Průměr';
+
+  @override
+  String get recordsRangeLabel => 'Rozsah';
+
+  @override
+  String recordsMeasurementsCount(int count) {
+    return '$count měření';
+  }
+
+  @override
+  String get recordsHrvTrends => 'Trendy HRV';
+
+  @override
+  String get recordsFilters => 'Filtry';
+
+  @override
+  String get recordsSignalQuality => 'Kvalita signálu';
+
+  @override
+  String get recordsDateRange => 'Období';
+
+  @override
+  String get recordsAnyDate => 'Kdykoli';
+
+  @override
+  String get recordsClearFilters => 'Zrušit filtry';
+
+  @override
+  String get recordsNoMatch => 'Filtrům neodpovídá žádné měření.';
+
+  @override
+  String recordsSelectedCount(int count) {
+    return 'Vybráno: $count';
+  }
+
+  @override
+  String get recordsNoWaveform => 'Záznam neobsahuje pulzní křivku.';
+
+  @override
+  String get recordsSearch => 'Hledat';
+
+  @override
+  String get recordsMore => 'Další možnosti';
+
+  @override
+  String recordsConfirmDeleteSelectedBody(int count) {
+    return 'Opravdu chcete smazat vybrané záznamy ($count)?';
+  }
 }

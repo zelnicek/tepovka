@@ -114,7 +114,7 @@
   "tipHr120": "Tepová frekvence kolem 120. sekundy. Vhodné pro delší zotavení a výpočet HRR120.",
   "tipHrr120": "Heart Rate Recovery za 120 s: rozdíl HR mezi 0–10 s a 110–120 s. Vyšší = lepší kondice.",
   "tipHrTau": "Odhad časové konstanty exponenciálního poklesu HR k bazální hodnotě (nižší znamená rychlejší zotavení).",
-  "recordsTitle": "HISTORIE MĚŘENÍ",
+  "recordsTitle": "Historie měření",
   "recordsSearchHint": "Hledat poznámku, datum, čas, BPM",
   "recordsFilterAll": "Vše",
   "recordsSelectMultiple": "Výběr více záznamů",
@@ -489,5 +489,43 @@
   "measurePulseWave": "Pulzní křivka",
   "measureDurationOther": "Jiná",
   "measureDurationHrvShort": "Pro analýzu HRV zvolte aspoň 60 s",
-  "measureDurationHrvOk": "Dost dlouhé i pro analýzu HRV"
+  "measureDurationHrvOk": "Dost dlouhé i pro analýzu HRV",
+  "recordsToday": "Dnes",
+  "recordsYesterday": "Včera",
+  "recordsAverageLabel": "Průměr",
+  "recordsRangeLabel": "Rozsah",
+  "recordsMeasurementsCount": "{count} měření",
+  "@recordsMeasurementsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsHrvTrends": "Trendy HRV",
+  "recordsFilters": "Filtry",
+  "recordsSignalQuality": "Kvalita signálu",
+  "recordsDateRange": "Období",
+  "recordsAnyDate": "Kdykoli",
+  "recordsClearFilters": "Zrušit filtry",
+  "recordsNoMatch": "Filtrům neodpovídá žádné měření.",
+  "recordsSelectedCount": "Vybráno: {count}",
+  "@recordsSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsNoWaveform": "Záznam neobsahuje pulzní křivku.",
+  "recordsSearch": "Hledat",
+  "recordsMore": "Další možnosti",
+  "recordsConfirmDeleteSelectedBody": "Opravdu chcete smazat vybrané záznamy ({count})?",
+  "@recordsConfirmDeleteSelectedBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

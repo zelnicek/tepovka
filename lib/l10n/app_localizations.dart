@@ -598,7 +598,7 @@ abstract class L10n {
   /// No description provided for @recordsTitle.
   ///
   /// In cs, this message translates to:
-  /// **'HISTORIE MĚŘENÍ'**
+  /// **'Historie měření'**
   String get recordsTitle;
 
   /// No description provided for @recordsSearchHint.
@@ -1872,6 +1872,108 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Dost dlouhé i pro analýzu HRV'**
   String get measureDurationHrvOk;
+
+  /// No description provided for @recordsToday.
+  ///
+  /// In cs, this message translates to:
+  /// **'Dnes'**
+  String get recordsToday;
+
+  /// No description provided for @recordsYesterday.
+  ///
+  /// In cs, this message translates to:
+  /// **'Včera'**
+  String get recordsYesterday;
+
+  /// No description provided for @recordsAverageLabel.
+  ///
+  /// In cs, this message translates to:
+  /// **'Průměr'**
+  String get recordsAverageLabel;
+
+  /// No description provided for @recordsRangeLabel.
+  ///
+  /// In cs, this message translates to:
+  /// **'Rozsah'**
+  String get recordsRangeLabel;
+
+  /// No description provided for @recordsMeasurementsCount.
+  ///
+  /// In cs, this message translates to:
+  /// **'{count} měření'**
+  String recordsMeasurementsCount(int count);
+
+  /// No description provided for @recordsHrvTrends.
+  ///
+  /// In cs, this message translates to:
+  /// **'Trendy HRV'**
+  String get recordsHrvTrends;
+
+  /// No description provided for @recordsFilters.
+  ///
+  /// In cs, this message translates to:
+  /// **'Filtry'**
+  String get recordsFilters;
+
+  /// No description provided for @recordsSignalQuality.
+  ///
+  /// In cs, this message translates to:
+  /// **'Kvalita signálu'**
+  String get recordsSignalQuality;
+
+  /// No description provided for @recordsDateRange.
+  ///
+  /// In cs, this message translates to:
+  /// **'Období'**
+  String get recordsDateRange;
+
+  /// No description provided for @recordsAnyDate.
+  ///
+  /// In cs, this message translates to:
+  /// **'Kdykoli'**
+  String get recordsAnyDate;
+
+  /// No description provided for @recordsClearFilters.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zrušit filtry'**
+  String get recordsClearFilters;
+
+  /// No description provided for @recordsNoMatch.
+  ///
+  /// In cs, this message translates to:
+  /// **'Filtrům neodpovídá žádné měření.'**
+  String get recordsNoMatch;
+
+  /// No description provided for @recordsSelectedCount.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vybráno: {count}'**
+  String recordsSelectedCount(int count);
+
+  /// No description provided for @recordsNoWaveform.
+  ///
+  /// In cs, this message translates to:
+  /// **'Záznam neobsahuje pulzní křivku.'**
+  String get recordsNoWaveform;
+
+  /// No description provided for @recordsSearch.
+  ///
+  /// In cs, this message translates to:
+  /// **'Hledat'**
+  String get recordsSearch;
+
+  /// No description provided for @recordsMore.
+  ///
+  /// In cs, this message translates to:
+  /// **'Další možnosti'**
+  String get recordsMore;
+
+  /// No description provided for @recordsConfirmDeleteSelectedBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Opravdu chcete smazat vybrané záznamy ({count})?'**
+  String recordsConfirmDeleteSelectedBody(int count);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -92,6 +92,32 @@ void main() {
     }
   });
 
+  /// The longest text a message can actually show. For an ICU plural that is
+  /// its longest branch; measuring the raw `{count, plural, …}` source counted
+  /// the syntax, so a plural in one language and plain text in the other
+  /// looked wildly different in length when the rendered text was not.
+  String rendered(String message) {
+    final match = RegExp(r'^\{\w+,\s*plural,').firstMatch(message);
+    if (match == null) return message;
+    final branches = <String>[];
+    int i = match.end;
+    while (i < message.length) {
+      final open = message.indexOf('{', i);
+      if (open < 0) break;
+      int depth = 0;
+      int close = open;
+      for (; close < message.length; close++) {
+        if (message[close] == '{') depth++;
+        if (message[close] == '}' && --depth == 0) break;
+      }
+      if (close >= message.length) break;
+      branches.add(message.substring(open + 1, close));
+      i = close + 1;
+    }
+    if (branches.isEmpty) return message;
+    return branches.reduce((a, b) => a.length >= b.length ? a : b);
+  }
+
   test('translations stay within a sane length ratio of the source', () {
     // A translation far longer than its Czech source is the thing that breaks
     // fixed-width layouts. Flag the outliers rather than guessing per widget.
@@ -101,9 +127,10 @@ void main() {
     // Short UI strings are the risky ones; long prose wraps freely.
     final offenders = <String>[];
     for (final entry in cs.entries) {
-      final source = entry.value;
-      final target = en[entry.key];
-      if (target == null || source.length > 40) continue;
+      final source = rendered(entry.value);
+      final rawTarget = en[entry.key];
+      if (rawTarget == null || source.length > 40) continue;
+      final target = rendered(rawTarget);
       if (target.length > source.length * 1.6 && target.length - source.length > 6) {
         offenders.add('${entry.key}: "$source" (${source.length}) -> '
             '"$target" (${target.length})');
