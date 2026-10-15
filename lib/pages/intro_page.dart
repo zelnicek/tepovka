@@ -74,20 +74,20 @@ class _IntroPageState extends State<IntroPage> {
     if (mounted) _loadRecords();
   }
 
-  void _onItemTapped(int index) {
+  Future<void> _onItemTapped(int index) async {
     if (_selectedIndex == index) return;
     setState(() => _selectedIndex = index);
     switch (index) {
-      case 0:
-        _open(const IntroPage());
-        break;
       case 1:
-        _open(const Home());
+        await _open(const Home());
         break;
       case 2:
-        _open(const About());
+        await _open(const About());
         break;
     }
+    // Back on this screen: the bar must point at it again, not at the tab
+    // that was tapped to leave.
+    if (mounted) setState(() => _selectedIndex = 0);
   }
 
   String _formatWhen(BuildContext context, DateTime when) {

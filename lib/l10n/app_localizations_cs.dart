@@ -33,22 +33,22 @@ class L10nCs extends L10n {
   String get navInfo => 'INFO';
 
   @override
-  String get homeReady => 'PŘIPRAVENO K MĚŘENÍ';
+  String get homeReady => 'Připraveno k měření';
 
   @override
-  String get homeMeasuring => 'PROBÍHÁ MĚŘENÍ...';
+  String get homeMeasuring => 'Probíhá měření';
 
   @override
-  String get homeGetReady => 'PŘIPRAVTE SE...';
+  String get homeGetReady => 'Připravte se…';
 
   @override
-  String get homeStartButton => 'ZAHÁJIT MĚŘENÍ';
+  String get homeStartButton => 'Zahájit měření';
 
   @override
-  String get homeStopButton => 'ZASTAVIT MĚŘENÍ';
+  String get homeStopButton => 'Zastavit měření';
 
   @override
-  String get homeDurationLabel => 'Doba měření (sekundy)';
+  String get homeDurationLabel => 'Délka měření';
 
   @override
   String get homeSwitchCamera => 'Přepnout kameru';
@@ -83,10 +83,6 @@ class L10nCs extends L10n {
   @override
   String get homeDurationOutOfRange =>
       'Zadejte dobu trvání mezi 10 a 300 sekundami';
-
-  @override
-  String get homeHrvDurationHint =>
-      'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.';
 
   @override
   String get homeAdjustingCamera => 'Nastavuji kameru…';
@@ -977,4 +973,36 @@ class L10nCs extends L10n {
 
   @override
   String get homeTileAboutHint => 'Projekt, tým a kontakty';
+
+  @override
+  String get commonDone => 'Hotovo';
+
+  @override
+  String get measureTitle => 'Měření';
+
+  @override
+  String measureRunning(int seconds) {
+    return 'Měří se · zbývá $seconds s';
+  }
+
+  @override
+  String get measureSignalGood => 'Dobrý signál';
+
+  @override
+  String get measureSignalWeak => 'Slabý signál';
+
+  @override
+  String get measureSignalNoFinger => 'Přiložte prst';
+
+  @override
+  String get measurePulseWave => 'Pulzní křivka';
+
+  @override
+  String get measureDurationOther => 'Jiná';
+
+  @override
+  String get measureDurationHrvShort => 'Pro analýzu HRV zvolte aspoň 60 s';
+
+  @override
+  String get measureDurationHrvOk => 'Dost dlouhé i pro analýzu HRV';
 }

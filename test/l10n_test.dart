@@ -40,13 +40,13 @@ void main() {
 
   testWidgets('resolves Czech', (tester) async {
     final t = await _load(tester, const Locale('cs'));
-    expect(t.homeReady, 'PŘIPRAVENO K MĚŘENÍ');
+    expect(t.homeReady, 'Připraveno k měření');
     expect(t.qualityGood, 'Dobrá');
   });
 
   testWidgets('resolves English', (tester) async {
     final t = await _load(tester, const Locale('en'));
-    expect(t.homeReady, 'READY TO MEASURE');
+    expect(t.homeReady, 'Ready to measure');
     expect(t.qualityGood, 'Good');
   });
 

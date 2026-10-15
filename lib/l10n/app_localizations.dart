@@ -148,37 +148,37 @@ abstract class L10n {
   /// App bar title before a measurement starts
   ///
   /// In cs, this message translates to:
-  /// **'PŘIPRAVENO K MĚŘENÍ'**
+  /// **'Připraveno k měření'**
   String get homeReady;
 
   /// No description provided for @homeMeasuring.
   ///
   /// In cs, this message translates to:
-  /// **'PROBÍHÁ MĚŘENÍ...'**
+  /// **'Probíhá měření'**
   String get homeMeasuring;
 
   /// No description provided for @homeGetReady.
   ///
   /// In cs, this message translates to:
-  /// **'PŘIPRAVTE SE...'**
+  /// **'Připravte se…'**
   String get homeGetReady;
 
   /// No description provided for @homeStartButton.
   ///
   /// In cs, this message translates to:
-  /// **'ZAHÁJIT MĚŘENÍ'**
+  /// **'Zahájit měření'**
   String get homeStartButton;
 
   /// No description provided for @homeStopButton.
   ///
   /// In cs, this message translates to:
-  /// **'ZASTAVIT MĚŘENÍ'**
+  /// **'Zastavit měření'**
   String get homeStopButton;
 
   /// No description provided for @homeDurationLabel.
   ///
   /// In cs, this message translates to:
-  /// **'Doba měření (sekundy)'**
+  /// **'Délka měření'**
   String get homeDurationLabel;
 
   /// No description provided for @homeSwitchCamera.
@@ -240,12 +240,6 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Zadejte dobu trvání mezi 10 a 300 sekundami'**
   String get homeDurationOutOfRange;
-
-  /// No description provided for @homeHrvDurationHint.
-  ///
-  /// In cs, this message translates to:
-  /// **'Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.'**
-  String get homeHrvDurationHint;
 
   /// No description provided for @homeAdjustingCamera.
   ///
@@ -1818,6 +1812,66 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Projekt, tým a kontakty'**
   String get homeTileAboutHint;
+
+  /// No description provided for @commonDone.
+  ///
+  /// In cs, this message translates to:
+  /// **'Hotovo'**
+  String get commonDone;
+
+  /// No description provided for @measureTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měření'**
+  String get measureTitle;
+
+  /// No description provided for @measureRunning.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měří se · zbývá {seconds} s'**
+  String measureRunning(int seconds);
+
+  /// No description provided for @measureSignalGood.
+  ///
+  /// In cs, this message translates to:
+  /// **'Dobrý signál'**
+  String get measureSignalGood;
+
+  /// No description provided for @measureSignalWeak.
+  ///
+  /// In cs, this message translates to:
+  /// **'Slabý signál'**
+  String get measureSignalWeak;
+
+  /// No description provided for @measureSignalNoFinger.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přiložte prst'**
+  String get measureSignalNoFinger;
+
+  /// No description provided for @measurePulseWave.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pulzní křivka'**
+  String get measurePulseWave;
+
+  /// No description provided for @measureDurationOther.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jiná'**
+  String get measureDurationOther;
+
+  /// No description provided for @measureDurationHrvShort.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pro analýzu HRV zvolte aspoň 60 s'**
+  String get measureDurationHrvShort;
+
+  /// No description provided for @measureDurationHrvOk.
+  ///
+  /// In cs, this message translates to:
+  /// **'Dost dlouhé i pro analýzu HRV'**
+  String get measureDurationHrvOk;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

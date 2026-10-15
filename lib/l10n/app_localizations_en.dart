@@ -33,22 +33,22 @@ class L10nEn extends L10n {
   String get navInfo => 'INFO';
 
   @override
-  String get homeReady => 'READY TO MEASURE';
+  String get homeReady => 'Ready to measure';
 
   @override
-  String get homeMeasuring => 'MEASURING...';
+  String get homeMeasuring => 'Measuring';
 
   @override
-  String get homeGetReady => 'GET READY...';
+  String get homeGetReady => 'Get ready…';
 
   @override
-  String get homeStartButton => 'START MEASUREMENT';
+  String get homeStartButton => 'Start measuring';
 
   @override
-  String get homeStopButton => 'STOP MEASUREMENT';
+  String get homeStopButton => 'Stop measuring';
 
   @override
-  String get homeDurationLabel => 'Duration (seconds)';
+  String get homeDurationLabel => 'Duration';
 
   @override
   String get homeSwitchCamera => 'Switch camera';
@@ -83,10 +83,6 @@ class L10nEn extends L10n {
   @override
   String get homeDurationOutOfRange =>
       'Enter a duration between 10 and 300 seconds';
-
-  @override
-  String get homeHrvDurationHint =>
-      'For HRV analysis we recommend measuring for at least 60 seconds.';
 
   @override
   String get homeAdjustingCamera => 'Adjusting the camera…';
@@ -977,4 +973,36 @@ class L10nEn extends L10n {
 
   @override
   String get homeTileAboutHint => 'Project, team and links';
+
+  @override
+  String get commonDone => 'Done';
+
+  @override
+  String get measureTitle => 'Measurement';
+
+  @override
+  String measureRunning(int seconds) {
+    return 'Measuring · $seconds s left';
+  }
+
+  @override
+  String get measureSignalGood => 'Good signal';
+
+  @override
+  String get measureSignalWeak => 'Weak signal';
+
+  @override
+  String get measureSignalNoFinger => 'Place your finger';
+
+  @override
+  String get measurePulseWave => 'Pulse wave';
+
+  @override
+  String get measureDurationOther => 'Other';
+
+  @override
+  String get measureDurationHrvShort => 'Choose at least 60 s for HRV analysis';
+
+  @override
+  String get measureDurationHrvOk => 'Long enough for HRV analysis';
 }

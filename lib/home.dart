@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:tepovka/pages/summary_page.dart';
 import 'dart:math';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:tepovka/pages/intro_page.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/pages/about.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +19,8 @@ import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samosta
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
+import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/widgets/info_widgets.dart';
 import 'package:tepovka/services/tts_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -54,7 +55,6 @@ class _HomeState extends State<Home>
   int _selectedIndex = 1;
   late AnimationController _progressController;
   bool _isRecording = false; // Tracks whether recording is active
-  final bool _showBPM = true; // Determines whether BPM is displayed
   bool _isFlashOn = false; // Tracks flashlight state
   String appBarText = '';
   List<int> bpmList = [];
@@ -160,8 +160,18 @@ class _HomeState extends State<Home>
   /// nav bar and buttons were all being rebuilt 30x per second).
   final ValueNotifier<int> _chartRevision = ValueNotifier<int>(0);
   final ValueNotifier<double> _bpmNotifier = ValueNotifier<double>(0.0);
+
+  /// Starts at "no finger": before the first frame there is nothing to judge,
+  /// and showing "weak signal" in red on arrival read like an error.
   final ValueNotifier<SignalQuality> _qualityNotifier =
-      ValueNotifier<SignalQuality>(SignalQuality.bad);
+      ValueNotifier<SignalQuality>(SignalQuality.noFinger);
+
+  /// Whether a frame has been judged since the last reset. The first verdict
+  /// is always announced, even when it matches the neutral starting value.
+  bool _qualityKnown = false;
+
+  /// Lengths offered as one tap; anything else goes through "Other".
+  static const List<int> _durationPresets = [20, 30, 60, 120];
   final ValueNotifier<int> _remainingTimeNotifier = ValueNotifier<int>(30);
 
   /// Effective sample rate, measured from the camera rather than assumed.
@@ -410,7 +420,8 @@ class _HomeState extends State<Home>
     final RgbMeans rgbMeans = algorithm.getLastRgbMeans();
     _signalQuality =
         _signalQualityChecker.calculateQuality(_data, rgbMeans: rgbMeans);
-    if (_qualityNotifier.value != _signalQuality) {
+    if (_qualityNotifier.value != _signalQuality || !_qualityKnown) {
+      _qualityKnown = true;
       _qualityNotifier.value = _signalQuality;
       // Announce quality changes in senior mode. The phrase is resolved here
       // because TtsService has no BuildContext of its own.
@@ -545,7 +556,8 @@ class _HomeState extends State<Home>
       _yAxisHalfRange = 1.5;
       _samplesSinceLastScaleUpdate = 0;
     });
-    _qualityNotifier.value = SignalQuality.bad;
+    _qualityKnown = false;
+    _qualityNotifier.value = SignalQuality.noFinger;
     _resetLiveBuffers();
 
     // Ensure camera stream and torch are stopped when user manually stops measuring
@@ -579,10 +591,9 @@ class _HomeState extends State<Home>
     // Navigate to the selected page
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const IntroPage()),
-        );
+        // The home screen is the root route and is still underneath. Pushing
+        // a new one stacked another copy on top every time.
+        Navigator.of(context).popUntil((route) => route.isFirst);
         break;
       case 1:
         Navigator.pushReplacement(
@@ -789,7 +800,6 @@ class _HomeState extends State<Home>
     return changed;
   }
 
-
   /// Restores auto focus, exposure and white balance once a measurement ends.
   Future<void> _unlockCaptureSettings() async {
     if (!_hasInitializedCameraController) return;
@@ -917,15 +927,8 @@ class _HomeState extends State<Home>
       return;
     }
 
-    if (_recordingDuration < 60) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              L10n.of(context).homeHrvDurationHint),
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
+    // The HRV length advice used to pop up here on every short measurement;
+    // it now sits under the duration selector, where the choice is made.
 
     // Příprava normálně doběhla během odpočtu; když se sem přijde jinudy,
     // dožene se tady.
@@ -1003,7 +1006,6 @@ class _HomeState extends State<Home>
     List<double> framesList = _ppgAlgorithm?.getFrames() ?? [];
     List<double> respiratoryRates = _ppgAlgorithm?.getRespiratoryRates() ?? [];
 
-
     double averageRR = 0.0;
     if (respiratoryRates.isNotEmpty) {
       // Filter out zero values and calculate average of valid measurements
@@ -1066,7 +1068,8 @@ class _HomeState extends State<Home>
     // Voice announcement for seniors (do not block navigation)
     // Fire-and-forget to avoid getting stuck on awaitSpeakCompletion
     // ignore: unawaited_futures
-    TtsService.instance.announceMeasurementEnd(L10n.of(context).ttsMeasurementEnd);
+    TtsService.instance
+        .announceMeasurementEnd(L10n.of(context).ttsMeasurementEnd);
     // Log measurement completion locally and increment local counter
     try {
       // Local logger (non-blocking)
@@ -1211,27 +1214,16 @@ class _HomeState extends State<Home>
     super.didChangeAppLifecycleState(state);
   }
 
+  static const Color _canvas = Color.fromARGB(255, 242, 242, 242);
+
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.sizeOf(context).width;
-    final double screenHeight = MediaQuery.sizeOf(context).height;
-    final double cameraSize =
-        (screenWidth * 0.22).clamp(88.0, 130.0).toDouble();
-    final double sideWidth = (screenWidth * 0.18).clamp(64.0, 100.0).toDouble();
-    final double graphHeight =
-        (screenHeight * 0.18).clamp(120.0, 180.0).toDouble();
-    final double paddingSmall =
-        (screenHeight * 0.009).clamp(6.0, 10.0).toDouble();
-    final double paddingMedium =
-        (screenHeight * 0.017).clamp(10.0, 18.0).toDouble();
-    final double iconSizeMedium =
-        (screenWidth * 0.08).clamp(26.0, 36.0).toDouble();
-    final double fontSizeLarge =
-        (screenWidth * 0.085).clamp(28.0, 40.0).toDouble();
-    final double fontSizeMedium =
-        (screenWidth * 0.038).clamp(13.0, 17.0).toDouble();
-    final double fontSizeSmall =
-        (screenWidth * 0.033).clamp(11.0, 15.0).toDouble();
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final bool busy = _isRecording || _isCountdownRunning;
+    final double cameraSize = (r.width * 0.32).clamp(110.0, 140.0).toDouble();
+    final double ringSize = cameraSize + r.spaceLg;
+    final double graphHeight = (r.height * 0.12).clamp(84.0, 120.0).toDouble();
 
     final currentCamera =
         _backCameras.isNotEmpty ? _backCameras[_currentBackCameraIndex] : null;
@@ -1245,648 +1237,813 @@ class _HomeState extends State<Home>
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false, // Prevent keyboard from resizing UI
-        backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+        backgroundColor: _canvas,
         appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+          backgroundColor: _canvas,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           centerTitle: true,
-          toolbarHeight: 76,
+          title: Text(
+            t.measureTitle,
+            style:
+                TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.help_outline),
-              tooltip: L10n.of(context).homeHelp,
+              tooltip: t.homeHelp,
               // Během odpočtu a měření by návod měření přerušil.
-              onPressed:
-                  _isRecording || _isCountdownRunning ? null : _openGuide,
+              onPressed: busy ? null : _openGuide,
             ),
           ],
-          title: Column(
-            mainAxisSize: MainAxisSize.min,
+        ),
+        body: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+              r.pagePadding.left, r.spaceXs, r.pagePadding.right, r.spaceLg),
+          child: Column(
             children: [
-              Padding(
-                padding: EdgeInsets.only(top: paddingSmall * 0.6),
-                child: Text(
-                  appBarText,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: fontSizeMedium,
-                  ),
-                ),
-              ),
+              _statusPill(context),
+              SizedBox(height: r.spaceLg),
+              _cameraRing(context, currentCamera, cameraSize, ringSize),
+              SizedBox(height: r.spaceMd),
+              _bpmReadout(context),
+              SizedBox(height: r.spaceSm),
+              _signalChip(context),
+              SizedBox(height: r.spaceSm),
+              _hintLine(context),
+              SizedBox(height: r.spaceMd),
+              _chartCard(context, graphHeight),
+              SizedBox(height: r.spaceLg),
+              _durationSelector(context, enabled: !busy),
+              SizedBox(height: r.spaceLg),
+              _controlsRow(context),
             ],
           ),
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top: paddingMedium * 2),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // BPM display vlevo od kamery
-                    if (_showBPM) ...[
-                      Container(
-                        width: sideWidth,
-                        padding: EdgeInsets.only(right: paddingSmall),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ValueListenableBuilder<double>(
-                              valueListenable: _bpmNotifier,
-                              builder: (context, bpm, _) {
-                                // Three digits at the full font size overflow
-                                // this column and wrap onto a second line, so
-                                // scale down instead of wrapping.
-                                return Semantics(
-                                  liveRegion: true,
-                                  label: bpm > 0
-                                      ? L10n.of(context)
-                                          .a11yHeartRateValue('${bpm.round()}')
-                                      : L10n.of(context).a11yHeartRateUnknown,
-                                  excludeSemantics: true,
-                                  child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    // No reading yet: say so instead of showing
-                                    // a placeholder number.
-                                    bpm > 0 ? bpm.round().toString() : L10n.of(context).homeNoReading,
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    style: TextStyle(
-                                      fontSize: fontSizeLarge,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  ),
-                                );
-                              },
-                            ),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  ScaleTransition(
-                                    scale: _heartAnimationController.drive(
-                                      Tween<double>(begin: 0.9, end: 1.3),
-                                    ),
-                                    child: Icon(
-                                      Icons.favorite,
-                                      color: Colors.red,
-                                      size:
-                                          iconSizeMedium * 0.6, // Smaller heart
-                                    ),
-                                  ),
-                                  SizedBox(width: paddingSmall),
-                                  Text(
-                                    L10n.of(context).homeBpmUnit,
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    style: TextStyle(fontSize: fontSizeSmall),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    // Camera preview v kruhu. Only the border colour depends on
-                    // signal quality, so the preview itself stays out of the
-                    // rebuild path.
-                    ValueListenableBuilder<SignalQuality>(
-                      valueListenable: _qualityNotifier,
-                      builder: (context, quality, child) => Container(
-                        width: cameraSize,
-                        height: cameraSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: currentCamera != null
-                              ? Colors.black
-                              : Colors.grey, // Background pro kruh
-                          border: Border.all(
-                            color: quality == SignalQuality.good
-                                ? Colors.green
-                                : Colors.red,
-                            width: 4,
-                          ),
-                        ),
-                        child: child,
-                      ),
-                      child: currentCamera != null
-                          ? ClipOval(
-                              child: SizedBox(
-                                width: cameraSize,
-                                height: cameraSize,
-                                child: CameraBody(
-                                  key: ValueKey(
-                                      _currentBackCameraIndex), // Force rebuild on switch
-                                  cameraDescription: currentCamera,
-                                  onCameraReady: (controller) {
-                                    setState(() {
-                                      _cameraController = controller;
-                                    });
-                                    // Zámek vyvážení bílé drží na zařízení
-                                    // i po zavření kamery; nová obrazovka
-                                    // musí začínat v automatice.
-                                    unawaited(CameraLock.unlock(
-                                        controller.description.name));
-                                    _startImageStream();
-                                    _startGraphUpdates();
-                                    // Bez svetla se merit neda, takze se
-                                    // rozsviti hned po prichodu na obrazovku
-                                    // mereni. Automatika kamery se tim stihne
-                                    // ustalit jeste pred odpoctem.
-                                    _setTorch(true);
-                                  },
-                                  onImageAvailable: (image) {
-                                    // Nepoužíváme, protože stream je v _startImageStream
-                                  },
-                                ),
-                              ),
-                            )
-                          : const Center(child: CircularProgressIndicator()),
-                    ),
-                    // Quality control vpravo od kamery
-                    Container(
-                      width: sideWidth,
-                      padding: EdgeInsets.only(left: paddingSmall),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            L10n.of(context).homeQualityLabel,
-                            style: TextStyle(
-                              fontSize: fontSizeSmall,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: paddingSmall),
-                          ValueListenableBuilder<SignalQuality>(
-                            valueListenable: _qualityNotifier,
-                            builder: (context, quality, _) => Semantics(
-                              liveRegion: true,
-                              label: L10n.of(context)
-                                  .a11ySignalQuality(_qualityLabel(quality)),
-                              excludeSemantics: true,
-                              child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    quality == SignalQuality.good
-                                        ? Icons.check_circle
-                                        : Icons.error,
-                                    color: quality == SignalQuality.good
-                                        ? Colors.green
-                                        : Colors.red,
-                                    size: iconSizeMedium * 0.5,
-                                  ),
-                                  SizedBox(width: paddingSmall * 0.5),
-                                  Text(
-                                    _qualityLabel(quality),
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    style: TextStyle(
-                                      fontSize: fontSizeSmall,
-                                      fontWeight: FontWeight.w500,
-                                      color: quality == SignalQuality.good
-                                          ? Colors.green
-                                          : Colors.red,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+        // Hidden while measuring: leaving mid-measurement should take a
+        // deliberate Stop, not a stray tap on the bar.
+        bottomNavigationBar: busy
+            ? null
+            : GNav(
+                tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
+                gap: 0,
+                activeColor: Colors.black,
+                iconSize: r.iconMd,
+                backgroundColor: Colors.white,
+                color: Colors.grey,
+                selectedIndex: _selectedIndex,
+                onTabChange: _onItemTapped,
+                tabs: [
+                  GButton(icon: Symbols.family_home, text: t.navMenu),
+                  GButton(icon: Symbols.ecg_heart, text: t.navMeasure),
+                  GButton(icon: Symbols.help, text: t.navInfo),
+                ],
               ),
-              // Konkrétní pokyn podle kvality signálu: štítek vedle náhledu
-              // říká, co je špatně, tahle věta co s tím. Výška je pevná na dva
-              // řádky, aby graf neposkakoval, když se pokyn změní.
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                    paddingMedium, paddingSmall, paddingMedium, 0),
-                child: SizedBox(
-                  height: MediaQuery.textScalerOf(context)
-                          .scale(fontSizeSmall) *
-                      1.35 *
-                      2,
-                  child: Center(
-                    child: ValueListenableBuilder<SignalQuality>(
-                      valueListenable: _qualityNotifier,
-                      builder: (context, quality, _) => Text(
-                        measureHint(L10n.of(context), quality),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: fontSizeSmall,
-                          fontWeight: FontWeight.w500,
-                          color: quality == SignalQuality.good
-                              ? Colors.green.shade700
-                              : Colors.black87,
-                        ),
-                      ),
-                    ),
+      ),
+    );
+  }
+
+  /// What the screen is doing right now, with the time left while measuring.
+  Widget _statusPill(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final Color background;
+    final Color foreground;
+    if (_isRecording) {
+      background = kInfoAccentTint;
+      foreground = const Color(0xFFB3261E);
+    } else if (_isCountdownRunning) {
+      background = const Color(0xFFFFF4E0);
+      foreground = const Color(0xFF8A5300);
+    } else {
+      background = Colors.white;
+      foreground = Colors.black87;
+    }
+    Widget label(String text) => Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: r.fontBody,
+              fontWeight: FontWeight.w600,
+              color: foreground),
+        );
+    return Container(
+      padding:
+          EdgeInsets.symmetric(horizontal: r.spaceMd, vertical: r.spaceXs + 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      // Only the label repaints each second, not the screen.
+      child: _isRecording
+          ? ValueListenableBuilder<int>(
+              valueListenable: _remainingTimeNotifier,
+              builder: (context, remaining, _) =>
+                  label(t.measureRunning(remaining)),
+            )
+          : label(appBarText),
+    );
+  }
+
+  /// Camera preview in a circle, with the measurement's progress drawn
+  /// around it. While idle the ring turns green once the signal is good,
+  /// which is the cue to start.
+  Widget _cameraRing(BuildContext context, CameraDescription? camera,
+      double cameraSize, double ringSize) {
+    return SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          RepaintBoundary(
+            child: ValueListenableBuilder<SignalQuality>(
+              valueListenable: _qualityNotifier,
+              builder: (context, quality, _) => AnimatedBuilder(
+                animation: _progressController,
+                builder: (context, _) => CustomPaint(
+                  size: Size.square(ringSize),
+                  painter: _RingPainter(
+                    progress: _isRecording ? _progressController.value : 0.0,
+                    track: _isRecording
+                        ? const Color(0xFFF6C9C6)
+                        : (quality == SignalQuality.good
+                            ? const Color(0xFFA5D6A7)
+                            : const Color(0xFFDDDDDD)),
+                    color: kInfoAccent,
+                    width: 6,
                   ),
                 ),
               ),
-              SizedBox(height: paddingMedium * 1.2),
-              Container(
-                padding: EdgeInsets.only(top: paddingSmall),
-                width: double.infinity,
-                height: graphHeight,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final chartWidth = constraints.maxWidth;
-                    return Semantics(
-                      label: L10n.of(context).a11yLiveChart,
-                      excludeSemantics: true,
-                      child: RepaintBoundary(
-                      // Only this subtree repaints on new samples; the rest of
-                      // the screen is rebuilt only on real state changes.
-                      child: ValueListenableBuilder<int>(
-                        valueListenable: _chartRevision,
-                        builder: (context, _, __) {
-                          final double minX = _currentTime - _windowTime;
-                          final double maxX = _currentTime;
-                          final double minY = -_yAxisHalfRange;
-                          final double maxY = _yAxisHalfRange;
-                          return Stack(
-                            clipBehavior:
-                                Clip.none, // Allow overflow (e.g., beyond left)
-                            children: [
-                              LineChart(
-                                LineChartData(
-                                  clipData: const FlClipData(
-                                    // Allow beyond left, clip others
-                                    left: false,
-                                    right: true,
-                                    top: true,
-                                    bottom: true,
-                                  ),
-                                  gridData: const FlGridData(
-                                    show: false, // Mřížka je vypnutá
-                                  ),
-                                  titlesData: const FlTitlesData(
-                                    show: false, // Skryté pro čistý vzhled
-                                  ),
-                                  borderData: FlBorderData(
-                                    show: true,
-                                    border: Border.all(
-                                        color: Colors.grey.withValues(alpha: 0.3)),
-                                  ),
-                                  minX: minX,
-                                  maxX: maxX,
-                                  minY: minY,
-                                  maxY: maxY,
-                                  lineBarsData: [
-                                    LineChartBarData(
-                                      spots: _smoothedData,
-                                      isCurved: false, // Přímá čára pro signál
-                                      color:
-                                          const Color.fromARGB(255, 246, 41, 0),
-                                      barWidth: 2.0,
-                                      isStrokeCapRound: true,
-                                      dotData: const FlDotData(show: false),
-                                      belowBarData: BarAreaData(
-                                        show: false,
-                                      ),
-                                    ),
-                                    // Peak markers as a separate series (dots only)
-                                    LineChartBarData(
-                                      spots: _peakSpots,
-                                      isCurved: false,
-                                      color: Colors.transparent,
-                                      barWidth: 0,
-                                      dotData: FlDotData(
-                                        show: true,
-                                        getDotPainter:
-                                            (spot, percent, barData, index) =>
-                                                FlDotCirclePainter(
-                                          radius: 3,
-                                          color: Colors.blue,
-                                          strokeWidth: 0,
-                                        ),
-                                      ),
-                                      belowBarData: BarAreaData(show: false),
-                                    ),
-                                  ],
-                                ),
-                                duration: Duration
-                                    .zero, // No animation to avoid "sucked" transform
-                                // Removed curve since no duration
-                              ),
-                              // Vertikální čáry pro časové značky
-                              ..._labels.map((label) {
-                                final posX =
-                                    ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                        chartWidth;
-                                return Positioned(
-                                  left: posX,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    width: 1.0,
-                                    color: Colors.grey.withValues(alpha: 0.5),
-                                  ),
-                                );
-                              }),
-                              // Texty pro časové značky (pod čarami)
-                              ..._labels.map((label) {
-                                final posX =
-                                    ((label.x - minX) / (maxX - minX + 1e-6)) *
-                                        chartWidth;
-                                return Positioned(
-                                  left: posX,
-                                  bottom: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 4),
-                                    child: Text(
-                                      label.time,
-                                      style: const TextStyle(
-                                          fontSize: 10, color: Colors.black),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ],
-                          );
+            ),
+          ),
+          Container(
+            width: cameraSize,
+            height: cameraSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: camera != null ? Colors.black : Colors.grey.shade400,
+            ),
+            child: camera != null
+                ? ClipOval(
+                    child: SizedBox(
+                      width: cameraSize,
+                      height: cameraSize,
+                      child: CameraBody(
+                        key: ValueKey(
+                            _currentBackCameraIndex), // Force rebuild on switch
+                        cameraDescription: camera,
+                        onCameraReady: (controller) {
+                          setState(() {
+                            _cameraController = controller;
+                          });
+                          // Zámek vyvážení bílé drží na zařízení i po zavření
+                          // kamery; nová obrazovka musí začínat v automatice.
+                          unawaited(
+                              CameraLock.unlock(controller.description.name));
+                          _startImageStream();
+                          _startGraphUpdates();
+                          // Bez svetla se merit neda, takze se rozsviti hned
+                          // po prichodu na obrazovku mereni. Automatika kamery
+                          // se tim stihne ustalit jeste pred odpoctem.
+                          _setTorch(true);
+                        },
+                        onImageAvailable: (image) {
+                          // Nepoužíváme, protože stream je v _startImageStream
                         },
                       ),
                     ),
-                    );
-                  },
+                  )
+                : const Center(
+                    child: CircularProgressIndicator(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Live heart rate, or a dash until there is a reading.
+  Widget _bpmReadout(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return ValueListenableBuilder<double>(
+      valueListenable: _bpmNotifier,
+      builder: (context, bpm, _) => Semantics(
+        liveRegion: true,
+        label: bpm > 0
+            ? t.a11yHeartRateValue('${bpm.round()}')
+            : t.a11yHeartRateUnknown,
+        excludeSemantics: true,
+        child: Text.rich(
+          TextSpan(children: [
+            TextSpan(
+              text: bpm > 0 ? '${bpm.round()}' : t.homeNoReading,
+              style: TextStyle(
+                  fontSize: r.fontDisplayXl,
+                  fontWeight: FontWeight.bold,
+                  height: 1.0,
+                  color: Colors.black),
+            ),
+            TextSpan(
+              text: ' ${t.homeBpmUnit} ',
+              style:
+                  TextStyle(fontSize: r.fontBodyLg, color: kInfoSecondaryText),
+            ),
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: ScaleTransition(
+                scale: _heartAnimationController.drive(
+                  Tween<double>(begin: 0.9, end: 1.3),
                 ),
+                child: Icon(Icons.favorite, color: kInfoAccent, size: r.iconSm),
               ),
-              Padding(
-                padding: EdgeInsets.symmetric(
-                    horizontal: paddingMedium, vertical: 0),
-                child: AnimatedBuilder(
-                  animation: _progressController,
-                  builder: (context, child) {
-                    return LinearProgressIndicator(
-                      value: _progressController.value,
-                      backgroundColor: Colors.grey[300],
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(Colors.red),
-                    );
-                  },
+            ),
+          ]),
+          maxLines: 1,
+        ),
+      ),
+    );
+  }
+
+  /// Signal quality as a small coloured label. Grey until a finger is on the
+  /// camera, amber for a weak signal, green when it is good.
+  Widget _signalChip(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return ValueListenableBuilder<SignalQuality>(
+      valueListenable: _qualityNotifier,
+      builder: (context, quality, _) {
+        final (String label, Color background, Color foreground, Color dot) =
+            switch (quality) {
+          SignalQuality.good => (
+              t.measureSignalGood,
+              const Color(0xFFE6F4EA),
+              const Color(0xFF1E6B34),
+              const Color(0xFF1E8E3E),
+            ),
+          SignalQuality.bad => (
+              t.measureSignalWeak,
+              const Color(0xFFFFF4E0),
+              const Color(0xFF8A5300),
+              const Color(0xFFE8A317),
+            ),
+          SignalQuality.poorContact => (
+              t.qualityPoorContact,
+              const Color(0xFFFFF4E0),
+              const Color(0xFF8A5300),
+              const Color(0xFFE8A317),
+            ),
+          SignalQuality.noFinger => (
+              t.measureSignalNoFinger,
+              const Color(0xFFE8E8E8),
+              const Color(0xFF555555),
+              const Color(0xFF9E9E9E),
+            ),
+        };
+        return Semantics(
+          liveRegion: true,
+          label: t.a11ySignalQuality(_qualityLabel(quality)),
+          excludeSemantics: true,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: r.spaceMd, vertical: r.spaceXs),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
                 ),
-              ),
-              // Countdown timer display
-              if (_isRecording)
-                Padding(
-                  padding: EdgeInsets.only(top: paddingSmall),
-                  child: Center(
+                SizedBox(width: r.spaceXs + 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                      fontSize: r.fontSmall,
+                      fontWeight: FontWeight.w600,
+                      color: foreground),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Konkrétní pokyn podle kvality signálu: štítek nad ním říká, co je
+  /// špatně, tahle věta co s tím. Výška je pevná na dva řádky, aby graf
+  /// neposkakoval, když se pokyn změní.
+  Widget _hintLine(BuildContext context) {
+    final r = Responsive.of(context);
+    return SizedBox(
+      height: MediaQuery.textScalerOf(context).scale(r.fontSmall) * 1.35 * 2,
+      child: Center(
+        child: ValueListenableBuilder<SignalQuality>(
+          valueListenable: _qualityNotifier,
+          builder: (context, quality, _) => Text(
+            measureHint(L10n.of(context), quality),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: r.fontSmall,
+              height: 1.35,
+              color: quality == SignalQuality.good
+                  ? const Color(0xFF1E6B34)
+                  : kInfoSecondaryText,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Live pulse wave in a white card.
+  Widget _chartCard(BuildContext context, double graphHeight) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(r.spaceMd, r.spaceSm, r.spaceMd, r.spaceSm),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            t.measurePulseWave,
+            style:
+                TextStyle(fontSize: r.fontCaption, color: kInfoSecondaryText),
+          ),
+          SizedBox(height: r.spaceXs),
+          SizedBox(
+            height: graphHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final chartWidth = constraints.maxWidth;
+                return Semantics(
+                  label: t.a11yLiveChart,
+                  excludeSemantics: true,
+                  child: RepaintBoundary(
+                    // Only this subtree repaints on new samples; the rest of
+                    // the screen is rebuilt only on real state changes.
                     child: ValueListenableBuilder<int>(
-                      valueListenable: _remainingTimeNotifier,
-                      builder: (context, remaining, _) => Text(
-                        '$remaining s',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: fontSizeMedium,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              SizedBox(height: paddingMedium * 1.2),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: paddingSmall),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: (screenWidth * 0.92).clamp(300.0, 420.0),
-                    ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final controlsHeight =
-                            (screenWidth * 0.45).clamp(140.0, 180.0).toDouble();
-                        final sideOffset = constraints.maxWidth * 0.05;
-                        final sideControlsTop = (controlsHeight * 0.45)
-                            .clamp(72.0, 102.0)
-                            .toDouble();
-                        return SizedBox(
-                          height: controlsHeight,
-                          child: Stack(
-                            alignment: Alignment.topCenter,
-                            children: [
-                              Align(
-                                alignment: Alignment.topCenter,
-                                child: SizedBox(
-                                  width:
-                                      (screenWidth * 0.34).clamp(120.0, 152.0),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    children: [
-                                      Text(
-                                        L10n.of(context).homeDurationLabel,
-                                        style: TextStyle(
-                                          fontSize: fontSizeSmall * 0.9,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      Flexible(
-                                        fit: FlexFit.loose,
-                                        child: IgnorePointer(
-                                          ignoring: _isRecording,
-                                          child: Opacity(
-                                            opacity: _isRecording ? 0.5 : 1.0,
-                                            child: NumberPicker(
-                                              value: _recordingDuration,
-                                              minValue: 10,
-                                              maxValue: 300,
-                                              step: 10,
-                                              itemWidth: (screenWidth * 0.11)
-                                                  .clamp(38.0, 54.0),
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  _recordingDuration = value;
-                                                  _remainingTime = value;
-                                                });
-                                              },
-                                              textStyle: TextStyle(
-                                                fontSize: fontSizeSmall * 0.9,
-                                                color: Colors.grey,
-                                              ),
-                                              selectedTextStyle: TextStyle(
-                                                fontSize: fontSizeMedium * 0.92,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color: Colors.grey,
-                                                    width: 1),
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                      valueListenable: _chartRevision,
+                      builder: (context, _, __) {
+                        final double minX = _currentTime - _windowTime;
+                        final double maxX = _currentTime;
+                        final double minY = -_yAxisHalfRange;
+                        final double maxY = _yAxisHalfRange;
+                        return Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            LineChart(
+                              LineChartData(
+                                clipData: const FlClipData(
+                                  left: false,
+                                  right: true,
+                                  top: true,
+                                  bottom: true,
                                 ),
-                              ),
-                              Positioned(
-                                left: sideOffset,
-                                top: sideControlsTop,
-                                child: SizedBox(
-                                  width:
-                                      (screenWidth * 0.22).clamp(82.0, 102.0),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        onPressed: (_backCameras.length < 2 ||
-                                                _isSwitchingCamera)
-                                            ? null
-                                            : _switchBackCamera,
-                                        icon: Icon(
-                                          Icons.cameraswitch,
-                                          color: Colors.grey,
-                                          size: iconSizeMedium * 0.9,
-                                        ),
-                                        tooltip: L10n.of(context).homeSwitchCamera,
-                                      ),
-                                      Text(
-                                        L10n.of(context).homeChangeCamera,
-                                        style: TextStyle(
-                                          fontSize: fontSizeSmall * 0.9,
-                                          color: Colors.grey,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
+                                gridData: const FlGridData(show: false),
+                                titlesData: const FlTitlesData(show: false),
+                                borderData: FlBorderData(show: false),
+                                minX: minX,
+                                maxX: maxX,
+                                minY: minY,
+                                maxY: maxY,
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    spots: _smoothedData,
+                                    isCurved: false,
+                                    color: kInfoAccent,
+                                    barWidth: 2.0,
+                                    isStrokeCapRound: true,
+                                    dotData: const FlDotData(show: false),
+                                    belowBarData: BarAreaData(show: false),
                                   ),
-                                ),
-                              ),
-                              Positioned(
-                                right: sideOffset,
-                                top: sideControlsTop,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.withValues(alpha: 0.3),
-                                        spreadRadius: 1,
-                                        blurRadius: 3,
-                                        offset: const Offset(0, 2),
+                                  // Peak markers as a separate series (dots only)
+                                  LineChartBarData(
+                                    spots: _peakSpots,
+                                    isCurved: false,
+                                    color: Colors.transparent,
+                                    barWidth: 0,
+                                    dotData: FlDotData(
+                                      show: true,
+                                      getDotPainter:
+                                          (spot, percent, barData, index) =>
+                                              FlDotCirclePainter(
+                                        radius: 3,
+                                        color: const Color(0xFF1A73E8),
+                                        strokeWidth: 0,
                                       ),
-                                    ],
-                                  ),
-                                  child: IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: _toggleFlashlight,
-                                    icon: Icon(
-                                      _isFlashOn
-                                          ? CupertinoIcons.bolt_fill
-                                          : CupertinoIcons.bolt_slash_fill,
-                                      color: _isFlashOn
-                                          ? const Color.fromARGB(255, 0, 0, 0)
-                                          : Colors.grey,
-                                      size: iconSizeMedium * 0.9,
                                     ),
-                                    tooltip: _isFlashOn
-                                        ? L10n.of(context).homeTorchOff
-                                        : L10n.of(context).homeTorchOn,
+                                    belowBarData: BarAreaData(show: false),
+                                  ),
+                                ],
+                              ),
+                              duration: Duration
+                                  .zero, // No animation to avoid "sucked" transform
+                            ),
+                            // Vertikální čáry pro časové značky
+                            ..._labels.map((label) {
+                              final posX =
+                                  ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                      chartWidth;
+                              return Positioned(
+                                left: posX,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 1.0,
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                ),
+                              );
+                            }),
+                            // Texty pro časové značky (pod čarami)
+                            ..._labels.map((label) {
+                              final posX =
+                                  ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                      chartWidth;
+                              return Positioned(
+                                left: posX,
+                                bottom: 0,
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 3),
+                                  child: Text(
+                                    label.time,
+                                    style: const TextStyle(
+                                        fontSize: 9, color: Colors.black38),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              );
+                            }),
+                          ],
                         );
                       },
                     ),
                   ),
-                ),
-              ),
-              SizedBox(height: paddingMedium * 0.9),
-              ElevatedButton(
-                onPressed: _isCountdownRunning
-                    ? null
-                    : (_isRecording ? _stopRecording : _startCountdown),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.05, vertical: paddingSmall),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  elevation: 2,
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  transitionBuilder:
-                      (Widget child, Animation<double> animation) {
-                    return ScaleTransition(scale: animation, child: child);
-                  },
-                  child: Text(
-                    _buttonLabel,
-                    key: ValueKey<String>(_buttonLabel),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _setDuration(int seconds) {
+    if (seconds == _recordingDuration) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _recordingDuration = seconds;
+      _remainingTime = seconds;
+    });
+  }
+
+  /// Any length from 10 to 300 s, for when the presets do not fit.
+  Future<void> _pickCustomDuration() async {
+    final L10n t = L10n.of(context);
+    int value = _recordingDuration;
+    final int? picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final r = Responsive.of(context);
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(r.spaceXl, 0, r.spaceXl, r.spaceLg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t.homeDurationLabel,
                     style: TextStyle(
-                      fontSize: fontSizeSmall,
-                      fontWeight: FontWeight.bold,
+                        fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+                  ),
+                  SizedBox(height: r.spaceMd),
+                  NumberPicker(
+                    value: value,
+                    minValue: 10,
+                    maxValue: 300,
+                    step: 10,
+                    axis: Axis.horizontal,
+                    itemWidth: r.iconXl * 2,
+                    haptics: true,
+                    textMapper: (text) => t.homeSecondsSuffix(int.parse(text)),
+                    onChanged: (v) => setSheetState(() => value = v),
+                    textStyle: TextStyle(
+                        fontSize: r.fontBody, color: kInfoSecondaryText),
+                    selectedTextStyle: TextStyle(
+                        fontSize: r.fontTitleLg,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
+                    // NumberPicker paints this over the selected value, so a
+                    // filled box would hide it; outline only.
+                    decoration: BoxDecoration(
+                      border: Border.all(color: kInfoAccent, width: 1.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  SizedBox(height: r.spaceLg),
+                  SizedBox(
+                    width: double.infinity,
+                    height: r.iconXl * 1.4,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: kInfoAccent,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () => Navigator.pop(sheetContext, value),
+                      child: Text(
+                        t.commonDone,
+                        style: TextStyle(
+                            fontSize: r.fontBodyLg,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (picked != null && mounted) _setDuration(picked);
+  }
+
+  /// Measurement length as a row of options instead of a scroll wheel, with
+  /// the HRV advice right where the choice is made. Stays in place (dimmed)
+  /// while measuring so the screen does not jump.
+  Widget _durationSelector(BuildContext context, {required bool enabled}) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final bool custom = !_durationPresets.contains(_recordingDuration);
+
+    Widget option(String label, bool selected, VoidCallback onTap) {
+      return Expanded(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: r.spaceXs / 2),
+          child: Semantics(
+            button: true,
+            selected: selected,
+            inMutuallyExclusiveGroup: true,
+            label: label,
+            excludeSemantics: true,
+            child: Material(
+              color: selected ? kInfoAccent : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                child: SizedBox(
+                  height: r.iconXl * 1.15,
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: r.spaceXs),
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: r.fontBody,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-              SizedBox(height: paddingMedium), // Extra padding
-            ],
+            ),
           ),
         ),
-        bottomNavigationBar: GNav(
-          tabMargin: EdgeInsets.symmetric(horizontal: paddingSmall),
-          gap: 0,
-          activeColor: Colors.black,
-          iconSize: iconSizeMedium * 0.8,
-          backgroundColor: Colors.white,
-          color: Colors.grey,
-          selectedIndex: _selectedIndex,
-          onTabChange: _onItemTapped,
-          tabs: [
-            GButton(
-              icon: Symbols.family_home,
-              text: L10n.of(context).navMenu,
+      );
+    }
+
+    return IgnorePointer(
+      ignoring: !enabled,
+      child: AnimatedOpacity(
+        opacity: enabled ? 1.0 : 0.4,
+        duration: const Duration(milliseconds: 200),
+        child: Column(
+          children: [
+            Text(
+              t.homeDurationLabel,
+              style: TextStyle(
+                  fontSize: r.fontSmall,
+                  fontWeight: FontWeight.w600,
+                  color: kInfoSecondaryText),
             ),
-            GButton(
-              icon: Symbols.ecg_heart,
-              text: L10n.of(context).navMeasure,
+            SizedBox(height: r.spaceSm),
+            Row(
+              children: [
+                for (final int seconds in _durationPresets)
+                  option(
+                      t.homeSecondsSuffix(seconds),
+                      _recordingDuration == seconds,
+                      () => _setDuration(seconds)),
+                option(
+                  custom
+                      ? t.homeSecondsSuffix(_recordingDuration)
+                      : t.measureDurationOther,
+                  custom,
+                  _pickCustomDuration,
+                ),
+              ],
             ),
-            GButton(
-              icon: Symbols.help,
-              text: L10n.of(context).navInfo,
+            SizedBox(height: r.spaceXs + 2),
+            Text(
+              _recordingDuration >= 60
+                  ? t.measureDurationHrvOk
+                  : t.measureDurationHrvShort,
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(fontSize: r.fontCaption, color: kInfoSecondaryText),
             ),
           ],
         ),
       ),
     );
   }
+
+  /// Camera switch and torch either side of the main button.
+  Widget _controlsRow(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    // Switching cameras mid-measurement would tear down the very stream being
+    // recorded, so it waits until the measurement is over.
+    final bool canSwitch = _backCameras.length >= 2 &&
+        !_isSwitchingCamera &&
+        !_isRecording &&
+        !_isCountdownRunning;
+    return Row(
+      children: [
+        _roundButton(
+          context,
+          icon: Icons.cameraswitch_outlined,
+          tooltip: t.homeSwitchCamera,
+          color: kInfoSecondaryText,
+          onPressed: canSwitch ? _switchBackCamera : null,
+        ),
+        SizedBox(width: r.spaceMd),
+        Expanded(child: _primaryButton(context)),
+        SizedBox(width: r.spaceMd),
+        _roundButton(
+          context,
+          icon: _isFlashOn
+              ? CupertinoIcons.bolt_fill
+              : CupertinoIcons.bolt_slash_fill,
+          tooltip: _isFlashOn ? t.homeTorchOff : t.homeTorchOn,
+          color: _isFlashOn ? const Color(0xFFE8A317) : kInfoSecondaryText,
+          onPressed: _toggleFlashlight,
+        ),
+      ],
+    );
+  }
+
+  Widget _roundButton(
+    BuildContext context, {
+    required IconData icon,
+    required String tooltip,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    final r = Responsive.of(context);
+    final double size = r.iconXl * 1.4;
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      label: tooltip,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Icon(
+                icon,
+                size: r.iconMd,
+                color:
+                    onPressed == null ? color.withValues(alpha: 0.35) : color,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Red "Start" like the home screen's measure card; the countdown runs on
+  /// it, and while measuring it turns into an outlined "Stop".
+  Widget _primaryButton(BuildContext context) {
+    final r = Responsive.of(context);
+    final bool outlined = _isRecording;
+    final VoidCallback? onTap = _isCountdownRunning
+        ? null
+        : (_isRecording ? _stopRecording : _startCountdown);
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: _buttonLabel,
+      excludeSemantics: true,
+      child: Material(
+        color: outlined ? Colors.white : kInfoAccent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: outlined
+              ? const BorderSide(color: kInfoAccent, width: 1.5)
+              : BorderSide.none,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap == null
+              ? null
+              : () {
+                  HapticFeedback.mediumImpact();
+                  onTap();
+                },
+          child: SizedBox(
+            height: r.iconXl * 1.4,
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: Text(
+                  _buttonLabel,
+                  key: ValueKey<String>(_buttonLabel),
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: r.fontBodyLg,
+                    fontWeight: FontWeight.bold,
+                    color: outlined ? kInfoAccent : Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Track plus a progress arc starting at twelve o'clock.
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.progress,
+    required this.track,
+    required this.color,
+    required this.width,
+  });
+
+  final double progress;
+  final Color track;
+  final Color color;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Rect rect = (Offset.zero & size).deflate(width / 2);
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..color = track;
+    canvas.drawArc(rect, 0, 2 * pi, false, paint);
+    if (progress > 0) {
+      paint
+        ..color = color
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+          rect, -pi / 2, 2 * pi * progress.clamp(0.0, 1.0), false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress ||
+      old.track != track ||
+      old.color != color ||
+      old.width != width;
 }

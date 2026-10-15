@@ -14,15 +14,15 @@
   "navMenu": "MENU",
   "navMeasure": "MĚŘENÍ",
   "navInfo": "INFO",
-  "homeReady": "PŘIPRAVENO K MĚŘENÍ",
+  "homeReady": "Připraveno k měření",
   "@homeReady": {
     "description": "App bar title before a measurement starts"
   },
-  "homeMeasuring": "PROBÍHÁ MĚŘENÍ...",
-  "homeGetReady": "PŘIPRAVTE SE...",
-  "homeStartButton": "ZAHÁJIT MĚŘENÍ",
-  "homeStopButton": "ZASTAVIT MĚŘENÍ",
-  "homeDurationLabel": "Doba měření (sekundy)",
+  "homeMeasuring": "Probíhá měření",
+  "homeGetReady": "Připravte se…",
+  "homeStartButton": "Zahájit měření",
+  "homeStopButton": "Zastavit měření",
+  "homeDurationLabel": "Délka měření",
   "homeSwitchCamera": "Přepnout kameru",
   "homeChangeCamera": "Změnit kameru",
   "homeTorchOn": "Zapnout blesk",
@@ -44,7 +44,6 @@
   },
   "homeCameraSwitchFailed": "Nepodařilo se přepnout kameru. Zkuste to znovu.",
   "homeDurationOutOfRange": "Zadejte dobu trvání mezi 10 a 300 sekundami",
-  "homeHrvDurationHint": "Pro HRV analýzu doporučujeme délku měření alespoň 60 sekund.",
   "homeAdjustingCamera": "Nastavuji kameru…",
   "homeCameraSettingsChanged": "Nastavení kamery se během měření změnilo. Záznam není vhodný pro výpočet saturace — zopakujte ho.",
   "homeRedChannelClipped": "Červený kanál byl přepálený. Upravte přiložení prstu a měření zopakujte.",
@@ -473,5 +472,22 @@
         "type": "String"
       }
     }
-  }
+  },
+  "commonDone": "Hotovo",
+  "measureTitle": "Měření",
+  "measureRunning": "Měří se · zbývá {seconds} s",
+  "@measureRunning": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "measureSignalGood": "Dobrý signál",
+  "measureSignalWeak": "Slabý signál",
+  "measureSignalNoFinger": "Přiložte prst",
+  "measurePulseWave": "Pulzní křivka",
+  "measureDurationOther": "Jiná",
+  "measureDurationHrvShort": "Pro analýzu HRV zvolte aspoň 60 s",
+  "measureDurationHrvOk": "Dost dlouhé i pro analýzu HRV"
 }
