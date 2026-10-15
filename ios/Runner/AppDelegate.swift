@@ -3,17 +3,28 @@ import Flutter
 import AVFoundation
 // Offline-only: remove Google Sign-In integration
 
+/// UIScene lifecycle: apps built with the iOS 27 SDK are not launched on iOS 27
+/// unless they adopt scenes, which is what made build 25 close immediately.
+/// Under scenes the Flutter engine is created by the scene, after
+/// didFinishLaunching, so plugins and app-level channels are registered once
+/// that engine exists rather than at launch.
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    if let registrar = self.registrar(forPlugin: "TepovkaCameraLock") {
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // Left in didFinishLaunching this would find no engine and silently skip
+    // registration; the Dart side tolerates the missing channel, so the
+    // white-balance lock would just stop working with nothing to show for it.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TepovkaCameraLock") {
       CameraLockChannel.register(messenger: registrar.messenger())
     }
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   // No external URL handlers required for local-only mode

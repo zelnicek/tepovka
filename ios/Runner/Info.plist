@@ -68,5 +68,30 @@
 		<string>cs</string>
 		<string>en</string>
 	</array>
+	<!-- Required to launch on iOS 27 when built with the iOS 27 SDK. Mirrors
+	     Flutter's own app template, except the delegate is FlutterSceneDelegate
+	     itself: the template's SceneDelegate subclass is empty, and using the
+	     framework class directly avoids adding a source file to the project. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneDelegateClassName</key>
+					<string>FlutterSceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 </dict>
 </plist>
