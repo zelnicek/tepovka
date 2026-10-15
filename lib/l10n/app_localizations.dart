@@ -1620,6 +1620,108 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'O projektu Tepovka'**
   String get infoProjectTitle;
+
+  /// No description provided for @howSectionPrinciple.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jak měření funguje'**
+  String get howSectionPrinciple;
+
+  /// No description provided for @howStepLight.
+  ///
+  /// In cs, this message translates to:
+  /// **'Světlo prosvítí prst'**
+  String get howStepLight;
+
+  /// No description provided for @howStepCamera.
+  ///
+  /// In cs, this message translates to:
+  /// **'Kamera zachytí změny barvy'**
+  String get howStepCamera;
+
+  /// No description provided for @howStepPulse.
+  ///
+  /// In cs, this message translates to:
+  /// **'Z rytmu se spočítá tep'**
+  String get howStepPulse;
+
+  /// No description provided for @howSectionFinger.
+  ///
+  /// In cs, this message translates to:
+  /// **'Správné přiložení prstu'**
+  String get howSectionFinger;
+
+  /// No description provided for @howTipCover.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zakryjte kameru i blesk'**
+  String get howTipCover;
+
+  /// No description provided for @howTipLight.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přiložte lehce, netlačte'**
+  String get howTipLight;
+
+  /// No description provided for @howTipStill.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vydržte v klidu'**
+  String get howTipStill;
+
+  /// No description provided for @howAccuracyLabel.
+  ///
+  /// In cs, this message translates to:
+  /// **'Odchylka od EKG'**
+  String get howAccuracyLabel;
+
+  /// No description provided for @howAccuracyValue.
+  ///
+  /// In cs, this message translates to:
+  /// **'< 2 bpm'**
+  String get howAccuracyValue;
+
+  /// No description provided for @howAccuracyNote.
+  ///
+  /// In cs, this message translates to:
+  /// **'Ověřeno na 13 účastnících proti EKG holteru Bittium Faros 180. Aplikace není zdravotnický prostředek.'**
+  String get howAccuracyNote;
+
+  /// No description provided for @howSectionDetails.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pro zvídavé'**
+  String get howSectionDetails;
+
+  /// No description provided for @infoProjectSummary.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měření tepu jen telefonem s kamerou a bleskem. Aplikace vzniká v rámci soutěže FEKT VUT v Brně.'**
+  String get infoProjectSummary;
+
+  /// No description provided for @infoReadMore.
+  ///
+  /// In cs, this message translates to:
+  /// **'Číst víc'**
+  String get infoReadMore;
+
+  /// No description provided for @infoReadLess.
+  ///
+  /// In cs, this message translates to:
+  /// **'Méně'**
+  String get infoReadLess;
+
+  /// No description provided for @infoVersion.
+  ///
+  /// In cs, this message translates to:
+  /// **'Verze {version}'**
+  String infoVersion(String version);
+
+  /// No description provided for @infoTeamIntro.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jsme studenti biomedicínského inženýrství.'**
+  String get infoTeamIntro;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

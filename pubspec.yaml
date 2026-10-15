@@ -43,6 +43,7 @@ dependencies:
   qr_flutter: ^4.1.0
   flutter_tts: ^4.2.5
   sensors_plus: ^6.1.1
+  package_info_plus: ^9.0.1
 
 
 dev_dependencies:
@@ -62,6 +63,7 @@ flutter:
     - assets/folder.png
     - assets/vut_heart-removebg-preview.png
     - assets/tepovka.png
+    - assets/tepovka_icon.png
     - assets/Text_loading.png
     - assets/Help2.png
     - assets/Icon - Apple Health.png

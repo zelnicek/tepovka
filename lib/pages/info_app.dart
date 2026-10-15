@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tepovka/pages/settings.dart';
 import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/widgets/info_widgets.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class InfoApp extends StatefulWidget {
   const InfoApp({super.key});
@@ -18,6 +20,95 @@ class InfoApp extends StatefulWidget {
 
 class _InfoAppState extends State<InfoApp> {
   int _selectedIndex = -1;
+
+  /// Shown in the header so a bug report can name the exact build.
+  String? _version;
+  bool _projectExpanded = false;
+
+  /// Proper names, the same in every language.
+  static const List<String> _team = [
+    'Štěpán Zelníček',
+    'David Vavroušek',
+    'Jakub Kovář',
+    'Jakub Kaša',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (!mounted) return;
+      setState(() => _version = '${info.version} (${info.buildNumber})');
+    }).catchError((Object e) {
+      debugPrint('Could not read app version: $e');
+    });
+  }
+
+  Future<void> _open(String url) async {
+    final Uri uri = Uri.parse(url);
+    final bool ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok) debugPrint('Could not open $url');
+  }
+
+  Widget _member(BuildContext context, String name) {
+    final r = Responsive.of(context);
+    final String initials = name
+        .split(' ')
+        .where((p) => p.isNotEmpty)
+        .map((p) => p.characters.first.toUpperCase())
+        .join();
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: r.iconXl + r.spaceMd,
+            height: r.iconXl + r.spaceMd,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+                color: kInfoAccentTint, shape: BoxShape.circle),
+            child: Text(
+              initials,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: r.fontBody,
+                  color: const Color(0xFFB3261E)),
+            ),
+          ),
+          SizedBox(height: r.spaceXs),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: TextStyle(fontSize: r.fontSmall, height: 1.25),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _linkTile(BuildContext context, IconData icon, Color iconColor,
+      String label, String url) {
+    final r = Responsive.of(context);
+    return Expanded(
+      child: InfoCard(
+        onTap: () => _open(url),
+        padding:
+            EdgeInsets.symmetric(vertical: r.spaceMd, horizontal: r.spaceXs),
+        child: Semantics(
+          button: true,
+          label: label,
+          excludeSemantics: true,
+          child: Column(
+            children: [
+              Icon(icon, size: r.iconMd, color: iconColor),
+              SizedBox(height: r.spaceXs),
+              Text(label, style: TextStyle(fontSize: r.fontSmall)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -49,22 +140,22 @@ class _InfoAppState extends State<InfoApp> {
   @override
   Widget build(BuildContext context) {
     final r = Responsive.of(context);
-    final double socialIconSize = r.isCompact ? 30.0 : 38.0;
-    final double socialSpacing = r.isCompact ? 10.0 : 16.0;
-    final double vutLogoWidth = (r.width * 0.55).clamp(160.0, 220.0).toDouble();
-    final double vutLogoHeight = vutLogoWidth * 0.5;
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+        // Material 3 tints the bar when content scrolls under it, which shows
+        // as a grey-green band over the white cards.
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         centerTitle: true,
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              L10n.of(context).infoTitle,
+              L10n.of(context).introAboutApp,
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: r.fontTitleLg),
             ),
@@ -87,118 +178,121 @@ class _InfoAppState extends State<InfoApp> {
         child: SingleChildScrollView(
           padding: r.pagePadding,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                L10n.of(context).infoProjectTitle,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: r.fontTitle),
-              ),
-              SizedBox(height: r.spaceSm),
-              Text(
-                L10n.of(context).infoIntro,
-                style: TextStyle(fontSize: r.fontBodyLg),
-              ),
-              SizedBox(height: r.spaceXl),
-              Text(
-                L10n.of(context).infoTeamTitle,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: r.fontTitle),
-              ),
-              SizedBox(height: r.spaceSm),
-              Text(
-                L10n.of(context).infoTeamBody,
-                style: TextStyle(fontSize: r.fontBodyLg),
-              ),
-              SizedBox(height: r.spaceXl),
-              Text(
-                L10n.of(context).infoFollowTitle,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: r.fontTitle),
-              ),
-              SizedBox(height: r.spaceSm),
-              Wrap(
-                alignment: WrapAlignment.start,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                runSpacing: socialSpacing,
-                spacing: socialSpacing,
+              Column(
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final Uri url = Uri.parse('https://www.mojetepovka.cz');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
-                      } else {
-                        throw 'Could not launch $url';
-                      }
-                    },
-                    icon: const Icon(Icons.language),
-                    label: Text(L10n.of(context).infoWeb),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.asset('assets/tepovka_icon.png',
+                        width: r.iconXl * 2, height: r.iconXl * 2),
                   ),
-                  IconButton(
-                    tooltip: 'LinkedIn',
-                    icon: Icon(
-                      FontAwesomeIcons.linkedin,
-                      size: socialIconSize,
-                      color: const Color.fromARGB(255, 42, 94, 252),
+                  SizedBox(height: r.spaceSm),
+                  Text('Tepovka',
+                      style: TextStyle(
+                          fontSize: r.fontHeadline,
+                          fontWeight: FontWeight.bold)),
+                  if (_version != null)
+                    Text(
+                      L10n.of(context).infoVersion(_version!),
+                      style: TextStyle(
+                          fontSize: r.fontSmall, color: kInfoSecondaryText),
                     ),
-                    onPressed: () async {
-                      final Uri url =
-                          Uri.parse('https://www.linkedin.com/company/tepovka');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
-                      } else {
-                        throw 'Could not launch $url';
-                      }
-                    },
-                  ),
-                  IconButton(
-                    tooltip: 'Instagram',
-                    icon: Icon(
-                      FontAwesomeIcons.instagram,
-                      size: socialIconSize,
-                      color: Colors.pink,
-                    ),
-                    onPressed: () async {
-                      final Uri url = Uri.parse(
-                        'https://www.instagram.com/tepovka?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==',
-                      );
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
-                      } else {
-                        throw 'Could not launch $url';
-                      }
-                    },
-                  ),
                 ],
               ),
               SizedBox(height: r.spaceXl),
-              Text(
-                L10n.of(context).infoFollowBody,
-                style: TextStyle(
-                    fontSize: r.fontBodyLg, fontStyle: FontStyle.italic),
-              ),
-              SizedBox(height: r.spaceXxl),
-              GestureDetector(
-                onTap: () async {
-                  final Uri url = Uri.parse('https://www.vut.cz');
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url);
-                  } else {
-                    throw 'Could not launch $url';
-                  }
-                },
-                child: Image.asset(
-                  'assets/vut_heart-removebg-preview.png',
-                  width: vutLogoWidth,
-                  height: vutLogoHeight,
+              InfoCard(
+                onTap: () =>
+                    setState(() => _projectExpanded = !_projectExpanded),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      L10n.of(context).infoProjectTitle,
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: r.fontTitle),
+                    ),
+                    SizedBox(height: r.spaceXs),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      alignment: Alignment.topCenter,
+                      child: Text(
+                        _projectExpanded
+                            ? L10n.of(context).infoIntro
+                            : L10n.of(context).infoProjectSummary,
+                        style: TextStyle(fontSize: r.fontBody, height: 1.45),
+                      ),
+                    ),
+                    SizedBox(height: r.spaceSm),
+                    Text(
+                      _projectExpanded
+                          ? L10n.of(context).infoReadLess
+                          : L10n.of(context).infoReadMore,
+                      style: TextStyle(
+                          fontSize: r.fontBody,
+                          fontWeight: FontWeight.w600,
+                          color: kInfoAccent),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                L10n.of(context).infoSupportedBy,
-                style: TextStyle(
-                    fontStyle: FontStyle.italic, fontSize: r.fontBody),
+              InfoSectionLabel(L10n.of(context).infoTeamTitle),
+              InfoCard(
+                child: Column(
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [for (final n in _team) _member(context, n)],
+                    ),
+                    SizedBox(height: r.spaceMd),
+                    Text(
+                      L10n.of(context).infoTeamIntro,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: r.fontSmall, color: kInfoSecondaryText),
+                    ),
+                  ],
+                ),
               ),
+              InfoSectionLabel(L10n.of(context).infoFollowTitle),
+              Row(
+                children: [
+                  _linkTile(context, Icons.language, Colors.black87,
+                      L10n.of(context).infoWeb, 'https://www.mojetepovka.cz'),
+                  SizedBox(width: r.spaceSm),
+                  _linkTile(
+                      context,
+                      FontAwesomeIcons.linkedin,
+                      const Color.fromARGB(255, 42, 94, 252),
+                      'LinkedIn',
+                      'https://www.linkedin.com/company/tepovka'),
+                  SizedBox(width: r.spaceSm),
+                  _linkTile(
+                      context,
+                      FontAwesomeIcons.instagram,
+                      Colors.pink,
+                      'Instagram',
+                      'https://www.instagram.com/tepovka?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=='),
+                ],
+              ),
+              SizedBox(height: r.spaceMd),
+              InfoCard(
+                onTap: () => _open('https://www.vut.cz'),
+                child: Row(
+                  children: [
+                    Image.asset('assets/vut_heart-removebg-preview.png',
+                        height: r.iconXl * 1.3),
+                    SizedBox(width: r.spaceMd),
+                    Expanded(
+                      child: Text(
+                        L10n.of(context).infoSupportedBy,
+                        style: TextStyle(fontSize: r.fontBody),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: r.spaceXl),
             ],
           ),
         ),

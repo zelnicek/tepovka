@@ -408,5 +408,29 @@
     }
   },
   "introAboutApp": "O APLIKACI",
-  "infoProjectTitle": "O projektu Tepovka"
+  "infoProjectTitle": "O projektu Tepovka",
+  "howSectionPrinciple": "Jak měření funguje",
+  "howStepLight": "Světlo prosvítí prst",
+  "howStepCamera": "Kamera zachytí změny barvy",
+  "howStepPulse": "Z rytmu se spočítá tep",
+  "howSectionFinger": "Správné přiložení prstu",
+  "howTipCover": "Zakryjte kameru i blesk",
+  "howTipLight": "Přiložte lehce, netlačte",
+  "howTipStill": "Vydržte v klidu",
+  "howAccuracyLabel": "Odchylka od EKG",
+  "howAccuracyValue": "< 2 bpm",
+  "howAccuracyNote": "Ověřeno na 13 účastnících proti EKG holteru Bittium Faros 180. Aplikace není zdravotnický prostředek.",
+  "howSectionDetails": "Pro zvídavé",
+  "infoProjectSummary": "Měření tepu jen telefonem s kamerou a bleskem. Aplikace vzniká v rámci soutěže FEKT VUT v Brně.",
+  "infoReadMore": "Číst víc",
+  "infoReadLess": "Méně",
+  "infoVersion": "Verze {version}",
+  "infoTeamIntro": "Jsme studenti biomedicínského inženýrství.",
+  "@infoVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  }
 }

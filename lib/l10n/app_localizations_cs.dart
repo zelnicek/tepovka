@@ -861,4 +861,59 @@ class L10nCs extends L10n {
 
   @override
   String get infoProjectTitle => 'O projektu Tepovka';
+
+  @override
+  String get howSectionPrinciple => 'Jak měření funguje';
+
+  @override
+  String get howStepLight => 'Světlo prosvítí prst';
+
+  @override
+  String get howStepCamera => 'Kamera zachytí změny barvy';
+
+  @override
+  String get howStepPulse => 'Z rytmu se spočítá tep';
+
+  @override
+  String get howSectionFinger => 'Správné přiložení prstu';
+
+  @override
+  String get howTipCover => 'Zakryjte kameru i blesk';
+
+  @override
+  String get howTipLight => 'Přiložte lehce, netlačte';
+
+  @override
+  String get howTipStill => 'Vydržte v klidu';
+
+  @override
+  String get howAccuracyLabel => 'Odchylka od EKG';
+
+  @override
+  String get howAccuracyValue => '< 2 bpm';
+
+  @override
+  String get howAccuracyNote =>
+      'Ověřeno na 13 účastnících proti EKG holteru Bittium Faros 180. Aplikace není zdravotnický prostředek.';
+
+  @override
+  String get howSectionDetails => 'Pro zvídavé';
+
+  @override
+  String get infoProjectSummary =>
+      'Měření tepu jen telefonem s kamerou a bleskem. Aplikace vzniká v rámci soutěže FEKT VUT v Brně.';
+
+  @override
+  String get infoReadMore => 'Číst víc';
+
+  @override
+  String get infoReadLess => 'Méně';
+
+  @override
+  String infoVersion(String version) {
+    return 'Verze $version';
+  }
+
+  @override
+  String get infoTeamIntro => 'Jsme studenti biomedicínského inženýrství.';
 }

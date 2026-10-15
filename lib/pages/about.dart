@@ -6,6 +6,7 @@ import 'package:tepovka/home.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/pages/measure_guide.dart';
 import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/widgets/info_widgets.dart';
 
 class About extends StatefulWidget {
   const About({super.key});
@@ -50,29 +51,59 @@ class _AboutState extends State<About> {
     }
   }
 
+  Widget _step(BuildContext context, IconData icon, String text,
+      {Color color = Colors.black87}) {
+    final r = Responsive.of(context);
+    return Expanded(
+      // Without side padding the three captions ran into each other and read
+      // as one sentence across the columns.
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: r.spaceXs),
+        child: Column(
+          children: [
+            Icon(icon, size: r.iconLg, color: color),
+            SizedBox(height: r.spaceXs),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: r.fontSmall, height: 1.3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tip(BuildContext context, String text) {
+    final r = Responsive.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: r.spaceXs),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline,
+              size: r.iconMd, color: Colors.green.shade600),
+          SizedBox(width: r.spaceMd),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: r.fontBodyLg)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = Responsive.of(context);
-
-    Widget heading(String text) => Padding(
-          padding: EdgeInsets.only(bottom: r.spaceSm),
-          child: Text(
-            text,
-            style:
-                TextStyle(fontWeight: FontWeight.bold, fontSize: r.fontTitle),
-          ),
-        );
-
-    Widget body(String text) => Padding(
-          padding: EdgeInsets.only(bottom: r.spaceXl),
-          child: Text(text, style: TextStyle(fontSize: r.fontBodyLg)),
-        );
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+        // Material 3 tints the bar when content scrolls under it, which shows
+        // as a grey-green band over the white cards.
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         centerTitle: true,
         title: Column(
           mainAxisSize: MainAxisSize.min,
@@ -93,53 +124,131 @@ class _AboutState extends State<About> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Návod krok za krokem. Dřív tu byla série obrázků se starým
-                // postupem (obrazovka „Kalibrace") a s českým textem přímo
-                // v obrázcích, takže v angličtině ani neodpovídal aplikaci.
-                Card(
-                  elevation: 0,
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: r.spaceLg, vertical: r.spaceSm),
-                    leading: Icon(Icons.help_outline,
-                        color: const Color(0xFFE53935), size: r.iconLg),
-                    title: Text(
-                      L10n.of(context).guideTitle,
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: r.fontTitle),
-                    ),
-                    subtitle: Text(
-                      L10n.of(context).aboutGuideSubtitle,
-                      style: TextStyle(fontSize: r.fontBody),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => MeasureGuide.open(context),
+                // The guide is the most useful thing on this page, so it leads.
+                InfoCard(
+                  color: kInfoAccentTint,
+                  onTap: () => MeasureGuide.open(context),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: r.iconXl + r.spaceSm,
+                        height: r.iconXl + r.spaceSm,
+                        decoration: const BoxDecoration(
+                            color: Colors.white, shape: BoxShape.circle),
+                        child: Icon(Icons.touch_app_outlined,
+                            color: kInfoAccent, size: r.iconMd),
+                      ),
+                      SizedBox(width: r.spaceMd),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              L10n.of(context).guideTitle,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: r.fontTitle,
+                                  color: kInfoAccent),
+                            ),
+                            Text(
+                              L10n.of(context).aboutGuideSubtitle,
+                              style: TextStyle(
+                                  fontSize: r.fontBody,
+                                  color: const Color(0xFFB3261E)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: kInfoAccent),
+                    ],
                   ),
                 ),
+                InfoSectionLabel(L10n.of(context).howSectionPrinciple),
+                InfoCard(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _step(context, Icons.lightbulb_outline,
+                          L10n.of(context).howStepLight),
+                      _step(context, Icons.photo_camera_outlined,
+                          L10n.of(context).howStepCamera),
+                      _step(context, Icons.favorite_border,
+                          L10n.of(context).howStepPulse,
+                          color: kInfoAccent),
+                    ],
+                  ),
+                ),
+                InfoSectionLabel(L10n.of(context).howSectionFinger),
+                InfoCard(
+                  child: Column(
+                    children: [
+                      _tip(context, L10n.of(context).howTipCover),
+                      _tip(context, L10n.of(context).howTipLight),
+                      _tip(context, L10n.of(context).howTipStill),
+                    ],
+                  ),
+                ),
+                SizedBox(height: r.spaceMd),
+                InfoCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        L10n.of(context).howAccuracyLabel,
+                        style: TextStyle(
+                            fontSize: r.fontSmall, color: kInfoSecondaryText),
+                      ),
+                      Text(
+                        L10n.of(context).howAccuracyValue,
+                        style: TextStyle(
+                            fontSize: r.fontDisplay,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: r.spaceXs),
+                      Text(
+                        L10n.of(context).howAccuracyNote,
+                        style: TextStyle(
+                            fontSize: r.fontSmall,
+                            height: 1.4,
+                            color: kInfoSecondaryText),
+                      ),
+                    ],
+                  ),
+                ),
+                // Every original section is still here, folded away for
+                // whoever wants the detail.
+                InfoSectionLabel(L10n.of(context).howSectionDetails),
+                InfoDetailsCard(items: [
+                  (
+                    L10n.of(context).aboutHowPpgTitle,
+                    L10n.of(context).aboutHowPpgBody
+                  ),
+                  (
+                    L10n.of(context).aboutFingerTitle,
+                    L10n.of(context).aboutFingerBody
+                  ),
+                  (
+                    L10n.of(context).aboutBeforeStartTitle,
+                    L10n.of(context).aboutBeforeStartBody
+                  ),
+                  (
+                    L10n.of(context).aboutProcessingTitle,
+                    L10n.of(context).aboutProcessingBody
+                  ),
+                  (
+                    L10n.of(context).aboutHeartRateTitle,
+                    L10n.of(context).aboutHeartRateBody
+                  ),
+                  (
+                    L10n.of(context).aboutGreenChannelTitle,
+                    L10n.of(context).aboutGreenChannelBody
+                  ),
+                  (
+                    L10n.of(context).aboutAccuracyTitle,
+                    L10n.of(context).aboutAccuracyBody
+                  ),
+                ]),
                 SizedBox(height: r.spaceXl),
-                heading(L10n.of(context).aboutHowPpgTitle),
-                body(
-                    L10n.of(context).aboutHowPpgBody),
-                heading(L10n.of(context).aboutFingerTitle),
-                body(L10n.of(context).aboutFingerBody),
-                heading(L10n.of(context).aboutBeforeStartTitle),
-                body(
-                    L10n.of(context).aboutBeforeStartBody),
-                heading(L10n.of(context).aboutProcessingTitle),
-                body(
-                    L10n.of(context).aboutProcessingBody),
-                heading(L10n.of(context).aboutHeartRateTitle),
-                body(
-                    L10n.of(context).aboutHeartRateBody),
-                heading(L10n.of(context).aboutGreenChannelTitle),
-                body(
-                    L10n.of(context).aboutGreenChannelBody),
-                heading(L10n.of(context).aboutAccuracyTitle),
-                body(
-                    L10n.of(context).aboutAccuracyBody),
               ],
             ),
           ),

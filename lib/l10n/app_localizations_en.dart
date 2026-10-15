@@ -862,4 +862,59 @@ class L10nEn extends L10n {
 
   @override
   String get infoProjectTitle => 'About the Tepovka project';
+
+  @override
+  String get howSectionPrinciple => 'How measuring works';
+
+  @override
+  String get howStepLight => 'Light shines through the finger';
+
+  @override
+  String get howStepCamera => 'The camera sees the colour change';
+
+  @override
+  String get howStepPulse => 'The rhythm gives your pulse';
+
+  @override
+  String get howSectionFinger => 'Placing your finger';
+
+  @override
+  String get howTipCover => 'Cover the camera and the flash';
+
+  @override
+  String get howTipLight => 'Rest it lightly, don\'t press';
+
+  @override
+  String get howTipStill => 'Keep still';
+
+  @override
+  String get howAccuracyLabel => 'Deviation from ECG';
+
+  @override
+  String get howAccuracyValue => '< 2 bpm';
+
+  @override
+  String get howAccuracyNote =>
+      'Validated on 13 participants against a Bittium Faros 180 ECG Holter. The app is not a medical device.';
+
+  @override
+  String get howSectionDetails => 'For the curious';
+
+  @override
+  String get infoProjectSummary =>
+      'Heart-rate measurement with nothing but a phone\'s camera and flash, developed for a competition at the Faculty of Electrical Engineering and Communication, Brno University of Technology.';
+
+  @override
+  String get infoReadMore => 'Read more';
+
+  @override
+  String get infoReadLess => 'Show less';
+
+  @override
+  String infoVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get infoTeamIntro => 'We are biomedical engineering students.';
 }

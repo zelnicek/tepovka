@@ -263,5 +263,22 @@
     }
   },
   "introAboutApp": "ABOUT THE APP",
-  "infoProjectTitle": "About the Tepovka project"
+  "infoProjectTitle": "About the Tepovka project",
+  "howSectionPrinciple": "How measuring works",
+  "howStepLight": "Light shines through the finger",
+  "howStepCamera": "The camera sees the colour change",
+  "howStepPulse": "The rhythm gives your pulse",
+  "howSectionFinger": "Placing your finger",
+  "howTipCover": "Cover the camera and the flash",
+  "howTipLight": "Rest it lightly, don't press",
+  "howTipStill": "Keep still",
+  "howAccuracyLabel": "Deviation from ECG",
+  "howAccuracyValue": "< 2 bpm",
+  "howAccuracyNote": "Validated on 13 participants against a Bittium Faros 180 ECG Holter. The app is not a medical device.",
+  "howSectionDetails": "For the curious",
+  "infoProjectSummary": "Heart-rate measurement with nothing but a phone's camera and flash, developed for a competition at the Faculty of Electrical Engineering and Communication, Brno University of Technology.",
+  "infoReadMore": "Read more",
+  "infoReadLess": "Show less",
+  "infoVersion": "Version {version}",
+  "infoTeamIntro": "We are biomedical engineering students."
 }
