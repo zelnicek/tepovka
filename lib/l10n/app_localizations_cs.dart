@@ -916,4 +916,53 @@ class L10nCs extends L10n {
 
   @override
   String get infoTeamIntro => 'Jsme studenti biomedicínského inženýrství.';
+
+  @override
+  String get homeMeasureTitle => 'Změřit tep';
+
+  @override
+  String get homeMeasureSubtitle => 'Přiložte prst na kameru a blesk';
+
+  @override
+  String get homeLastMeasurement => 'Poslední měření';
+
+  @override
+  String homeToday(String time) {
+    return 'Dnes $time';
+  }
+
+  @override
+  String homeYesterday(String time) {
+    return 'Včera $time';
+  }
+
+  @override
+  String homeTrendCaption(int count, String avg) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Posledních $count měření · průměr $avg bpm',
+      few: 'Poslední $count měření · průměr $avg bpm',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get homeNoMeasurementsTitle => 'Zatím žádné měření';
+
+  @override
+  String get homeNoMeasurementsBody =>
+      'Průvodce vám ukáže, jak správně přiložit prst.';
+
+  @override
+  String get homeOpenGuide => 'Otevřít průvodce';
+
+  @override
+  String get homeTileHistory => 'Historie';
+
+  @override
+  String get homeTileHowItWorks => 'Jak to funguje';
+
+  @override
+  String get homeTileAbout => 'O aplikaci';
 }

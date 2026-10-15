@@ -1722,6 +1722,78 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Jsme studenti biomedicínského inženýrství.'**
   String get infoTeamIntro;
+
+  /// No description provided for @homeMeasureTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změřit tep'**
+  String get homeMeasureTitle;
+
+  /// No description provided for @homeMeasureSubtitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přiložte prst na kameru a blesk'**
+  String get homeMeasureSubtitle;
+
+  /// No description provided for @homeLastMeasurement.
+  ///
+  /// In cs, this message translates to:
+  /// **'Poslední měření'**
+  String get homeLastMeasurement;
+
+  /// No description provided for @homeToday.
+  ///
+  /// In cs, this message translates to:
+  /// **'Dnes {time}'**
+  String homeToday(String time);
+
+  /// No description provided for @homeYesterday.
+  ///
+  /// In cs, this message translates to:
+  /// **'Včera {time}'**
+  String homeYesterday(String time);
+
+  /// Caption under the trend bars; only shown for 2 or more measurements
+  ///
+  /// In cs, this message translates to:
+  /// **'{count, plural, few{Poslední {count} měření · průměr {avg} bpm} other{Posledních {count} měření · průměr {avg} bpm}}'**
+  String homeTrendCaption(int count, String avg);
+
+  /// No description provided for @homeNoMeasurementsTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zatím žádné měření'**
+  String get homeNoMeasurementsTitle;
+
+  /// No description provided for @homeNoMeasurementsBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Průvodce vám ukáže, jak správně přiložit prst.'**
+  String get homeNoMeasurementsBody;
+
+  /// No description provided for @homeOpenGuide.
+  ///
+  /// In cs, this message translates to:
+  /// **'Otevřít průvodce'**
+  String get homeOpenGuide;
+
+  /// No description provided for @homeTileHistory.
+  ///
+  /// In cs, this message translates to:
+  /// **'Historie'**
+  String get homeTileHistory;
+
+  /// No description provided for @homeTileHowItWorks.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jak to funguje'**
+  String get homeTileHowItWorks;
+
+  /// No description provided for @homeTileAbout.
+  ///
+  /// In cs, this message translates to:
+  /// **'O aplikaci'**
+  String get homeTileAbout;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

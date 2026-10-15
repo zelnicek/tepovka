@@ -280,5 +280,17 @@
   "infoReadMore": "Read more",
   "infoReadLess": "Show less",
   "infoVersion": "Version {version}",
-  "infoTeamIntro": "We are biomedical engineering students."
+  "infoTeamIntro": "We are biomedical engineering students.",
+  "homeMeasureTitle": "Measure pulse",
+  "homeMeasureSubtitle": "Cover the camera and flash with a finger",
+  "homeLastMeasurement": "Last measurement",
+  "homeToday": "Today {time}",
+  "homeYesterday": "Yesterday {time}",
+  "homeTrendCaption": "{count, plural, other{Last {count} measurements · average {avg} bpm}}",
+  "homeNoMeasurementsTitle": "No measurements yet",
+  "homeNoMeasurementsBody": "The guide shows you how to place your finger correctly.",
+  "homeOpenGuide": "Open the guide",
+  "homeTileHistory": "History",
+  "homeTileHowItWorks": "How it works",
+  "homeTileAbout": "About"
 }

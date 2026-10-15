@@ -432,5 +432,42 @@
         "type": "String"
       }
     }
+  },
+  "homeMeasureTitle": "Změřit tep",
+  "homeMeasureSubtitle": "Přiložte prst na kameru a blesk",
+  "homeLastMeasurement": "Poslední měření",
+  "homeToday": "Dnes {time}",
+  "homeYesterday": "Včera {time}",
+  "homeTrendCaption": "{count, plural, few{Poslední {count} měření · průměr {avg} bpm} other{Posledních {count} měření · průměr {avg} bpm}}",
+  "homeNoMeasurementsTitle": "Zatím žádné měření",
+  "homeNoMeasurementsBody": "Průvodce vám ukáže, jak správně přiložit prst.",
+  "homeOpenGuide": "Otevřít průvodce",
+  "homeTileHistory": "Historie",
+  "homeTileHowItWorks": "Jak to funguje",
+  "homeTileAbout": "O aplikaci",
+  "@homeToday": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@homeYesterday": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@homeTrendCaption": {
+    "description": "Caption under the trend bars; only shown for 2 or more measurements",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "avg": {
+        "type": "String"
+      }
+    }
   }
 }

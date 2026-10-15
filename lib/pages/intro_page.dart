@@ -1,14 +1,26 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_nav_bar/google_nav_bar.dart';
+import 'package:intl/intl.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
+import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/home.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/pages/about.dart';
 import 'package:tepovka/pages/info_app.dart';
-
+import 'package:tepovka/pages/measure_guide.dart';
 import 'package:tepovka/pages/records.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:flutter/services.dart';
-import 'package:tepovka/home.dart';
+import 'package:tepovka/pages/settings.dart';
+import 'package:tepovka/services/storage_service.dart';
+import 'package:tepovka/widgets/info_widgets.dart';
 
+/// Home screen.
+///
+/// Measuring is why the app gets opened, so it is the one dominant action.
+/// Below it the last measurement and a short trend come straight from local
+/// storage, so a result is visible without opening the history.
 class IntroPage extends StatefulWidget {
   const IntroPage({super.key});
 
@@ -17,500 +29,387 @@ class IntroPage extends StatefulWidget {
 }
 
 class _IntroPageState extends State<IntroPage> {
-  bool _isTapped = false;
-  bool _isTapped2 = false;
-  bool _isTapped3 = false;
-  bool _isTapped4 = false;
   int _selectedIndex = 0;
 
-  void _onItemTapped(int index) {
-    if (_selectedIndex == index) {
-      // Pokud je karta již vybraná, nedělejte nic
-      return;
-    }
-    setState(() {
-      _selectedIndex = index;
-    });
+  /// Stored measurements, oldest first. Empty until loaded.
+  List<Record> _records = const [];
 
+  /// Bars shown in the trend strip.
+  static const int _trendLength = 7;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecords();
+  }
+
+  Future<void> _loadRecords() async {
+    try {
+      final List<Map<String, dynamic>> raw =
+          await StorageService().readSummary();
+      final List<Record> records = raw.map(Record.fromJson).toList()
+        ..sort((a, b) => _instantOf(a).compareTo(_instantOf(b)));
+      if (!mounted) return;
+      setState(() => _records = records);
+    } catch (e) {
+      // The home screen still works without the card; history shows the
+      // details if storage is readable there.
+      debugPrint('Could not load records for the home screen: $e');
+    }
+  }
+
+  /// When the measurement was taken. Older records carry only date and time.
+  static DateTime _instantOf(Record r) {
+    final DateTime? started =
+        r.startedAt.isNotEmpty ? DateTime.tryParse(r.startedAt) : null;
+    return started ??
+        DateTime.tryParse('${r.date} ${r.time}') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  /// Opens [page] and refreshes the card on return, since a measurement or a
+  /// deletion may have changed what is stored.
+  Future<void> _open(Widget page) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    if (mounted) _loadRecords();
+  }
+
+  void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
+    setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const IntroPage()),
-        );
+        _open(const IntroPage());
         break;
       case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const Home()),
-        );
+        _open(const Home());
         break;
       case 2:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const About()),
-        );
+        _open(const About());
         break;
     }
   }
 
+  String _formatWhen(BuildContext context, DateTime when) {
+    final L10n t = L10n.of(context);
+    final String locale = Localizations.localeOf(context).toString();
+    String time;
+    String day;
+    try {
+      time = DateFormat.jm(locale).format(when);
+      day = DateFormat.MMMd(locale).format(when);
+    } catch (_) {
+      time = '${when.hour}:${when.minute.toString().padLeft(2, '0')}';
+      day = '${when.day}. ${when.month}.';
+    }
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime thatDay = DateTime(when.year, when.month, when.day);
+    final int daysAgo = today.difference(thatDay).inDays;
+    if (daysAgo == 0) return t.homeToday(time);
+    if (daysAgo == 1) return t.homeYesterday(time);
+    return '$day $time';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.sizeOf(context).width;
-    // Šířkové konstanty – nezávislé na výšce.
-    final double cardWidthFull =
-        (screenWidth * 0.9).clamp(260.0, 420.0).toDouble();
-    final double paddingSmall =
-        (screenWidth * 0.02).clamp(4.0, 10.0).toDouble();
-    final double fontSizeMedium =
-        (screenWidth * 0.045).clamp(15.0, 20.0).toDouble();
-    final double fontSizeSmall =
-        (screenWidth * 0.04).clamp(13.0, 18.0).toDouble();
-    final double iconSize = (screenWidth * 0.06).clamp(20.0, 30.0).toDouble();
-    final double cardWidthHalf =
-        ((cardWidthFull - paddingSmall) / 2) - paddingSmall;
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        centerTitle: true,
-        elevation: 0,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(L10n.of(context).introTitle,
-                style: Theme.of(context).textTheme.titleMedium),
-          ],
+        backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: false,
+        titleSpacing: r.spaceLg,
+        toolbarHeight: r.iconXl * 2,
+        title: Semantics(
+          label: 'Tepovka',
+          image: true,
+          excludeSemantics: true,
+          child: Image.asset(
+            'assets/Text_loading.png',
+            height: r.iconXl * 1.25,
+            fit: BoxFit.contain,
+          ),
         ),
+        actions: [
+          IconButton(
+            tooltip: t.a11yOpenSettings,
+            icon: Icon(Symbols.settings, size: r.iconMd),
+            onPressed: () => _open(const SettingsPage()),
+          ),
+          SizedBox(width: r.spaceSm),
+        ],
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // DOSTUPNÁ VÝŠKA BODY (po odečtení AppBaru, BottomNavu a SafeAreas).
-            // Tohle je skutečné místo, které máme – nezávisí to na screenHeight.
-            final double availH = constraints.maxHeight;
-
-            // Layout: 4 řádky (3 karty + logo).
-            // Karty dostávají 22 % availH (každá), logo 12 %, zbytek jsou
-            // mezery. Clamp chrání před extrémy.
-            final double cardHeight =
-                (availH * 0.22).clamp(78.0, 180.0).toDouble();
-            final double logoHeight =
-                (availH * 0.12).clamp(40.0, 100.0).toDouble();
-            // Velikost obrázku loga (Image.asset bere natural ratio,
-            // kontrolujeme přes width).
-            final double logoWidth = (availH < 480)
-                ? (screenWidth * 0.32).clamp(100.0, 140.0).toDouble()
-                : (screenWidth * 0.5).clamp(150.0, 220.0).toDouble();
-            final double paddingMedium = (availH < 480)
-                ? (screenWidth * 0.025).clamp(6.0, 12.0).toDouble()
-                : (screenWidth * 0.04).clamp(12.0, 18.0).toDouble();
-            final double imageScaleFull = (availH < 480)
-                ? (screenWidth * 0.0012).clamp(0.36, 0.55)
-                : (screenWidth * 0.0015).clamp(0.5, 0.72);
-            final double imageScaleHalf = (availH < 480)
-                ? (screenWidth * 0.0014).clamp(0.4, 0.6)
-                : (screenWidth * 0.0018).clamp(0.55, 0.8);
-
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(vertical: paddingSmall / 2),
-              child: Center(
-                child: Column(children: [
-                  GestureDetector(
-                    onTapDown: (_) {
-                      HapticFeedback.selectionClick();
-                      setState(() {
-                        _isTapped = true;
-                      });
-                    },
-                    onTapUp: (_) {
-                      setState(() {
-                        _isTapped = false;
-                      });
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => Home()),
-                      );
-                    },
-                    onTapCancel: () {
-                      setState(() {
-                        _isTapped = false;
-                      });
-                    },
-                    child: AnimatedScale(
-                      scale: _isTapped ? 0.9 : 1.0,
-                      duration: const Duration(milliseconds: 100),
-                      child: Stack(
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.all(paddingSmall),
-                            child: Container(
-                              margin: EdgeInsets.only(top: paddingSmall),
-                              padding: const EdgeInsets.only(top: 0),
-                              width: cardWidthFull,
-                              height: cardHeight,
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 255, 255, 255),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 3,
-                                ),
-                                borderRadius: const BorderRadius.all(
-                                  Radius.circular(15),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.15),
-                                    spreadRadius: 0,
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 0),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    L10n.of(context).introStartMeasurement,
-                                    style: TextStyle(
-                                      fontSize: fontSizeMedium,
-                                      color: Color.fromARGB(255, 0, 0, 0),
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            right: -5,
-                            child: Align(
-                              alignment: Alignment.bottomCenter,
-                              child: Padding(
-                                padding: EdgeInsets.only(
-                                    top: 0, bottom: paddingMedium),
-                                child: Transform.scale(
-                                  scale: imageScaleFull,
-                                  child: Image.asset(
-                                    'assets/ppg.png',
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTapDown: (_) {
-                      HapticFeedback.selectionClick();
-                      setState(() {
-                        _isTapped2 = true;
-                      });
-                    },
-                    onTapUp: (_) {
-                      setState(() {
-                        _isTapped2 = false;
-                      });
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const RecordsPage()),
-                      );
-                    },
-                    onTapCancel: () {
-                      setState(() {
-                        _isTapped2 = false;
-                      });
-                    },
-                    child: AnimatedScale(
-                      scale: _isTapped2 ? 0.9 : 1.0,
-                      duration: const Duration(milliseconds: 100),
-                      child: Stack(
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.all(paddingSmall),
-                            child: Container(
-                              margin: EdgeInsets.only(top: paddingSmall),
-                              padding: const EdgeInsets.only(top: 0),
-                              width: cardWidthFull,
-                              height: cardHeight,
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 255, 255, 255),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 3,
-                                ),
-                                borderRadius: const BorderRadius.all(
-                                  Radius.circular(15),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.15),
-                                    spreadRadius: 0,
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 0),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    L10n.of(context).introRecords,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Color.fromARGB(255, 0, 0, 0),
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            right: 0,
-                            bottom: paddingMedium,
-                            child: Transform.scale(
-                              scale: imageScaleFull * 0.95,
-                              child: Image.asset(
-                                'assets/folder.png',
-                                fit: BoxFit.fitHeight,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Wrap(
-                    alignment: WrapAlignment.spaceEvenly,
-                    runSpacing: paddingSmall,
-                    spacing: paddingSmall,
-                    children: [
-                      GestureDetector(
-                        onTapDown: (_) {
-                          HapticFeedback.selectionClick();
-                          setState(() {
-                            _isTapped3 = true;
-                          });
-                        },
-                        onTapUp: (_) {
-                          setState(() {
-                            _isTapped3 = false;
-                          });
-                          // Navigate to the next page
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const About()),
-                          );
-                        },
-                        onTapCancel: () {
-                          setState(() {
-                            _isTapped3 = false;
-                          });
-                        },
-                        child: AnimatedScale(
-                          scale: _isTapped3 ? 0.9 : 1.0,
-                          duration: const Duration(milliseconds: 100),
-                          child: Stack(
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.all(paddingSmall),
-                                child: Container(
-                                  margin: EdgeInsets.only(top: paddingSmall),
-                                  padding: const EdgeInsets.only(top: 0),
-                                  width: cardWidthHalf,
-                                  height: cardHeight,
-                                  decoration: BoxDecoration(
-                                    color: const Color.fromARGB(
-                                        255, 255, 255, 255),
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 3,
-                                    ),
-                                    borderRadius: const BorderRadius.all(
-                                      Radius.circular(15),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.15),
-                                        spreadRadius: 0,
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 0),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        L10n.of(context).aboutPageTitle,
-                                        style: TextStyle(
-                                          fontSize: fontSizeSmall,
-                                          color: Color.fromARGB(255, 0, 0, 0),
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Positioned.fill(
-                                right: 0,
-                                bottom: paddingMedium,
-                                child: Transform.scale(
-                                  scale: imageScaleHalf,
-                                  child: Image.asset(
-                                    'assets/Help2.png',
-                                    fit: BoxFit.fitWidth,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTapDown: (_) {
-                          HapticFeedback.selectionClick();
-                          setState(() {
-                            _isTapped4 = true;
-                          });
-                        },
-                        onTapUp: (_) {
-                          setState(() {
-                            _isTapped4 = false;
-                          });
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const InfoApp()),
-                          );
-                        },
-                        onTapCancel: () {
-                          setState(() {
-                            _isTapped4 = false;
-                          });
-                        },
-                        child: AnimatedScale(
-                          scale: _isTapped4 ? 0.9 : 1.0,
-                          duration: const Duration(milliseconds: 100),
-                          child: Stack(
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.all(paddingSmall),
-                                child: Container(
-                                  margin: EdgeInsets.only(top: paddingSmall),
-                                  padding: const EdgeInsets.only(top: 0),
-                                  width: cardWidthHalf,
-                                  height: cardHeight,
-                                  decoration: BoxDecoration(
-                                    color: const Color.fromARGB(
-                                        255, 255, 255, 255),
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 3,
-                                    ),
-                                    borderRadius: const BorderRadius.all(
-                                      Radius.circular(15),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.15),
-                                        spreadRadius: 0,
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 0),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        L10n.of(context).introAboutApp,
-                                        style: TextStyle(
-                                          fontSize: fontSizeSmall,
-                                          color: Color.fromARGB(255, 0, 0, 0),
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Positioned.fill(
-                                right: 0,
-                                bottom: paddingMedium,
-                                child: Transform.scale(
-                                  scale: imageScaleHalf * 0.7,
-                                  child: Image.asset(
-                                    'assets/tepovka.png',
-                                    fit: BoxFit.fitHeight,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: paddingSmall * 2.0),
-                    child: SizedBox(
-                      height: logoHeight,
-                      width: logoWidth,
-                      child: Image.asset(
-                        'assets/Text_loading.png',
-                        fit: BoxFit.contain,
-                        opacity: const AlwaysStoppedAnimation(.5),
-                      ),
-                    ),
-                  ),
-                ]),
+        child: SingleChildScrollView(
+          padding: r.pagePadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _measureCard(context),
+              InfoSectionLabel(t.homeLastMeasurement),
+              _records.isEmpty
+                  ? _emptyCard(context)
+                  : _lastMeasurementCard(context),
+              SizedBox(height: r.spaceMd),
+              Row(
+                children: [
+                  _tile(context, Icons.history, const Color(0xFF1A73E8),
+                      t.homeTileHistory, const RecordsPage()),
+                  SizedBox(width: r.spaceSm),
+                  _tile(context, Icons.help_outline, const Color(0xFF1E8E3E),
+                      t.homeTileHowItWorks, const About()),
+                  SizedBox(width: r.spaceSm),
+                  _tile(context, Icons.info_outline, kInfoSecondaryText,
+                      t.homeTileAbout, const InfoApp()),
+                ],
               ),
-            );
-          },
+              SizedBox(height: r.spaceXl),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: GNav(
-        tabMargin: EdgeInsets.symmetric(horizontal: paddingSmall),
-        gap: paddingSmall,
+        tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
+        gap: r.spaceSm,
         activeColor: Colors.black,
-        iconSize: iconSize,
+        iconSize: r.iconMd,
         haptic: true,
         backgroundColor: Colors.white,
         color: Colors.grey,
         selectedIndex: _selectedIndex,
         onTabChange: _onItemTapped,
         tabs: [
-          GButton(
-            icon: Symbols.family_home,
-            text: L10n.of(context).navMenu,
+          GButton(icon: Symbols.family_home, text: t.navMenu),
+          GButton(icon: Symbols.ecg_heart, text: t.navMeasure),
+          GButton(icon: Symbols.help, text: t.navInfo),
+        ],
+      ),
+    );
+  }
+
+  Widget _measureCard(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return Material(
+      color: kInfoAccent,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _open(const Home());
+        },
+        child: Padding(
+          padding: EdgeInsets.all(r.spaceLg + r.spaceXs),
+          child: Row(
+            children: [
+              Container(
+                width: r.iconXl * 1.5,
+                height: r.iconXl * 1.5,
+                decoration: const BoxDecoration(
+                    color: Colors.white, shape: BoxShape.circle),
+                child: Icon(Icons.favorite,
+                    color: kInfoAccent, size: r.iconLg),
+              ),
+              SizedBox(width: r.spaceMd + r.spaceXs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.homeMeasureTitle,
+                      style: TextStyle(
+                          fontSize: r.fontHeadline,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                    ),
+                    SizedBox(height: r.spaceXs / 2),
+                    Text(
+                      t.homeMeasureSubtitle,
+                      style: TextStyle(
+                          fontSize: r.fontBody, color: const Color(0xFFFFE3E1)),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.white, size: r.iconLg),
+            ],
           ),
-          GButton(
-            icon: Symbols.ecg_heart,
-            text: L10n.of(context).navMeasure,
+        ),
+      ),
+    );
+  }
+
+  Widget _lastMeasurementCard(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final Record last = _records.last;
+    final List<Record> recent = _records
+        .sublist(max(0, _records.length - _trendLength))
+        .where((rec) => rec.averageBPM > 0)
+        .toList();
+
+    return InfoCard(
+      onTap: () => _open(const RecordsPage()),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            label:
+                '${t.a11yHeartRateValue('${last.averageBPM}')}, ${_formatWhen(context, _instantOf(last))}',
+            excludeSemantics: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '${last.averageBPM}',
+                      style: TextStyle(
+                          fontSize: r.fontDisplayXl,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0),
+                    ),
+                    SizedBox(width: r.spaceXs),
+                    Text(t.homeBpmUnit,
+                        style: TextStyle(
+                            fontSize: r.fontBodyLg,
+                            color: kInfoSecondaryText)),
+                  ],
+                ),
+                SizedBox(height: r.spaceXs),
+                Text(
+                  '${_formatWhen(context, _instantOf(last))} · ${last.duration} s',
+                  style: TextStyle(
+                      fontSize: r.fontSmall, color: kInfoSecondaryText),
+                ),
+              ],
+            ),
           ),
-          GButton(
-            icon: Symbols.help,
-            text: L10n.of(context).navInfo,
+          if (recent.length >= 2) ...[
+            SizedBox(height: r.spaceMd),
+            _trend(context, recent),
+            SizedBox(height: r.spaceSm),
+            Text(
+              t.homeTrendCaption(
+                recent.length,
+                (recent.map((e) => e.averageBPM).reduce((a, b) => a + b) /
+                        recent.length)
+                    .round()
+                    .toString(),
+              ),
+              style: TextStyle(fontSize: r.fontCaption, color: Colors.black45),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Bars scaled between the lowest and highest value shown, so a change of a
+  /// few bpm is still visible. The newest bar is red.
+  Widget _trend(BuildContext context, List<Record> recent) {
+    final r = Responsive.of(context);
+    final List<int> bpms = recent.map((e) => e.averageBPM).toList();
+    final int lo = bpms.reduce(min);
+    final int hi = bpms.reduce(max);
+    final double barArea = r.iconXl * 1.25;
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: barArea,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (int i = 0; i < bpms.length; i++) ...[
+              if (i > 0) SizedBox(width: r.spaceXs + 2),
+              Expanded(
+                child: Container(
+                  height: hi == lo
+                      ? barArea * 0.6
+                      : barArea * (0.3 + 0.7 * (bpms[i] - lo) / (hi - lo)),
+                  decoration: BoxDecoration(
+                    color: i == bpms.length - 1
+                        ? kInfoAccent
+                        : const Color(0xFFF6C9C6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyCard(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return InfoCard(
+      onTap: () => MeasureGuide.open(context),
+      padding: EdgeInsets.symmetric(
+          horizontal: r.spaceLg, vertical: r.spaceXl),
+      child: Column(
+        children: [
+          Icon(Symbols.ecg_heart, size: r.iconXl, color: Colors.black26),
+          SizedBox(height: r.spaceSm),
+          Text(
+            t.homeNoMeasurementsTitle,
+            style: TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: r.spaceXs),
+          Text(
+            t.homeNoMeasurementsBody,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: r.fontBody, height: 1.4, color: kInfoSecondaryText),
+          ),
+          SizedBox(height: r.spaceMd),
+          Text(
+            t.homeOpenGuide,
+            style: TextStyle(
+                fontSize: r.fontBody,
+                fontWeight: FontWeight.w600,
+                color: kInfoAccent),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _tile(BuildContext context, IconData icon, Color color, String label,
+      Widget page) {
+    final r = Responsive.of(context);
+    return Expanded(
+      child: InfoCard(
+        onTap: () => _open(page),
+        padding:
+            EdgeInsets.symmetric(vertical: r.spaceMd, horizontal: r.spaceXs),
+        child: Semantics(
+          button: true,
+          label: label,
+          excludeSemantics: true,
+          child: Column(
+            children: [
+              Icon(icon, size: r.iconLg, color: color),
+              SizedBox(height: r.spaceXs),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: TextStyle(fontSize: r.fontSmall, height: 1.25),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -917,4 +917,52 @@ class L10nEn extends L10n {
 
   @override
   String get infoTeamIntro => 'We are biomedical engineering students.';
+
+  @override
+  String get homeMeasureTitle => 'Measure pulse';
+
+  @override
+  String get homeMeasureSubtitle => 'Cover the camera and flash with a finger';
+
+  @override
+  String get homeLastMeasurement => 'Last measurement';
+
+  @override
+  String homeToday(String time) {
+    return 'Today $time';
+  }
+
+  @override
+  String homeYesterday(String time) {
+    return 'Yesterday $time';
+  }
+
+  @override
+  String homeTrendCaption(int count, String avg) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Last $count measurements · average $avg bpm',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get homeNoMeasurementsTitle => 'No measurements yet';
+
+  @override
+  String get homeNoMeasurementsBody =>
+      'The guide shows you how to place your finger correctly.';
+
+  @override
+  String get homeOpenGuide => 'Open the guide';
+
+  @override
+  String get homeTileHistory => 'History';
+
+  @override
+  String get homeTileHowItWorks => 'How it works';
+
+  @override
+  String get homeTileAbout => 'About';
 }

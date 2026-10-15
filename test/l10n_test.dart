@@ -59,4 +59,18 @@ void main() {
     expect(en.recordsDeleteSelected(3), 'Delete selected (3)');
     expect(en.metricsBreathsPerMinute('12.4'), '12.4 breaths/min');
   });
+
+  testWidgets('trend caption declines the Czech plural correctly',
+      (tester) async {
+    // Czech counts take different forms: "poslední 3 měření" but
+    // "posledních 5 měření". A single template would be wrong for one of them.
+    final cs = await _load(tester, const Locale('cs'));
+    expect(cs.homeTrendCaption(2, '70'), 'Poslední 2 měření · průměr 70 bpm');
+    expect(cs.homeTrendCaption(4, '70'), 'Poslední 4 měření · průměr 70 bpm');
+    expect(cs.homeTrendCaption(5, '70'), 'Posledních 5 měření · průměr 70 bpm');
+    expect(cs.homeTrendCaption(7, '70'), 'Posledních 7 měření · průměr 70 bpm');
+
+    final en = await _load(tester, const Locale('en'));
+    expect(en.homeTrendCaption(3, '70'), 'Last 3 measurements · average 70 bpm');
+  });
 }
