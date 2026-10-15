@@ -90,7 +90,7 @@ class _InfoAppState extends State<InfoApp> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'O projektu Tepovka',
+                L10n.of(context).infoProjectTitle,
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: r.fontTitle),
               ),

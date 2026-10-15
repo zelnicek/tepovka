@@ -856,4 +856,10 @@ class L10nEn extends L10n {
 
   @override
   String get aboutGuideSubtitle => 'Five steps to a reliable measurement';
+
+  @override
+  String get introAboutApp => 'ABOUT THE APP';
+
+  @override
+  String get infoProjectTitle => 'About the Tepovka project';
 }

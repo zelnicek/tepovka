@@ -1608,6 +1608,18 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Pět kroků ke spolehlivému měření'**
   String get aboutGuideSubtitle;
+
+  /// No description provided for @introAboutApp.
+  ///
+  /// In cs, this message translates to:
+  /// **'O APLIKACI'**
+  String get introAboutApp;
+
+  /// No description provided for @infoProjectTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'O projektu Tepovka'**
+  String get infoProjectTitle;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

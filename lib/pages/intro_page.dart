@@ -355,7 +355,7 @@ class _IntroPageState extends State<IntroPage> {
                                         CrossAxisAlignment.center,
                                     children: [
                                       Text(
-                                        'JAK TO FUNGUJE?',
+                                        L10n.of(context).aboutPageTitle,
                                         style: TextStyle(
                                           fontSize: fontSizeSmall,
                                           color: Color.fromARGB(255, 0, 0, 0),
@@ -441,7 +441,7 @@ class _IntroPageState extends State<IntroPage> {
                                         CrossAxisAlignment.center,
                                     children: [
                                       Text(
-                                        'O APLIKACI',
+                                        L10n.of(context).introAboutApp,
                                         style: TextStyle(
                                           fontSize: fontSizeSmall,
                                           color: Color.fromARGB(255, 0, 0, 0),

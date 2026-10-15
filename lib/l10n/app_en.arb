@@ -252,5 +252,16 @@
   "hintGood": "Great, hold it just like this.",
   "aboutPageTitle": "HOW IT WORKS",
   "aboutGuideSubtitle": "Five steps to a reliable measurement",
-  "@guideStepOf": {"placeholders": {"step": {"type": "int"}, "total": {"type": "int"}}}
+  "@guideStepOf": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "introAboutApp": "ABOUT THE APP",
+  "infoProjectTitle": "About the Tepovka project"
 }

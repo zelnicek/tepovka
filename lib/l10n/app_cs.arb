@@ -397,5 +397,16 @@
   "hintGood": "Výborně, takhle vydržte.",
   "aboutPageTitle": "JAK TO FUNGUJE?",
   "aboutGuideSubtitle": "Pět kroků ke spolehlivému měření",
-  "@guideStepOf": {"placeholders": {"step": {"type": "int"}, "total": {"type": "int"}}}
+  "@guideStepOf": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "introAboutApp": "O APLIKACI",
+  "infoProjectTitle": "O projektu Tepovka"
 }

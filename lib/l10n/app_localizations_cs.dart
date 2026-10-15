@@ -855,4 +855,10 @@ class L10nCs extends L10n {
 
   @override
   String get aboutGuideSubtitle => 'Pět kroků ke spolehlivému měření';
+
+  @override
+  String get introAboutApp => 'O APLIKACI';
+
+  @override
+  String get infoProjectTitle => 'O projektu Tepovka';
 }
