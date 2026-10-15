@@ -125,15 +125,19 @@ class _IntroPageState extends State<IntroPage> {
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         titleSpacing: r.spaceLg,
-        toolbarHeight: r.iconXl * 2,
+        toolbarHeight: r.iconXl * 1.8,
+        // The app icon up top; the wordmark sits at the foot of the page.
         title: Semantics(
           label: 'Tepovka',
           image: true,
           excludeSemantics: true,
-          child: Image.asset(
-            'assets/Text_loading.png',
-            height: r.iconXl * 1.25,
-            fit: BoxFit.contain,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(r.spaceMd),
+            child: Image.asset(
+              'assets/tepovka_icon.png',
+              height: r.iconXl * 1.25,
+              width: r.iconXl * 1.25,
+            ),
           ),
         ),
         actions: [
@@ -146,32 +150,60 @@ class _IntroPageState extends State<IntroPage> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: r.pagePadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _measureCard(context),
-              InfoSectionLabel(t.homeLastMeasurement),
-              _records.isEmpty
-                  ? _emptyCard(context)
-                  : _lastMeasurementCard(context),
-              SizedBox(height: r.spaceMd),
-              Row(
-                children: [
-                  _tile(context, Icons.history, const Color(0xFF1A73E8),
-                      t.homeTileHistory, const RecordsPage()),
-                  SizedBox(width: r.spaceSm),
-                  _tile(context, Icons.help_outline, const Color(0xFF1E8E3E),
-                      t.homeTileHowItWorks, const About()),
-                  SizedBox(width: r.spaceSm),
-                  _tile(context, Icons.info_outline, kInfoSecondaryText,
-                      t.homeTileAbout, const InfoApp()),
-                ],
+        // Fills the screen so the wordmark can sit at the bottom when there is
+        // room, and simply scrolls with everything else when there is not
+        // (senior mode, small phones).
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: r.pagePadding,
+              sliver: SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _measureCard(context),
+                    InfoSectionLabel(t.homeLastMeasurement),
+                    _records.isEmpty
+                        ? _emptyCard(context)
+                        : _lastMeasurementCard(context),
+                    SizedBox(height: r.spaceMd),
+                    Row(
+                      children: [
+                        _tile(context, Icons.history, const Color(0xFF1A73E8),
+                            t.homeTileHistory, const RecordsPage()),
+                        SizedBox(width: r.spaceSm),
+                        _tile(
+                            context,
+                            Icons.help_outline,
+                            const Color(0xFF1E8E3E),
+                            t.homeTileHowItWorks,
+                            const About()),
+                        SizedBox(width: r.spaceSm),
+                        _tile(context, Icons.info_outline, kInfoSecondaryText,
+                            t.homeTileAbout, const InfoApp()),
+                      ],
+                    ),
+                    SizedBox(height: r.spaceXl),
+                    const Spacer(),
+                    Center(
+                      child: Semantics(
+                        label: 'Tepovka, powered by VUT',
+                        image: true,
+                        excludeSemantics: true,
+                        child: Image.asset(
+                          'assets/Text_loading.png',
+                          width: (r.width * 0.42).clamp(140.0, 200.0),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: r.spaceMd),
+                  ],
+                ),
               ),
-              SizedBox(height: r.spaceXl),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: GNav(
@@ -214,8 +246,7 @@ class _IntroPageState extends State<IntroPage> {
                 height: r.iconXl * 1.5,
                 decoration: const BoxDecoration(
                     color: Colors.white, shape: BoxShape.circle),
-                child: Icon(Icons.favorite,
-                    color: kInfoAccent, size: r.iconLg),
+                child: Icon(Icons.favorite, color: kInfoAccent, size: r.iconLg),
               ),
               SizedBox(width: r.spaceMd + r.spaceXs),
               Expanded(
@@ -281,8 +312,7 @@ class _IntroPageState extends State<IntroPage> {
                     SizedBox(width: r.spaceXs),
                     Text(t.homeBpmUnit,
                         style: TextStyle(
-                            fontSize: r.fontBodyLg,
-                            color: kInfoSecondaryText)),
+                            fontSize: r.fontBodyLg, color: kInfoSecondaryText)),
                   ],
                 ),
                 SizedBox(height: r.spaceXs),
@@ -355,15 +385,15 @@ class _IntroPageState extends State<IntroPage> {
     final L10n t = L10n.of(context);
     return InfoCard(
       onTap: () => MeasureGuide.open(context),
-      padding: EdgeInsets.symmetric(
-          horizontal: r.spaceLg, vertical: r.spaceXl),
+      padding: EdgeInsets.symmetric(horizontal: r.spaceLg, vertical: r.spaceXl),
       child: Column(
         children: [
           Icon(Symbols.ecg_heart, size: r.iconXl, color: Colors.black26),
           SizedBox(height: r.spaceSm),
           Text(
             t.homeNoMeasurementsTitle,
-            style: TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.bold),
+            style:
+                TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: r.spaceXs),
           Text(
