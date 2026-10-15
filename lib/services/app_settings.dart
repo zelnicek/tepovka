@@ -74,6 +74,10 @@ class AppSettingsData {
   /// Nazvy poli, ktera se pred merenim vyplnuji. Uzivatel si je muze zmenit.
   final List<String> researchFields;
 
+  /// Daily measurement reminder, and its time as minutes after midnight.
+  final bool reminderEnabled;
+  final int reminderMinutes;
+
   const AppSettingsData({
     this.seniorMode = false,
     this.highContrast = false,
@@ -85,6 +89,8 @@ class AppSettingsData {
     this.exportFormat = ExportFormat.txt,
     this.researchFields = kDefaultResearchFields,
     this.language = AppLanguage.system,
+    this.reminderEnabled = false,
+    this.reminderMinutes = 8 * 60,
   });
 
   AppSettingsData copyWith({
@@ -98,6 +104,8 @@ class AppSettingsData {
     ExportFormat? exportFormat,
     List<String>? researchFields,
     AppLanguage? language,
+    bool? reminderEnabled,
+    int? reminderMinutes,
   }) =>
       AppSettingsData(
         seniorMode: seniorMode ?? this.seniorMode,
@@ -110,6 +118,8 @@ class AppSettingsData {
         exportFormat: exportFormat ?? this.exportFormat,
         researchFields: researchFields ?? this.researchFields,
         language: language ?? this.language,
+        reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+        reminderMinutes: reminderMinutes ?? this.reminderMinutes,
       );
 }
 
@@ -129,6 +139,8 @@ class AppSettings {
   static const _kExportFormat = 'settings_exportFormat';
   static const _kResearchFields = 'settings_researchFields';
   static const _kLanguage = 'settings_language';
+  static const _kReminderEnabled = 'settings_reminderEnabled';
+  static const _kReminderMinutes = 'settings_reminderMinutes';
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -143,6 +155,8 @@ class AppSettings {
     final formatIndex = prefs.getInt(_kExportFormat) ?? 0;
     final fields = prefs.getStringList(_kResearchFields);
     final langIndex = prefs.getInt(_kLanguage) ?? 0;
+    final reminderEnabled = prefs.getBool(_kReminderEnabled) ?? false;
+    final reminderMinutes = prefs.getInt(_kReminderMinutes) ?? 8 * 60;
     notifier.value = AppSettingsData(
       seniorMode: senior,
       highContrast: contrast,
@@ -157,6 +171,8 @@ class AppSettings {
           (fields == null || fields.isEmpty) ? kDefaultResearchFields : fields,
       language:
           AppLanguage.values[langIndex.clamp(0, AppLanguage.values.length - 1)],
+      reminderEnabled: reminderEnabled,
+      reminderMinutes: reminderMinutes.clamp(0, 24 * 60 - 1),
     );
   }
 
@@ -227,6 +243,20 @@ class AppSettings {
     );
     SharedPreferences.getInstance().then(
       (p) => p.setStringList(_kResearchFields, cleaned),
+    );
+  }
+
+  static void setReminderEnabled(bool enabled) {
+    notifier.value = notifier.value.copyWith(reminderEnabled: enabled);
+    SharedPreferences.getInstance().then(
+      (p) => p.setBool(_kReminderEnabled, enabled),
+    );
+  }
+
+  static void setReminderMinutes(int minutes) {
+    notifier.value = notifier.value.copyWith(reminderMinutes: minutes);
+    SharedPreferences.getInstance().then(
+      (p) => p.setInt(_kReminderMinutes, minutes),
     );
   }
 

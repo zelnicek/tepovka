@@ -22,6 +22,7 @@ import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
 import 'package:tepovka/services/tts_service.dart';
+import 'package:tepovka/services/reminder_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:collection';
@@ -1081,6 +1082,8 @@ class _HomeState extends State<Home>
           await prefs.setInt('measurements_count', count + 1);
           await prefs.setString(
               'last_measurement_time', DateTime.now().toIso8601String());
+          // Measured today: today's reminder is no longer needed.
+          await ReminderService.reschedule();
         } catch (e) {
           debugPrint('Failed to update measurement counter: $e');
         }

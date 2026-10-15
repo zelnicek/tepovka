@@ -1068,4 +1068,30 @@ class L10nEn extends L10n {
   String recordsConfirmDeleteSelectedBody(int count) {
     return 'Delete the $count selected measurements?';
   }
+
+  @override
+  String get settingsReminderSection => 'Reminder';
+
+  @override
+  String get settingsReminder => 'Daily measurement reminder';
+
+  @override
+  String get settingsReminderHint =>
+      'Reminds you at the chosen time. Skipped on days you have already measured.';
+
+  @override
+  String get settingsReminderTime => 'Reminder time';
+
+  @override
+  String get settingsReminderDenied =>
+      'Notifications are off for Tepovka. Allow them in iOS Settings.';
+
+  @override
+  String get settingsReminderOpenSettings => 'Open Settings';
+
+  @override
+  String get reminderTitle => 'Time to measure';
+
+  @override
+  String get reminderBody => 'Take your pulse, it only takes half a minute.';
 }

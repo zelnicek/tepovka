@@ -527,5 +527,13 @@
         "type": "int"
       }
     }
-  }
+  },
+  "settingsReminderSection": "Připomínka",
+  "settingsReminder": "Denní připomínka měření",
+  "settingsReminderHint": "Ve zvolený čas připomene měření. Když už jste ten den měřili, nepřijde.",
+  "settingsReminderTime": "Čas připomínky",
+  "settingsReminderDenied": "Oznámení jsou pro Tepovku vypnutá. Povolte je v Nastavení iOS.",
+  "settingsReminderOpenSettings": "Otevřít Nastavení",
+  "reminderTitle": "Čas na měření",
+  "reminderBody": "Změřte si tep, stačí půl minuty."
 }

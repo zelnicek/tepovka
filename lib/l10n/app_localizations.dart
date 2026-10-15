@@ -1974,6 +1974,54 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Opravdu chcete smazat vybrané záznamy ({count})?'**
   String recordsConfirmDeleteSelectedBody(int count);
+
+  /// No description provided for @settingsReminderSection.
+  ///
+  /// In cs, this message translates to:
+  /// **'Připomínka'**
+  String get settingsReminderSection;
+
+  /// No description provided for @settingsReminder.
+  ///
+  /// In cs, this message translates to:
+  /// **'Denní připomínka měření'**
+  String get settingsReminder;
+
+  /// No description provided for @settingsReminderHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Ve zvolený čas připomene měření. Když už jste ten den měřili, nepřijde.'**
+  String get settingsReminderHint;
+
+  /// No description provided for @settingsReminderTime.
+  ///
+  /// In cs, this message translates to:
+  /// **'Čas připomínky'**
+  String get settingsReminderTime;
+
+  /// No description provided for @settingsReminderDenied.
+  ///
+  /// In cs, this message translates to:
+  /// **'Oznámení jsou pro Tepovku vypnutá. Povolte je v Nastavení iOS.'**
+  String get settingsReminderDenied;
+
+  /// No description provided for @settingsReminderOpenSettings.
+  ///
+  /// In cs, this message translates to:
+  /// **'Otevřít Nastavení'**
+  String get settingsReminderOpenSettings;
+
+  /// No description provided for @reminderTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Čas na měření'**
+  String get reminderTitle;
+
+  /// No description provided for @reminderBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změřte si tep, stačí půl minuty.'**
+  String get reminderBody;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

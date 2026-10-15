@@ -322,5 +322,13 @@
   "recordsNoWaveform": "This record has no pulse wave.",
   "recordsSearch": "Search",
   "recordsMore": "More options",
-  "recordsConfirmDeleteSelectedBody": "Delete the {count} selected measurements?"
+  "recordsConfirmDeleteSelectedBody": "Delete the {count} selected measurements?",
+  "settingsReminderSection": "Reminder",
+  "settingsReminder": "Daily measurement reminder",
+  "settingsReminderHint": "Reminds you at the chosen time. Skipped on days you have already measured.",
+  "settingsReminderTime": "Reminder time",
+  "settingsReminderDenied": "Notifications are off for Tepovka. Allow them in iOS Settings.",
+  "settingsReminderOpenSettings": "Open Settings",
+  "reminderTitle": "Time to measure",
+  "reminderBody": "Take your pulse, it only takes half a minute."
 }

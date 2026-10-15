@@ -13,6 +13,7 @@ import 'package:tepovka/pages/info_app.dart';
 import 'package:tepovka/pages/measure_guide.dart';
 import 'package:tepovka/pages/records.dart';
 import 'package:tepovka/pages/settings.dart';
+import 'package:tepovka/services/reminder_service.dart';
 import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
 
@@ -41,6 +42,30 @@ class _IntroPageState extends State<IntroPage> {
   void initState() {
     super.initState();
     _loadRecords();
+    ReminderService.openMeasureRequests.addListener(_openMeasureFromReminder);
+    if (ReminderService.takeLaunchRequest()) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _openMeasureFromReminder());
+    }
+  }
+
+  @override
+  void dispose() {
+    ReminderService.openMeasureRequests
+        .removeListener(_openMeasureFromReminder);
+    super.dispose();
+  }
+
+  bool _openingMeasureFromReminder = false;
+
+  /// A tapped reminder opens the measurement straight away. This screen is
+  /// the root route, so whatever was open on top of it is closed first.
+  Future<void> _openMeasureFromReminder() async {
+    if (!mounted || _openingMeasureFromReminder) return;
+    _openingMeasureFromReminder = true;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    await _open(const Home());
+    _openingMeasureFromReminder = false;
   }
 
   Future<void> _loadRecords() async {

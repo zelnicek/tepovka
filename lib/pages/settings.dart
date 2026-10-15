@@ -6,10 +6,12 @@ import 'package:tepovka/pages/login_page.dart';
 import 'package:tepovka/pages/qr_code_page.dart';
 import 'package:tepovka/services/local_profile_service.dart';
 import 'package:tepovka/services/tts_service.dart';
+import 'package:tepovka/services/reminder_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tepovka/services/local_logger.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:async';
 import 'dart:io';
 
 class SettingsPage extends StatefulWidget {
@@ -30,6 +32,8 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _researchMode;
   late ExportFormat _exportFormat;
   late List<String> _researchFields;
+  late bool _reminderEnabled;
+  late int _reminderMinutes;
   int _measurementsCount = 0;
   String _lastMeasurement = '-';
 
@@ -46,6 +50,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _researchMode = s.researchMode;
     _exportFormat = s.exportFormat;
     _researchFields = s.researchFields;
+    _reminderEnabled = s.reminderEnabled;
+    _reminderMinutes = s.reminderMinutes;
     _loadLocalStats();
   }
 
@@ -60,6 +66,41 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (e) {
       debugPrint('Failed to load local stats: $e');
     }
+  }
+
+  /// Switching the reminder on asks for notification permission first; when
+  /// it is refused the switch stays off and points to the system settings.
+  Future<void> _setReminderEnabled(bool enabled) async {
+    if (enabled && !await ReminderService.requestPermission()) {
+      if (!mounted) return;
+      final L10n t = L10n.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(t.settingsReminderDenied),
+        action: SnackBarAction(
+          label: t.settingsReminderOpenSettings,
+          onPressed: ReminderService.openSystemSettings,
+        ),
+      ));
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _reminderEnabled = enabled);
+    AppSettings.setReminderEnabled(enabled);
+    await ReminderService.reschedule();
+  }
+
+  Future<void> _pickReminderTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+          hour: _reminderMinutes ~/ 60, minute: _reminderMinutes % 60),
+      helpText: L10n.of(context).settingsReminderTime,
+    );
+    if (picked == null || !mounted) return;
+    final int minutes = picked.hour * 60 + picked.minute;
+    setState(() => _reminderMinutes = minutes);
+    AppSettings.setReminderMinutes(minutes);
+    await ReminderService.reschedule();
   }
 
   Future<void> _openLog() async {
@@ -92,8 +133,8 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(L10n.of(context).settingsLogShareError('$e'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(L10n.of(context).settingsLogShareError('$e'))));
     }
   }
 
@@ -104,8 +145,8 @@ class _SettingsPageState extends State<SettingsPage> {
         await File(path).delete();
         await LocalLogger.init(); // recreate
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(L10n.of(context).settingsLogCleared)));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(L10n.of(context).settingsLogCleared)));
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,8 +154,8 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(L10n.of(context).settingsLogDeleteError('$e'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(L10n.of(context).settingsLogDeleteError('$e'))));
     }
   }
 
@@ -226,6 +267,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (picked != null && picked != current) {
       AppSettings.setLanguage(picked);
+      // Planned reminders carry their text; redraw them in the new language.
+      unawaited(ReminderService.reschedule());
       if (mounted) setState(() {});
     }
   }
@@ -258,8 +301,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 4),
           ListTile(
             title: Text(L10n.of(context).settingsDisplayMode),
-            subtitle:
-                Text(L10n.of(context).settingsDisplayModeHint),
+            subtitle: Text(L10n.of(context).settingsDisplayModeHint),
           ),
           RadioGroup<UserMode>(
             groupValue: _userMode,
@@ -354,6 +396,34 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 24),
           ListTile(
             title: Text(
+              L10n.of(context).settingsReminderSection,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Symbols.notifications),
+            title: Text(L10n.of(context).settingsReminder),
+            subtitle: Text(L10n.of(context).settingsReminderHint),
+            value: _reminderEnabled,
+            onChanged: _setReminderEnabled,
+          ),
+          if (_reminderEnabled)
+            ListTile(
+              leading: const Icon(Symbols.schedule),
+              title: Text(L10n.of(context).settingsReminderTime),
+              trailing: Text(
+                TimeOfDay(
+                        hour: _reminderMinutes ~/ 60,
+                        minute: _reminderMinutes % 60)
+                    .format(context),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              onTap: _pickReminderTime,
+            ),
+          const Divider(height: 24),
+          ListTile(
+            title: Text(
               L10n.of(context).settingsGeneralSection,
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
@@ -367,7 +437,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   .testSpeak(L10n.of(context).ttsTestVoice);
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(L10n.of(context).settingsPlayingTestVoice)),
+                SnackBar(
+                    content: Text(L10n.of(context).settingsPlayingTestVoice)),
               );
             },
           ),
@@ -392,8 +463,7 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             secondary: const Icon(Symbols.science),
             title: Text(L10n.of(context).settingsResearchMode),
-            subtitle: Text(
-                L10n.of(context).settingsResearchModeHint),
+            subtitle: Text(L10n.of(context).settingsResearchModeHint),
             value: _researchMode,
             onChanged: (v) {
               setState(() => _researchMode = v);
@@ -436,8 +506,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: const Icon(Symbols.logout),
               title: Text(L10n.of(context).settingsLogout),
-              subtitle:
-                  Text(L10n.of(context).settingsLogoutHint),
+              subtitle: Text(L10n.of(context).settingsLogoutHint),
               onTap: () async {
                 await LocalProfileService.signOutLocal();
                 if (!context.mounted) return;

@@ -1062,4 +1062,30 @@ class L10nCs extends L10n {
   String recordsConfirmDeleteSelectedBody(int count) {
     return 'Opravdu chcete smazat vybrané záznamy ($count)?';
   }
+
+  @override
+  String get settingsReminderSection => 'Připomínka';
+
+  @override
+  String get settingsReminder => 'Denní připomínka měření';
+
+  @override
+  String get settingsReminderHint =>
+      'Ve zvolený čas připomene měření. Když už jste ten den měřili, nepřijde.';
+
+  @override
+  String get settingsReminderTime => 'Čas připomínky';
+
+  @override
+  String get settingsReminderDenied =>
+      'Oznámení jsou pro Tepovku vypnutá. Povolte je v Nastavení iOS.';
+
+  @override
+  String get settingsReminderOpenSettings => 'Otevřít Nastavení';
+
+  @override
+  String get reminderTitle => 'Čas na měření';
+
+  @override
+  String get reminderBody => 'Změřte si tep, stačí půl minuty.';
 }

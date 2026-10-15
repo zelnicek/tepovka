@@ -1,6 +1,7 @@
 import UIKit
 import Flutter
 import AVFoundation
+import UserNotifications
 // Offline-only: remove Google Sign-In integration
 
 /// UIScene lifecycle: apps built with the iOS 27 SDK are not launched on iOS 27
@@ -14,6 +15,9 @@ import AVFoundation
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Measurement reminders: FlutterAppDelegate passes notification taps on
+    // to flutter_local_notifications only while it is the centre's delegate.
+    UNUserNotificationCenter.current().delegate = self
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
