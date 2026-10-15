@@ -230,10 +230,16 @@ class _RecordsPageState extends State<RecordsPage> {
         final List<Record> loadedRecords =
             jsonList.map((json) => Record.fromJson(json)).toList();
 
-        // Recalculate averageBPM for each record to match details view
+        // The stored heart rate is the one the summary showed after the
+        // measurement, so it is kept. It used to be recomputed from the saved
+        // waveform on every visit and written back, which silently replaced
+        // the measured value and turned records without a waveform into
+        // 0 bpm. Recomputing now only fills in a missing value, in memory.
         List<Record> updatedRecords = [];
         for (var rec in loadedRecords) {
-          double calc = _calculateAverageBPM(rec);
+          final int bpm = rec.averageBPM > 0
+              ? rec.averageBPM
+              : _calculateAverageBPM(rec).toInt();
           updatedRecords.add(Record(
             date: rec.date,
             time: rec.time,
@@ -242,7 +248,7 @@ class _RecordsPageState extends State<RecordsPage> {
             startedAt: rec.startedAt,
             endedAt: rec.endedAt,
             savedAt: rec.savedAt,
-            averageBPM: calc.toInt(),
+            averageBPM: bpm,
             notesContent: rec.notesContent,
             dataForPlot: rec.dataForPlot,
             bpmList: rec.bpmList,
@@ -265,9 +271,7 @@ class _RecordsPageState extends State<RecordsPage> {
           _records = updatedRecords;
         });
         _applyFilters();
-
-        // Save updated records
-        await _saveRecords();
+        // Deliberately no save here: viewing the history must not rewrite it.
       } else {
       }
     } catch (e) {
