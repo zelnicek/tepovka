@@ -445,6 +445,10 @@
   "homeTileHistory": "Historie",
   "homeTileHowItWorks": "Jak to funguje",
   "homeTileAbout": "O aplikaci",
+  "homeSectionMore": "Další",
+  "homeTileHistoryHint": "Všechna uložená měření",
+  "homeTileHowItWorksHint": "Princip a tipy pro přesné měření",
+  "homeTileAboutHint": "Projekt, tým a kontakty",
   "@homeToday": {
     "placeholders": {
       "time": {

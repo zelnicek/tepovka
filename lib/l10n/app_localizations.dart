@@ -1794,6 +1794,30 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'O aplikaci'**
   String get homeTileAbout;
+
+  /// No description provided for @homeSectionMore.
+  ///
+  /// In cs, this message translates to:
+  /// **'Další'**
+  String get homeSectionMore;
+
+  /// No description provided for @homeTileHistoryHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Všechna uložená měření'**
+  String get homeTileHistoryHint;
+
+  /// No description provided for @homeTileHowItWorksHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Princip a tipy pro přesné měření'**
+  String get homeTileHowItWorksHint;
+
+  /// No description provided for @homeTileAboutHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Projekt, tým a kontakty'**
+  String get homeTileAboutHint;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

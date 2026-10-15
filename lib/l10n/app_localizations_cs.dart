@@ -965,4 +965,16 @@ class L10nCs extends L10n {
 
   @override
   String get homeTileAbout => 'O aplikaci';
+
+  @override
+  String get homeSectionMore => 'Další';
+
+  @override
+  String get homeTileHistoryHint => 'Všechna uložená měření';
+
+  @override
+  String get homeTileHowItWorksHint => 'Princip a tipy pro přesné měření';
+
+  @override
+  String get homeTileAboutHint => 'Projekt, tým a kontakty';
 }

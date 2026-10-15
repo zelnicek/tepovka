@@ -292,5 +292,9 @@
   "homeOpenGuide": "Open the guide",
   "homeTileHistory": "History",
   "homeTileHowItWorks": "How it works",
-  "homeTileAbout": "About"
+  "homeTileAbout": "About",
+  "homeSectionMore": "More",
+  "homeTileHistoryHint": "All saved measurements",
+  "homeTileHowItWorksHint": "Tips for an accurate reading",
+  "homeTileAboutHint": "Project, team and links"
 }

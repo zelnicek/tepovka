@@ -116,113 +116,158 @@ class _IntroPageState extends State<IntroPage> {
     final r = Responsive.of(context);
     final L10n t = L10n.of(context);
 
-    return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
+    // assets/Text_loading.png is 1029 × 419 px.
+    final double wordmarkWidth = (r.width * 0.27).clamp(96.0, 130.0);
+
+    // No app bar: the header scrolls with the page, so it can grow with the
+    // text size instead of being clipped by a fixed toolbar height.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        centerTitle: false,
-        titleSpacing: r.spaceLg,
-        toolbarHeight: r.iconXl * 1.8,
-        // The app icon up top; the wordmark sits at the foot of the page.
-        title: Semantics(
-          label: 'Tepovka',
-          image: true,
-          excludeSemantics: true,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(r.spaceMd),
-            child: Image.asset(
-              'assets/tepovka_icon.png',
-              height: r.iconXl * 1.25,
-              width: r.iconXl * 1.25,
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: t.a11yOpenSettings,
-            icon: Icon(Symbols.settings, size: r.iconMd),
-            onPressed: () => _open(const SettingsPage()),
-          ),
-          SizedBox(width: r.spaceSm),
-        ],
-      ),
-      body: SafeArea(
-        // Fills the screen so the wordmark can sit at the bottom when there is
-        // room, and simply scrolls with everything else when there is not
-        // (senior mode, small phones).
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: r.pagePadding,
-              sliver: SliverFillRemaining(
-                hasScrollBody: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+        body: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: r.pagePadding.copyWith(top: r.spaceSm, bottom: 0),
+                sliver: SliverList.list(
                   children: [
+                    _header(context),
+                    SizedBox(height: r.spaceLg),
                     _measureCard(context),
                     InfoSectionLabel(t.homeLastMeasurement),
                     _records.isEmpty
                         ? _emptyCard(context)
                         : _lastMeasurementCard(context),
-                    SizedBox(height: r.spaceMd),
-                    Row(
-                      children: [
-                        _tile(context, Icons.history, const Color(0xFF1A73E8),
-                            t.homeTileHistory, const RecordsPage()),
-                        SizedBox(width: r.spaceSm),
-                        _tile(
-                            context,
-                            Icons.help_outline,
-                            const Color(0xFF1E8E3E),
-                            t.homeTileHowItWorks,
-                            const About()),
-                        SizedBox(width: r.spaceSm),
-                        _tile(context, Icons.info_outline, kInfoSecondaryText,
-                            t.homeTileAbout, const InfoApp()),
-                      ],
-                    ),
-                    SizedBox(height: r.spaceXl),
-                    const Spacer(),
-                    Center(
-                      child: Semantics(
-                        label: 'Tepovka, powered by VUT',
-                        image: true,
-                        excludeSemantics: true,
-                        child: Image.asset(
-                          'assets/Text_loading.png',
-                          width: (r.width * 0.42).clamp(140.0, 200.0),
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: r.spaceMd),
+                    InfoSectionLabel(t.homeSectionMore),
+                    _menuCard(context),
                   ],
                 ),
               ),
-            ),
+              // Only the footer fills the leftover space, so the wordmark sits
+              // at the bottom when there is room and simply follows the
+              // content when there is not (senior mode, small phones).
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    SizedBox(height: r.spaceLg),
+                    // A quiet signature rather than a second headline.
+                    Semantics(
+                      label: 'Tepovka, powered by VUT',
+                      image: true,
+                      excludeSemantics: true,
+                      // Explicit height: the fill sliver measures its child's
+                      // intrinsic height, and an image with only a width
+                      // reports the height it would have at full screen
+                      // width, which made the page scroll for no reason.
+                      child: SizedBox(
+                        width: wordmarkWidth,
+                        height: wordmarkWidth * 419 / 1029,
+                        child: Opacity(
+                          opacity: 0.5,
+                          child: Image.asset(
+                            'assets/Text_loading.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: r.spaceSm),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: GNav(
+          tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
+          gap: r.spaceSm,
+          activeColor: Colors.black,
+          iconSize: r.iconMd,
+          haptic: true,
+          backgroundColor: Colors.white,
+          color: Colors.grey,
+          selectedIndex: _selectedIndex,
+          onTabChange: _onItemTapped,
+          tabs: [
+            GButton(icon: Symbols.family_home, text: t.navMenu),
+            GButton(icon: Symbols.ecg_heart, text: t.navMeasure),
+            GButton(icon: Symbols.help, text: t.navInfo),
           ],
         ),
       ),
-      bottomNavigationBar: GNav(
-        tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
-        gap: r.spaceSm,
-        activeColor: Colors.black,
-        iconSize: r.iconMd,
-        haptic: true,
-        backgroundColor: Colors.white,
-        color: Colors.grey,
-        selectedIndex: _selectedIndex,
-        onTabChange: _onItemTapped,
-        tabs: [
-          GButton(icon: Symbols.family_home, text: t.navMenu),
-          GButton(icon: Symbols.ecg_heart, text: t.navMeasure),
-          GButton(icon: Symbols.help, text: t.navInfo),
+    );
+  }
+
+  /// App icon with the name written out and today's date, settings on the
+  /// right.
+  Widget _header(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final double iconSize = r.iconXl * 1.6;
+    return Padding(
+      padding: EdgeInsets.only(top: r.spaceXs),
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(iconSize * 0.24),
+              child: Image.asset(
+                'assets/tepovka_icon.png',
+                height: iconSize,
+                width: iconSize,
+              ),
+            ),
+          ),
+          SizedBox(width: r.spaceMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(
+                    'Tepovka',
+                    style: TextStyle(
+                      fontSize: r.fontHeadline * 1.2,
+                      fontWeight: FontWeight.bold,
+                      height: 1.1,
+                    ),
+                  ),
+                ),
+                SizedBox(height: r.spaceXs / 2),
+                Text(
+                  _today(context),
+                  style: TextStyle(
+                      fontSize: r.fontBody, color: kInfoSecondaryText),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: t.a11yOpenSettings,
+            icon: Icon(Symbols.settings, size: r.iconLg),
+            onPressed: () => _open(const SettingsPage()),
+          ),
         ],
       ),
     );
+  }
+
+  /// "Thursday, October 15" in the app language, first letter capitalised
+  /// (Czech writes weekdays in lower case).
+  String _today(BuildContext context) {
+    final String locale = Localizations.localeOf(context).toString();
+    final DateTime now = DateTime.now();
+    String text;
+    try {
+      text = DateFormat.MMMMEEEEd(locale).format(now);
+    } catch (_) {
+      text = '${now.day}. ${now.month}. ${now.year}';
+    }
+    return text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);
   }
 
   Widget _measureCard(BuildContext context) {
@@ -238,7 +283,7 @@ class _IntroPageState extends State<IntroPage> {
           _open(const Home());
         },
         child: Padding(
-          padding: EdgeInsets.all(r.spaceLg + r.spaceXs),
+          padding: EdgeInsets.all(r.spaceLg),
           child: Row(
             children: [
               Container(
@@ -351,7 +396,7 @@ class _IntroPageState extends State<IntroPage> {
     final List<int> bpms = recent.map((e) => e.averageBPM).toList();
     final int lo = bpms.reduce(min);
     final int hi = bpms.reduce(max);
-    final double barArea = r.iconXl * 1.25;
+    final double barArea = r.iconXl;
     return ExcludeSemantics(
       child: SizedBox(
         height: barArea,
@@ -415,28 +460,84 @@ class _IntroPageState extends State<IntroPage> {
     );
   }
 
-  Widget _tile(BuildContext context, IconData icon, Color color, String label,
-      Widget page) {
+  /// The secondary destinations as one list card: a row each, with a line
+  /// saying what is behind it.
+  Widget _menuCard(BuildContext context) {
     final r = Responsive.of(context);
-    return Expanded(
-      child: InfoCard(
-        onTap: () => _open(page),
-        padding:
-            EdgeInsets.symmetric(vertical: r.spaceMd, horizontal: r.spaceXs),
-        child: Semantics(
-          button: true,
-          label: label,
-          excludeSemantics: true,
-          child: Column(
-            children: [
-              Icon(icon, size: r.iconLg, color: color),
-              SizedBox(height: r.spaceXs),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                style: TextStyle(fontSize: r.fontSmall, height: 1.25),
+    final L10n t = L10n.of(context);
+    final rows = <Widget>[
+      _menuRow(context, Icons.history, const Color(0xFF1A73E8),
+          t.homeTileHistory, t.homeTileHistoryHint, const RecordsPage()),
+      _menuRow(context, Icons.help_outline, const Color(0xFF1E8E3E),
+          t.homeTileHowItWorks, t.homeTileHowItWorksHint, const About()),
+      _menuRow(context, Icons.info_outline, kInfoSecondaryText, t.homeTileAbout,
+          t.homeTileAboutHint, const InfoApp()),
+    ];
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                // Starts under the text, as in iOS lists.
+                indent: r.spaceLg + r.iconXl * 1.1 + r.spaceMd,
+                color: const Color(0xFFE6E6E6),
               ),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _menuRow(BuildContext context, IconData icon, Color color,
+      String title, String hint, Widget page) {
+    final r = Responsive.of(context);
+    final double badge = r.iconXl * 1.1;
+    return Semantics(
+      button: true,
+      label: '$title, $hint',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => _open(page),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: r.spaceLg, vertical: r.spaceSm + 2),
+          child: Row(
+            children: [
+              Container(
+                width: badge,
+                height: badge,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(badge * 0.28),
+                ),
+                child: Icon(icon, size: r.iconMd, color: color),
+              ),
+              SizedBox(width: r.spaceMd),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                          fontSize: r.fontBodyLg, fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(height: r.spaceXs / 2),
+                    Text(
+                      hint,
+                      style: TextStyle(
+                          fontSize: r.fontSmall, color: kInfoSecondaryText),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.black26, size: r.iconMd),
             ],
           ),
         ),

@@ -965,4 +965,16 @@ class L10nEn extends L10n {
 
   @override
   String get homeTileAbout => 'About';
+
+  @override
+  String get homeSectionMore => 'More';
+
+  @override
+  String get homeTileHistoryHint => 'All saved measurements';
+
+  @override
+  String get homeTileHowItWorksHint => 'Tips for an accurate reading';
+
+  @override
+  String get homeTileAboutHint => 'Project, team and links';
 }
