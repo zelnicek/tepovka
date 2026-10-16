@@ -1,0 +1,6 @@
+/* Texts iOS shows when asking for permissions. */
+NSCameraUsageDescription = "Tepovka measures your heart rate with the camera and flash: your fingertip changes the colour of the image with every heartbeat. No images are stored or sent anywhere.";
+NSHealthShareUsageDescription = "Tepovka works with heart rate data in the Health app. It never sends Health data anywhere.";
+NSHealthUpdateUsageDescription = "After a measurement, Tepovka saves your heart rate to the Health app, and for measurements of 60 seconds or more with a good signal also your heart rate variability (HRV).";
+NSMicrophoneUsageDescription = "Tepovka does not use the microphone and never asks for it. iOS requires this text because of the camera library.";
+NSMotionUsageDescription = "Tepovka watches the phone's motion to tell when you move during a measurement, which would make the result inaccurate.";

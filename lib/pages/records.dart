@@ -33,6 +33,7 @@ import 'package:csv/csv.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:tepovka/elements/report_pdf.dart';
 import 'package:tepovka/services/local_profile_service.dart';
+import 'package:tepovka/services/measurement_tags.dart';
 import 'package:tepovka/services/weekly_trend.dart';
 import 'package:tepovka/widgets/settings_widgets.dart';
 
@@ -82,6 +83,11 @@ class Record {
   /// Empty on records saved before quality was stored.
   final Map<String, dynamic> signalQuality;
 
+  /// [MeasurementTag] names picked after measuring. Empty on older records.
+  final List<String> tags;
+
+  List<MeasurementTag> get measurementTags => MeasurementTag.fromNames(tags);
+
   Record({
     required this.date,
     required this.time,
@@ -105,6 +111,7 @@ class Record {
     required this.hrr,
     required this.recoveryChart,
     this.signalQuality = const {},
+    this.tags = const [],
   });
 
   /// Vzorkovací frekvence tohoto záznamu: nejdřív ze skutečných razítek
@@ -155,6 +162,7 @@ class Record {
       'hrr': hrr,
       'recoveryChart': recoveryChart,
       if (signalQuality.isNotEmpty) 'signalQuality': signalQuality,
+      if (tags.isNotEmpty) 'tags': tags,
     };
   }
 
@@ -209,6 +217,9 @@ class Record {
       signalQuality: json['signalQuality'] is Map
           ? Map<String, dynamic>.from(json['signalQuality'] as Map)
           : const {},
+      tags: json['tags'] is List
+          ? [for (final Object? v in json['tags'] as List) '$v']
+          : const [],
     );
   }
 }
@@ -243,6 +254,9 @@ class _RecordsPageState extends State<RecordsPage> {
   DateTime? _startDate;
   DateTime? _endDate;
   String _qualityFilter = 'all'; // all|good|medium|poor
+
+  /// Records with any of these tags; empty filters nothing.
+  final Set<MeasurementTag> _tagFilter = {};
   String _sortMode = 'date_desc'; // date_desc|date_asc|bpm_desc|bpm_asc
   bool _selectionMode = false;
   final Set<String> _selectedKeys = <String>{}; // key: "date_time"
@@ -298,6 +312,7 @@ class _RecordsPageState extends State<RecordsPage> {
             hrr: rec.hrr,
             recoveryChart: rec.recoveryChart,
             signalQuality: rec.signalQuality,
+            tags: rec.tags,
           ));
         }
 
@@ -390,7 +405,11 @@ class _RecordsPageState extends State<RecordsPage> {
           shown = '${DateFormat.yMMMMEEEEd(_locale).format(when)} '
               '${DateFormat.yMd(_locale).format(when)} ${_formatTime(when)}';
         } catch (_) {}
+        final L10n t = L10n.of(context);
+        final String tags =
+            r.measurementTags.map((tag) => tag.label(t)).join(' ');
         return r.notesContent.toLowerCase().contains(q) ||
+            tags.toLowerCase().contains(q) ||
             r.date.contains(q) ||
             r.time.contains(q) ||
             shown.toLowerCase().contains(q) ||
@@ -411,6 +430,11 @@ class _RecordsPageState extends State<RecordsPage> {
         final before = _endDate == null || !dt.isAfter(_endDate!);
         return after && before;
       }).toList();
+    }
+    // Tags: any of the chosen ones.
+    if (_tagFilter.isNotEmpty) {
+      out =
+          out.where((r) => r.measurementTags.any(_tagFilter.contains)).toList();
     }
     // Quality
     if (_qualityFilter != 'all') {
@@ -538,6 +562,7 @@ class _RecordsPageState extends State<RecordsPage> {
 
   bool get _filtersActive =>
       _qualityFilter != 'all' ||
+      _tagFilter.isNotEmpty ||
       _startDate != null ||
       _endDate != null ||
       _minBpm > _bpmFloor ||
@@ -547,6 +572,7 @@ class _RecordsPageState extends State<RecordsPage> {
   void _clearFilters() {
     setState(() {
       _qualityFilter = 'all';
+      _tagFilter.clear();
       _startDate = null;
       _endDate = null;
       _minBpm = _bpmFloor;
@@ -638,19 +664,9 @@ class _RecordsPageState extends State<RecordsPage> {
               );
 
           Widget choice(String label, bool selected, VoidCallback select) =>
-              ChoiceChip(
-                label: Text(label),
+              InfoChoiceChip(
+                label: label,
                 selected: selected,
-                showCheckmark: false,
-                selectedColor: kInfoAccentTint,
-                backgroundColor: Colors.white,
-                side: BorderSide(
-                    color: selected ? kInfoAccent : const Color(0xFFDDDDDD)),
-                labelStyle: TextStyle(
-                  fontSize: r.fontBody,
-                  color: selected ? const Color(0xFFB3261E) : Colors.black87,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
                 onSelected: (_) => update(select),
               );
 
@@ -665,6 +681,26 @@ class _RecordsPageState extends State<RecordsPage> {
                     t.recordsFilters,
                     style: TextStyle(
                         fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+                  ),
+                  heading(t.recordsTags),
+                  Wrap(
+                    spacing: r.spaceSm,
+                    runSpacing: r.spaceSm,
+                    children: [
+                      for (final MeasurementTag tag in MeasurementTag.values)
+                        InfoChoiceChip(
+                          label: tag.label(t),
+                          icon: tag.icon,
+                          selected: _tagFilter.contains(tag),
+                          onSelected: (on) => update(() {
+                            if (on) {
+                              _tagFilter.add(tag);
+                            } else {
+                              _tagFilter.remove(tag);
+                            }
+                          }),
+                        ),
+                    ],
                   ),
                   heading(t.recordsSignalQuality),
                   Wrap(
@@ -1150,6 +1186,7 @@ class _RecordsPageState extends State<RecordsPage> {
         record.notesContent.trim().replaceAll(RegExp(r'\s+'), ' ');
     final String subtitle = [
       t.homeSecondsSuffix(record.duration),
+      for (final MeasurementTag tag in record.measurementTags) tag.label(t),
       if (note.isNotEmpty) note,
     ].join(' · ');
 
@@ -1242,6 +1279,30 @@ class _RecordsPageState extends State<RecordsPage> {
       confirmDismiss: (_) => _confirmDelete(),
       onDismissed: (_) => _deleteRecord(record),
       child: row,
+    );
+  }
+
+  /// A tag shown on a saved record: the chip's look, not tappable.
+  Widget _tagBadge(BuildContext context, MeasurementTag tag) {
+    final r = Responsive.of(context);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: r.spaceSm + 2, vertical: 6),
+      decoration: BoxDecoration(
+        color: kInfoAccentTint,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(tag.icon, size: r.iconSm, color: const Color(0xFFB3261E)),
+          SizedBox(width: r.spaceXs),
+          Text(tag.label(L10n.of(context)),
+              style: TextStyle(
+                  fontSize: r.fontSmall,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFB3261E))),
+        ],
+      ),
     );
   }
 
@@ -1498,7 +1559,9 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   ReportEntry _reportEntry(Record r) {
+    final L10n t = L10n.of(context);
     final DateTime when = _instantOf(r);
+    final String note = r.notesContent.trim().replaceAll(RegExp(r'\s+'), ' ');
     return ReportEntry(
       date: _formatShortDate(when),
       time: _formatTime(when),
@@ -1507,7 +1570,10 @@ class _RecordsPageState extends State<RecordsPage> {
       sdnnMs: _hrvFor(r, 'sdnn'),
       rmssdMs: _hrvFor(r, 'rmssd'),
       quality: _signalQualityOf(r),
-      note: r.notesContent.trim().replaceAll(RegExp(r'\s+'), ' '),
+      note: [
+        for (final MeasurementTag tag in r.measurementTags) tag.label(t),
+        if (note.isNotEmpty) note,
+      ].join(' · '),
     );
   }
 
@@ -1563,6 +1629,7 @@ class _RecordsPageState extends State<RecordsPage> {
           'signal_quality',
           'sdnn_ms',
           'rmssd_ms',
+          'tags',
           'notes',
           ...metaKeys,
         ],
@@ -1576,6 +1643,7 @@ class _RecordsPageState extends State<RecordsPage> {
             _signalQualityOf(r) ?? '',
             one(_hrvFor(r, 'sdnn')),
             one(_hrvFor(r, 'rmssd')),
+            r.tags.join(';'),
             r.notesContent,
             for (final String k in metaKeys) r.metadata[k] ?? '',
           ],
@@ -1593,14 +1661,17 @@ class _RecordsPageState extends State<RecordsPage> {
 
   /// Average heart rate per week over the last eight weeks, from all records
   /// whatever the filters, since it is about time. Readings with a poor
-  /// signal are left out: they would move the average, not the heart. Null
-  /// until two weeks have a reading.
+  /// signal are left out: they would move the average, not the heart. So
+  /// are readings tagged after exercise, coffee or stress, which leaves the
+  /// resting heart rate. Null until two weeks have a reading.
   Widget? _weeklyTrendCard() {
     final r = Responsive.of(context);
     final L10n t = L10n.of(context);
     final List<WeekAverage> weeks = weeklyAverages([
       for (final Record rec in _records)
-        if (_signalQualityOf(rec) != 'poor') (_instantOf(rec), rec.averageBPM),
+        if (_signalQualityOf(rec) != 'poor' &&
+            !rec.measurementTags.any((tag) => tag.raisesHeartRate))
+          (_instantOf(rec), rec.averageBPM),
     ], now: DateTime.now());
     final List<int> values = [
       for (final WeekAverage w in weeks)
@@ -1952,6 +2023,7 @@ class _RecordsPageState extends State<RecordsPage> {
           'signal_quality',
           '${b.quality.level.name} '
               '(${b.quality.score.toStringAsFixed(0)}/100)');
+      meta('tags', record.tags.join(';'));
       meta('notes', record.notesContent.replaceAll(',', ' '));
       record.metadata.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
       record.cameraSettings.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
@@ -1989,6 +2061,7 @@ class _RecordsPageState extends State<RecordsPage> {
         'savedAt': record.savedAt,
         'durationS': record.duration,
         'averageBpm': record.averageBPM,
+        'tags': record.tags,
         'notes': record.notesContent,
         'metadata': record.metadata,
         // Čísla zpět jako čísla, ať je analýza nemusí převádět.
@@ -2052,6 +2125,7 @@ class _RecordsPageState extends State<RecordsPage> {
       }
       sb.writeln('Average BPM: ${record.averageBPM}');
       sb.writeln('BPM from pulse feet: ${b.bpmFromFeet.toStringAsFixed(1)}');
+      sb.writeln('Tags: ${record.tags.join(', ')}');
       sb.writeln('Notes: ${record.notesContent}');
       sb.writeln('Duration: ${record.duration}');
       record.metadata.forEach((key, value) => sb.writeln('$key: $value'));
@@ -2517,12 +2591,32 @@ class _RecordsPageState extends State<RecordsPage> {
                   ],
                 ),
               ),
-              if (record.notesContent.trim().isNotEmpty) ...[
+              if (record.measurementTags.isNotEmpty ||
+                  record.notesContent.trim().isNotEmpty) ...[
                 SizedBox(height: r.spaceMd),
                 InfoCard(
-                  child: Text(
-                    record.notesContent,
-                    style: TextStyle(fontSize: r.fontBody, height: 1.4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (record.measurementTags.isNotEmpty)
+                        Wrap(
+                          spacing: r.spaceSm,
+                          runSpacing: r.spaceSm,
+                          children: [
+                            for (final MeasurementTag tag
+                                in record.measurementTags)
+                              _tagBadge(context, tag),
+                          ],
+                        ),
+                      if (record.measurementTags.isNotEmpty &&
+                          record.notesContent.trim().isNotEmpty)
+                        SizedBox(height: r.spaceMd),
+                      if (record.notesContent.trim().isNotEmpty)
+                        Text(
+                          record.notesContent,
+                          style: TextStyle(fontSize: r.fontBody, height: 1.4),
+                        ),
+                    ],
                   ),
                 ),
               ],

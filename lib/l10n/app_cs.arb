@@ -628,7 +628,7 @@
     }
   },
   "recordsWeeklySame": "stejně jako týden předtím",
-  "recordsWeeklyCaption": "Průměr za týden, posledních 8 týdnů, bez měření se špatným signálem",
+  "recordsWeeklyCaption": "Průměr za týden, posledních 8 týdnů. Nepočítá měření po námaze, po kávě, ve stresu ani se špatným signálem.",
   "reportTitle": "Přehled měření tepu",
   "reportPatient": "Pacient: {name} · ID {id}",
   "@reportPatient": {
@@ -682,5 +682,12 @@
     }
   },
   "summarySavedToHealthWithHrv": "Tep a HRV uloženy do Apple Zdraví",
-  "reportQualityUnknown": "Bez hodnocení"
+  "reportQualityUnknown": "Bez hodnocení",
+  "tagRest": "V klidu",
+  "tagMorning": "Ráno po probuzení",
+  "tagExercise": "Po námaze",
+  "tagCaffeine": "Po kávě",
+  "tagStress": "Ve stresu",
+  "summaryContextTitle": "Okolnosti měření",
+  "recordsTags": "Štítky"
 }

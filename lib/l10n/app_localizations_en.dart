@@ -1263,7 +1263,7 @@ class L10nEn extends L10n {
 
   @override
   String get recordsWeeklyCaption =>
-      'Weekly average over the last 8 weeks, without readings with a poor signal';
+      'Weekly average over the last 8 weeks. Leaves out readings after exercise, after coffee, under stress or with a poor signal.';
 
   @override
   String get reportTitle => 'Heart rate report';
@@ -1334,4 +1334,25 @@ class L10nEn extends L10n {
 
   @override
   String get reportQualityUnknown => 'Not graded';
+
+  @override
+  String get tagRest => 'At rest';
+
+  @override
+  String get tagMorning => 'After waking up';
+
+  @override
+  String get tagExercise => 'After exercise';
+
+  @override
+  String get tagCaffeine => 'After coffee';
+
+  @override
+  String get tagStress => 'Stressed';
+
+  @override
+  String get summaryContextTitle => 'Measurement context';
+
+  @override
+  String get recordsTags => 'Tags';
 }

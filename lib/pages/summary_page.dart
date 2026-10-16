@@ -12,6 +12,7 @@ import 'package:tepovka/elements/peak_detector.dart';
 import 'package:tepovka/elements/hrv_calculator.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/services/measurement_quality.dart';
+import 'package:tepovka/services/measurement_tags.dart';
 import 'package:tepovka/elements/spectral_quality.dart';
 import 'package:tepovka/widgets/bpm_scale.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
@@ -92,6 +93,9 @@ class _SummaryState extends State<Summary> {
   final List<HealthDataPoint> _healthDataList = [];
   bool _isSaving = false;
   final TextEditingController _notesController = TextEditingController();
+
+  /// Circumstances picked on this screen, saved with the record.
+  final Set<MeasurementTag> _tags = {};
   List<FlSpot> _smoothedData = [];
   List<FlSpot> _peakSpots = [];
   final List<TimeLabel> _labels = [];
@@ -632,6 +636,10 @@ class _SummaryState extends State<Summary> {
         'averageBPM': averageBpm,
         'dataForPlot': dataForPlot,
         'notes': notesContent,
+        'tags': [
+          for (final MeasurementTag tag in MeasurementTag.values)
+            if (_tags.contains(tag)) tag.name,
+        ],
         'bpmList': bpmList,
         'bpmHistory': widget.bpmHistory,
         'rawRgbSamples': rawRgbSamples,
@@ -877,6 +885,8 @@ class _SummaryState extends State<Summary> {
             ),
           ),
           body: SingleChildScrollView(
+            // The keyboard covers Save; scrolling puts it away.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: EdgeInsets.fromLTRB(
                 r.pagePadding.left, r.spaceSm, r.pagePadding.right, r.spaceXl),
             child: Column(
@@ -884,10 +894,14 @@ class _SummaryState extends State<Summary> {
               children: [
                 _resultCard(context),
                 SizedBox(height: r.spaceMd),
-                if (patient)
-                  _patientCard(context)
-                else ...[
-                  _notesCard(context),
+                // Tags and the note in both modes: they matter as much to a
+                // patient keeping a diary as to a doctor.
+                if (patient) ...[
+                  _patientCard(context),
+                  SizedBox(height: r.spaceMd),
+                  _contextCard(context),
+                ] else ...[
+                  _contextCard(context),
                   SizedBox(height: r.spaceLg),
                   _sectionSelector(context),
                   SizedBox(height: r.spaceMd),
@@ -1044,24 +1058,58 @@ class _SummaryState extends State<Summary> {
     );
   }
 
-  Widget _notesCard(BuildContext context) {
+  /// Tags for the usual circumstances, one tap each, and a free note for
+  /// anything else.
+  Widget _contextCard(BuildContext context) {
     final r = Responsive.of(context);
     final L10n t = L10n.of(context);
     return InfoCard(
-      padding: EdgeInsets.fromLTRB(r.spaceLg, r.spaceXs, r.spaceLg, r.spaceXs),
-      child: TextField(
-        controller: _notesController,
-        maxLines: null,
-        textCapitalization: TextCapitalization.sentences,
-        cursorColor: kInfoAccent,
-        style: TextStyle(fontSize: r.fontBody, color: Colors.black),
-        decoration: InputDecoration(
-          labelText: t.commonNote,
-          hintText: t.summaryNotesHint,
-          border: InputBorder.none,
-          labelStyle: const TextStyle(color: kInfoSecondaryText),
-          floatingLabelStyle: const TextStyle(color: kInfoSecondaryText),
-        ),
+      padding: EdgeInsets.fromLTRB(r.spaceLg, r.spaceMd, r.spaceLg, r.spaceXs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            t.summaryContextTitle,
+            style: TextStyle(fontSize: r.fontBody, fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: r.spaceSm),
+          Wrap(
+            spacing: r.spaceSm,
+            runSpacing: r.spaceSm,
+            children: [
+              for (final MeasurementTag tag in MeasurementTag.values)
+                InfoChoiceChip(
+                  label: tag.label(t),
+                  icon: tag.icon,
+                  selected: _tags.contains(tag),
+                  onSelected: (on) => setState(() {
+                    if (on) {
+                      _tags.add(tag);
+                    } else {
+                      _tags.remove(tag);
+                    }
+                  }),
+                ),
+            ],
+          ),
+          SizedBox(height: r.spaceSm),
+          const Divider(height: 1, color: Color(0xFFE6E6E6)),
+          TextField(
+            controller: _notesController,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
+            maxLines: null,
+            textCapitalization: TextCapitalization.sentences,
+            cursorColor: kInfoAccent,
+            style: TextStyle(fontSize: r.fontBody, color: Colors.black),
+            decoration: InputDecoration(
+              labelText: t.commonNote,
+              hintText: t.summaryNotesHint,
+              border: InputBorder.none,
+              labelStyle: const TextStyle(color: kInfoSecondaryText),
+              floatingLabelStyle: const TextStyle(color: kInfoSecondaryText),
+            ),
+          ),
+        ],
       ),
     );
   }

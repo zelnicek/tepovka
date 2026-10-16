@@ -33,15 +33,15 @@
 			<integer>1</integer>
 		</array>
 		<key>NSCameraUsageDescription</key>
-		<string>Tato aplikace potřebuje přístup k fotoaparátu pro měření vaší srdeční frekvence.</string>
+		<string>Tepovka měří tep kamerou a bleskem: přiložený prst mění barvu obrazu s každým úderem srdce. Snímky se nikam neukládají ani neodesílají.</string>
 		<key>NSHealthShareUsageDescription</key>
-		<string>Aplikace potřebuje přístup k HealthKit pro čtení dat tepové frekvence.</string>
+		<string>Tepovka pracuje s tepovou frekvencí v aplikaci Zdraví. Data ze Zdraví nikam neodesílá.</string>
 		<key>NSHealthUpdateUsageDescription</key>
-		<string>Aplikace potřebuje přístup k HealthKit pro ukládání tepové frekvence a variability srdečního rytmu (HRV).</string>
+		<string>Po měření Tepovka uloží do aplikace Zdraví tepovou frekvenci a u měření od 60 sekund s dobrým signálem i variabilitu srdečního rytmu (HRV).</string>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>Tato aplikace potřebuje přístup k mikrofonu pro použití blesku při měření.</string>
+		<string>Tepovka mikrofon nepoužívá a o přístup k němu nežádá. Systém tento popis vyžaduje kvůli knihovně fotoaparátu.</string>
 		<key>NSMotionUsageDescription</key>
-		<string>Tato aplikace potřebuje přístup k pohybovým senzorům pro potlačení pohybových artefaktů během měření.</string>
+		<string>Tepovka sleduje pohyb telefonu, aby poznala, kdy se během měření hýbete a výsledek by byl nepřesný.</string>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>

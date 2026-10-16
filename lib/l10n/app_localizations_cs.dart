@@ -1248,7 +1248,7 @@ class L10nCs extends L10n {
 
   @override
   String get recordsWeeklyCaption =>
-      'Průměr za týden, posledních 8 týdnů, bez měření se špatným signálem';
+      'Průměr za týden, posledních 8 týdnů. Nepočítá měření po námaze, po kávě, ve stresu ani se špatným signálem.';
 
   @override
   String get reportTitle => 'Přehled měření tepu';
@@ -1318,4 +1318,25 @@ class L10nCs extends L10n {
 
   @override
   String get reportQualityUnknown => 'Bez hodnocení';
+
+  @override
+  String get tagRest => 'V klidu';
+
+  @override
+  String get tagMorning => 'Ráno po probuzení';
+
+  @override
+  String get tagExercise => 'Po námaze';
+
+  @override
+  String get tagCaffeine => 'Po kávě';
+
+  @override
+  String get tagStress => 'Ve stresu';
+
+  @override
+  String get summaryContextTitle => 'Okolnosti měření';
+
+  @override
+  String get recordsTags => 'Štítky';
 }

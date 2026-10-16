@@ -2308,7 +2308,7 @@ abstract class L10n {
   /// No description provided for @recordsWeeklyCaption.
   ///
   /// In cs, this message translates to:
-  /// **'Průměr za týden, posledních 8 týdnů, bez měření se špatným signálem'**
+  /// **'Průměr za týden, posledních 8 týdnů. Nepočítá měření po námaze, po kávě, ve stresu ani se špatným signálem.'**
   String get recordsWeeklyCaption;
 
   /// No description provided for @reportTitle.
@@ -2430,6 +2430,48 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Bez hodnocení'**
   String get reportQualityUnknown;
+
+  /// No description provided for @tagRest.
+  ///
+  /// In cs, this message translates to:
+  /// **'V klidu'**
+  String get tagRest;
+
+  /// No description provided for @tagMorning.
+  ///
+  /// In cs, this message translates to:
+  /// **'Ráno po probuzení'**
+  String get tagMorning;
+
+  /// No description provided for @tagExercise.
+  ///
+  /// In cs, this message translates to:
+  /// **'Po námaze'**
+  String get tagExercise;
+
+  /// No description provided for @tagCaffeine.
+  ///
+  /// In cs, this message translates to:
+  /// **'Po kávě'**
+  String get tagCaffeine;
+
+  /// No description provided for @tagStress.
+  ///
+  /// In cs, this message translates to:
+  /// **'Ve stresu'**
+  String get tagStress;
+
+  /// No description provided for @summaryContextTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Okolnosti měření'**
+  String get summaryContextTitle;
+
+  /// No description provided for @recordsTags.
+  ///
+  /// In cs, this message translates to:
+  /// **'Štítky'**
+  String get recordsTags;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

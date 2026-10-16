@@ -1,0 +1,6 @@
+/* Texty, které iOS ukazuje při žádosti o oprávnění. */
+NSCameraUsageDescription = "Tepovka měří tep kamerou a bleskem: přiložený prst mění barvu obrazu s každým úderem srdce. Snímky se nikam neukládají ani neodesílají.";
+NSHealthShareUsageDescription = "Tepovka pracuje s tepovou frekvencí v aplikaci Zdraví. Data ze Zdraví nikam neodesílá.";
+NSHealthUpdateUsageDescription = "Po měření Tepovka uloží do aplikace Zdraví tepovou frekvenci a u měření od 60 sekund s dobrým signálem i variabilitu srdečního rytmu (HRV).";
+NSMicrophoneUsageDescription = "Tepovka mikrofon nepoužívá a o přístup k němu nežádá. Systém tento popis vyžaduje kvůli knihovně fotoaparátu.";
+NSMotionUsageDescription = "Tepovka sleduje pohyb telefonu, aby poznala, kdy se během měření hýbete a výsledek by byl nepřesný.";

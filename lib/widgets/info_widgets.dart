@@ -41,6 +41,46 @@ Future<bool> confirmDestructive(
   return confirmed ?? false;
 }
 
+/// An option that can be switched on and off, light red when on. Used for
+/// the history filters and the measurement tags, so both look the same.
+class InfoChoiceChip extends StatelessWidget {
+  const InfoChoiceChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    this.icon,
+  });
+
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = Responsive.of(context);
+    final Color foreground =
+        selected ? const Color(0xFFB3261E) : Colors.black87;
+    return ChoiceChip(
+      label: Text(label),
+      avatar:
+          icon == null ? null : Icon(icon, size: r.iconSm, color: foreground),
+      selected: selected,
+      showCheckmark: false,
+      selectedColor: kInfoAccentTint,
+      backgroundColor: Colors.white,
+      side: BorderSide(color: selected ? kInfoAccent : const Color(0xFFDDDDDD)),
+      labelStyle: TextStyle(
+        fontSize: r.fontBody,
+        color: foreground,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+      ),
+      onSelected: onSelected,
+    );
+  }
+}
+
 /// White rounded card. Tappable when [onTap] is set.
 class InfoCard extends StatelessWidget {
   const InfoCard({

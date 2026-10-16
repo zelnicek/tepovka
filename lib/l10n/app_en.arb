@@ -378,7 +378,7 @@
   "recordsWeeklyLower": "{n} lower than the week before",
   "recordsWeeklyHigher": "{n} higher than the week before",
   "recordsWeeklySame": "same as the week before",
-  "recordsWeeklyCaption": "Weekly average over the last 8 weeks, without readings with a poor signal",
+  "recordsWeeklyCaption": "Weekly average over the last 8 weeks. Leaves out readings after exercise, after coffee, under stress or with a poor signal.",
   "reportTitle": "Heart rate report",
   "reportPatient": "Patient: {name} · ID {id}",
   "reportPeriod": "Period: {period}",
@@ -398,5 +398,12 @@
   "reportDisclaimer": "Tepovka measures heart rate with the phone camera (photoplethysmography). The values are indicative; the app is not a medical device and is not meant for diagnosis. HRV (SDNN, RMSSD) is shown only for measurements of 60 s or more without a poor signal.",
   "reportPage": "Page {page} of {pages}",
   "summarySavedToHealthWithHrv": "Heart rate and HRV saved to Apple Health",
-  "reportQualityUnknown": "Not graded"
+  "reportQualityUnknown": "Not graded",
+  "tagRest": "At rest",
+  "tagMorning": "After waking up",
+  "tagExercise": "After exercise",
+  "tagCaffeine": "After coffee",
+  "tagStress": "Stressed",
+  "summaryContextTitle": "Measurement context",
+  "recordsTags": "Tags"
 }
