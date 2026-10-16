@@ -16,6 +16,8 @@ import 'package:tepovka/services/measurement_tags.dart';
 import 'package:tepovka/elements/spectral_quality.dart';
 import 'package:tepovka/widgets/bpm_scale.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
+import 'package:tepovka/widgets/share_card.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 // Cloud sync disabled for local-only mode
 
 enum PatientStatus { normal, rest }
@@ -883,6 +885,14 @@ class _SummaryState extends State<Summary> {
               style:
                   TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
             ),
+            actions: [
+              if (_effectiveAverageBpm > 0)
+                IconButton(
+                  tooltip: L10n.of(context).shareCardTitle,
+                  icon: const Icon(Symbols.ios_share),
+                  onPressed: _shareCard,
+                ),
+            ],
           ),
           body: SingleChildScrollView(
             // The keyboard covers Save; scrolling puts it away.
@@ -1015,6 +1025,24 @@ class _SummaryState extends State<Summary> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// The result as a picture to share, with the tags picked so far.
+  void _shareCard() {
+    showShareCardSheet(
+      context,
+      ShareCardData(
+        bpm: _effectiveAverageBpm.round(),
+        when: widget.startedAt,
+        durationS: widget.recordingDuration,
+        wave: waveSnippet([for (final s in _smoothedData) s.y], _fs),
+        quality: _qualityResult?.level,
+        tags: [
+          for (final MeasurementTag tag in MeasurementTag.values)
+            if (_tags.contains(tag)) tag,
         ],
       ),
     );

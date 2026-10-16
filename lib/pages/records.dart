@@ -37,6 +37,7 @@ import 'package:tepovka/services/local_profile_service.dart';
 import 'package:tepovka/services/measurement_tags.dart';
 import 'package:tepovka/services/weekly_trend.dart';
 import 'package:tepovka/widgets/settings_widgets.dart';
+import 'package:tepovka/widgets/share_card.dart';
 
 /// Nominální snímkovací frekvence kamery. Skutečná bývá nižší (~24 fps) —
 /// měření proti Faros 180 EKG a oxymetru v srpnu 2026 dalo poměr 1.232
@@ -2549,6 +2550,25 @@ class _RecordsPageState extends State<RecordsPage> {
                 TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
           ),
           actions: [
+            if (calculatedAverageBPM > 0)
+              IconButton(
+                tooltip: t.shareCardTitle,
+                icon: const Icon(Symbols.ios_share, size: 22),
+                onPressed: () => showShareCardSheet(
+                  context,
+                  ShareCardData(
+                    bpm: calculatedAverageBPM.toInt(),
+                    when: when,
+                    durationS: record.duration,
+                    wave: waveSnippet([for (final s in smoothedData) s.y],
+                        record.effectiveSampleRate),
+                    quality: MeasurementQuality.values
+                        .where((q) => q.name == quality)
+                        .firstOrNull,
+                    tags: record.measurementTags,
+                  ),
+                ),
+              ),
             IconButton(
               tooltip: t.recordsDownloadPdf,
               icon: const Icon(FontAwesomeIcons.filePdf,

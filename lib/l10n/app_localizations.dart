@@ -2466,6 +2466,36 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Variabilitu tepu (HRV) ukazujeme jen u měření od 60 sekund. Z kratšího záznamu vychází příliš nepřesně.'**
   String get metricsHrvNeedsLonger;
+
+  /// No description provided for @shareCardTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Sdílet výsledek'**
+  String get shareCardTitle;
+
+  /// No description provided for @shareCardShare.
+  ///
+  /// In cs, this message translates to:
+  /// **'Sdílet'**
+  String get shareCardShare;
+
+  /// No description provided for @shareCardHeartRate.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tepová frekvence'**
+  String get shareCardHeartRate;
+
+  /// No description provided for @shareCardFooter.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změřeno fotoaparátem telefonu'**
+  String get shareCardFooter;
+
+  /// No description provided for @shareCardFailed.
+  ///
+  /// In cs, this message translates to:
+  /// **'Kartu se nepodařilo vytvořit'**
+  String get shareCardFailed;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

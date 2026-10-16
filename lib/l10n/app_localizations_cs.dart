@@ -1336,4 +1336,19 @@ class L10nCs extends L10n {
   @override
   String get metricsHrvNeedsLonger =>
       'Variabilitu tepu (HRV) ukazujeme jen u měření od 60 sekund. Z kratšího záznamu vychází příliš nepřesně.';
+
+  @override
+  String get shareCardTitle => 'Sdílet výsledek';
+
+  @override
+  String get shareCardShare => 'Sdílet';
+
+  @override
+  String get shareCardHeartRate => 'Tepová frekvence';
+
+  @override
+  String get shareCardFooter => 'Změřeno fotoaparátem telefonu';
+
+  @override
+  String get shareCardFailed => 'Kartu se nepodařilo vytvořit';
 }

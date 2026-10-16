@@ -404,5 +404,10 @@
   "summaryContextTitle": "Measurement context",
   "recordsTags": "Tags",
   "metricsFrequencyNeedsLonger": "LF, HF and LF/HF are shown only for measurements of 2 minutes or more. A shorter recording cannot give them reliably.",
-  "metricsHrvNeedsLonger": "Heart rate variability (HRV) is shown only for measurements of 60 seconds or more; from a shorter recording it is too inaccurate."
+  "metricsHrvNeedsLonger": "Heart rate variability (HRV) is shown only for measurements of 60 seconds or more; from a shorter recording it is too inaccurate.",
+  "shareCardTitle": "Share result",
+  "shareCardShare": "Share",
+  "shareCardHeartRate": "Heart rate",
+  "shareCardFooter": "Measured with the phone camera",
+  "shareCardFailed": "Could not create the card"
 }

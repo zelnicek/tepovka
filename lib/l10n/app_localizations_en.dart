@@ -1352,4 +1352,19 @@ class L10nEn extends L10n {
   @override
   String get metricsHrvNeedsLonger =>
       'Heart rate variability (HRV) is shown only for measurements of 60 seconds or more; from a shorter recording it is too inaccurate.';
+
+  @override
+  String get shareCardTitle => 'Share result';
+
+  @override
+  String get shareCardShare => 'Share';
+
+  @override
+  String get shareCardHeartRate => 'Heart rate';
+
+  @override
+  String get shareCardFooter => 'Measured with the phone camera';
+
+  @override
+  String get shareCardFailed => 'Could not create the card';
 }
