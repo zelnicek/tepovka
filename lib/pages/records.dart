@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:tepovka/services/haptics.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -1164,7 +1165,7 @@ class _RecordsPageState extends State<RecordsPage> {
       onLongPress: _selectionMode
           ? null
           : () {
-              HapticFeedback.selectionClick();
+              Haptics.selection();
               setState(() {
                 _selectionMode = true;
                 _selectedKeys

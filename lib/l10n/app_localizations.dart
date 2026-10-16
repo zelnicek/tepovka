@@ -919,30 +919,6 @@ abstract class L10n {
   /// **'Umožní rychlé vyhledání záznamů'**
   String get settingsMyQrForDoctorHint;
 
-  /// No description provided for @settingsStoreLocally.
-  ///
-  /// In cs, this message translates to:
-  /// **'Ukládat záznamy lokálně'**
-  String get settingsStoreLocally;
-
-  /// No description provided for @settingsStoreLocallyHint.
-  ///
-  /// In cs, this message translates to:
-  /// **'Uloží měření do zařízení'**
-  String get settingsStoreLocallyHint;
-
-  /// No description provided for @settingsTorchDuring.
-  ///
-  /// In cs, this message translates to:
-  /// **'Blesk během měření'**
-  String get settingsTorchDuring;
-
-  /// No description provided for @settingsTorchDuringHint.
-  ///
-  /// In cs, this message translates to:
-  /// **'Zlepšuje průchod světla při PPG'**
-  String get settingsTorchDuringHint;
-
   /// No description provided for @settingsComingSoon.
   ///
   /// In cs, this message translates to:
@@ -2124,6 +2100,96 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře.'**
   String get summarySpo2Disclaimer;
+
+  /// No description provided for @settingsSectionMeasurement.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měření'**
+  String get settingsSectionMeasurement;
+
+  /// No description provided for @settingsSectionDisplay.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zobrazení'**
+  String get settingsSectionDisplay;
+
+  /// No description provided for @settingsSectionSound.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zvuk a vibrace'**
+  String get settingsSectionSound;
+
+  /// No description provided for @settingsSectionData.
+  ///
+  /// In cs, this message translates to:
+  /// **'Data a soukromí'**
+  String get settingsSectionData;
+
+  /// No description provided for @settingsSectionProfile.
+  ///
+  /// In cs, this message translates to:
+  /// **'Profil'**
+  String get settingsSectionProfile;
+
+  /// No description provided for @settingsSectionSupport.
+  ///
+  /// In cs, this message translates to:
+  /// **'Podpora'**
+  String get settingsSectionSupport;
+
+  /// No description provided for @settingsPatientModeShort.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pacient'**
+  String get settingsPatientModeShort;
+
+  /// No description provided for @settingsDoctorModeShort.
+  ///
+  /// In cs, this message translates to:
+  /// **'Lékař'**
+  String get settingsDoctorModeShort;
+
+  /// No description provided for @settingsVoiceGuidance.
+  ///
+  /// In cs, this message translates to:
+  /// **'Hlasové pokyny'**
+  String get settingsVoiceGuidance;
+
+  /// No description provided for @settingsVoiceSample.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přehrát ukázku'**
+  String get settingsVoiceSample;
+
+  /// No description provided for @settingsHealthShort.
+  ///
+  /// In cs, this message translates to:
+  /// **'Apple Zdraví'**
+  String get settingsHealthShort;
+
+  /// No description provided for @settingsHealthShortHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Ukládá jen tepovou frekvenci'**
+  String get settingsHealthShortHint;
+
+  /// No description provided for @settingsDataLocal.
+  ///
+  /// In cs, this message translates to:
+  /// **'Data zůstávají v telefonu'**
+  String get settingsDataLocal;
+
+  /// No description provided for @settingsDataLocalHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tepovka nic neodesílá na server'**
+  String get settingsDataLocalHint;
+
+  /// No description provided for @settingsDiagnostics.
+  ///
+  /// In cs, this message translates to:
+  /// **'Diagnostika a logy'**
+  String get settingsDiagnostics;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

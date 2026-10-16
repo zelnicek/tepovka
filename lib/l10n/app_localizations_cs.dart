@@ -463,18 +463,6 @@ class L10nCs extends L10n {
   String get settingsMyQrForDoctorHint => 'Umožní rychlé vyhledání záznamů';
 
   @override
-  String get settingsStoreLocally => 'Ukládat záznamy lokálně';
-
-  @override
-  String get settingsStoreLocallyHint => 'Uloží měření do zařízení';
-
-  @override
-  String get settingsTorchDuring => 'Blesk během měření';
-
-  @override
-  String get settingsTorchDuringHint => 'Zlepšuje průchod světla při PPG';
-
-  @override
   String get settingsComingSoon => 'Připravujeme';
 
   @override
@@ -1143,4 +1131,49 @@ class L10nCs extends L10n {
   @override
   String get summarySpo2Disclaimer =>
       'SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře.';
+
+  @override
+  String get settingsSectionMeasurement => 'Měření';
+
+  @override
+  String get settingsSectionDisplay => 'Zobrazení';
+
+  @override
+  String get settingsSectionSound => 'Zvuk a vibrace';
+
+  @override
+  String get settingsSectionData => 'Data a soukromí';
+
+  @override
+  String get settingsSectionProfile => 'Profil';
+
+  @override
+  String get settingsSectionSupport => 'Podpora';
+
+  @override
+  String get settingsPatientModeShort => 'Pacient';
+
+  @override
+  String get settingsDoctorModeShort => 'Lékař';
+
+  @override
+  String get settingsVoiceGuidance => 'Hlasové pokyny';
+
+  @override
+  String get settingsVoiceSample => 'Přehrát ukázku';
+
+  @override
+  String get settingsHealthShort => 'Apple Zdraví';
+
+  @override
+  String get settingsHealthShortHint => 'Ukládá jen tepovou frekvenci';
+
+  @override
+  String get settingsDataLocal => 'Data zůstávají v telefonu';
+
+  @override
+  String get settingsDataLocalHint => 'Tepovka nic neodesílá na server';
+
+  @override
+  String get settingsDiagnostics => 'Diagnostika a logy';
 }

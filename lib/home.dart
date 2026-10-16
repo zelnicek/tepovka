@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:tepovka/services/haptics.dart';
 import 'package:tepovka/elements/camera_body.dart';
 import 'package:tepovka/ppg_algo.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -9,7 +10,6 @@ import 'dart:math';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/pages/about.dart';
-import 'package:flutter/services.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:tepovka/elements/research_metadata_dialog.dart';
 import 'package:tepovka/services/app_settings.dart';
@@ -533,7 +533,7 @@ class _HomeState extends State<Home>
     // they fired on every unrelated rebuild. They belong here, where the value
     // actually changes.
     if (bpm > 0) {
-      HapticFeedback.selectionClick();
+      Haptics.selection();
       final double heartRateFactor = (bpm - 30) / (220 - 30);
       if (heartRateFactor > 0) {
         _heartAnimationController.duration =
@@ -1065,7 +1065,7 @@ class _HomeState extends State<Home>
       }
     }
     // Haptics for UX: signal completion
-    HapticFeedback.lightImpact();
+    Haptics.light();
     // Voice announcement for seniors (do not block navigation)
     // Fire-and-forget to avoid getting stuck on awaitSpeakCompletion
     // ignore: unawaited_futures
@@ -1705,7 +1705,7 @@ class _HomeState extends State<Home>
 
   void _setDuration(int seconds) {
     if (seconds == _recordingDuration) return;
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     setState(() {
       _recordingDuration = seconds;
       _remainingTime = seconds;
@@ -1742,7 +1742,7 @@ class _HomeState extends State<Home>
                     step: 10,
                     axis: Axis.horizontal,
                     itemWidth: r.iconXl * 2,
-                    haptics: true,
+                    haptics: Haptics.enabled,
                     textMapper: (text) => t.homeSecondsSuffix(int.parse(text)),
                     onChanged: (v) => setSheetState(() => value = v),
                     textStyle: TextStyle(
@@ -1983,7 +1983,7 @@ class _HomeState extends State<Home>
           onTap: onTap == null
               ? null
               : () {
-                  HapticFeedback.mediumImpact();
+                  Haptics.medium();
                   onTap();
                 },
           child: SizedBox(

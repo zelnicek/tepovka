@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
+import 'package:tepovka/services/haptics.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/home.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
@@ -213,7 +214,7 @@ class _IntroPageState extends State<IntroPage> {
           gap: r.spaceSm,
           activeColor: Colors.black,
           iconSize: r.iconMd,
-          haptic: true,
+          haptic: Haptics.enabled,
           backgroundColor: Colors.white,
           color: Colors.grey,
           selectedIndex: _selectedIndex,
@@ -306,7 +307,7 @@ class _IntroPageState extends State<IntroPage> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
-          HapticFeedback.selectionClick();
+          Haptics.selection();
           _open(const Home());
         },
         child: Padding(

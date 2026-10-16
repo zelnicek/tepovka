@@ -1,20 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:tepovka/services/app_settings.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
+import 'package:tepovka/pages/diagnostics_page.dart';
 import 'package:tepovka/pages/login_page.dart';
 import 'package:tepovka/pages/qr_code_page.dart';
+import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/services/local_profile_service.dart';
-import 'package:tepovka/services/tts_service.dart';
 import 'package:tepovka/services/reminder_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tepovka/services/local_logger.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:async';
-import 'dart:io';
+import 'package:tepovka/services/tts_service.dart';
+import 'package:tepovka/widgets/info_widgets.dart';
+import 'package:tepovka/widgets/settings_widgets.dart';
 
+/// Settings, grouped by topic into cards like the rest of the app.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -23,9 +25,12 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _haptics = true;
-  bool _saveRecords = true;
-  bool _flashDuringMeasurement = true;
+  static const Color _canvas = Color.fromARGB(255, 242, 242, 242);
+  static const Color _blue = Color(0xFF1A73E8);
+  static const Color _green = Color(0xFF1E8E3E);
+  static const Color _purple = Color(0xFF7B3FE4);
+
+  late bool _haptics;
   late bool _seniorMode;
   late bool _highContrast;
   late double _textScale;
@@ -36,7 +41,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _reminderEnabled;
   late int _reminderMinutes;
   int _measurementsCount = 0;
-  String _lastMeasurement = '-';
+  String? _version;
 
   @override
   void initState() {
@@ -47,23 +52,32 @@ class _SettingsPageState extends State<SettingsPage> {
     _textScale = s.textScale;
     _userMode = s.userMode;
     _haptics = s.haptics;
-    _saveRecords = s.saveRecords;
     _researchMode = s.researchMode;
     _exportFormat = s.exportFormat;
     _researchFields = s.researchFields;
     _reminderEnabled = s.reminderEnabled;
     _reminderMinutes = s.reminderMinutes;
     _loadLocalStats();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final PackageInfo info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _version = '${info.version} (${info.buildNumber})');
+      }
+    } catch (e) {
+      debugPrint('No package info: $e');
+    }
   }
 
   Future<void> _loadLocalStats() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
-      setState(() {
-        _measurementsCount = prefs.getInt('measurements_count') ?? 0;
-        _lastMeasurement = prefs.getString('last_measurement_time') ?? '-';
-      });
+      setState(
+          () => _measurementsCount = prefs.getInt('measurements_count') ?? 0);
     } catch (e) {
       debugPrint('Failed to load local stats: $e');
     }
@@ -102,75 +116,6 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _reminderMinutes = minutes);
     AppSettings.setReminderMinutes(minutes);
     await ReminderService.reschedule();
-  }
-
-  /// The stored ISO timestamp as a date and time in the app language.
-  String _formatLastMeasurement(BuildContext context) {
-    final DateTime? when = DateTime.tryParse(_lastMeasurement);
-    if (when == null) return _lastMeasurement;
-    final String locale = Localizations.localeOf(context).toString();
-    try {
-      return '${DateFormat.yMMMd(locale).format(when)} '
-          '${DateFormat.jm(locale).format(when)}';
-    } catch (_) {
-      return _lastMeasurement;
-    }
-  }
-
-  Future<void> _openLog() async {
-    try {
-      final path = await LocalLogger.getLogFilePath();
-      if (path != null && await File(path).exists()) {
-        await OpenFilex.open(path);
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(L10n.of(context).settingsLogNotFound)));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(L10n.of(context).settingsLogOpenError('$e'))));
-    }
-  }
-
-  Future<void> _shareLog() async {
-    try {
-      final path = await LocalLogger.getLogFilePath();
-      if (path != null && await File(path).exists()) {
-        await SharePlus.instance
-            .share(ShareParams(files: [XFile(path)], text: 'Tepovka logs'));
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(L10n.of(context).settingsLogNotFound)));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(L10n.of(context).settingsLogShareError('$e'))));
-    }
-  }
-
-  Future<void> _clearLog() async {
-    try {
-      final path = await LocalLogger.getLogFilePath();
-      if (path != null && await File(path).exists()) {
-        await File(path).delete();
-        await LocalLogger.init(); // recreate
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(L10n.of(context).settingsLogCleared)));
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(L10n.of(context).settingsLogNotFound)));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(L10n.of(context).settingsLogDeleteError('$e'))));
-    }
   }
 
   Future<void> _pickExportFormat() async {
@@ -287,340 +232,352 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _playVoiceSample() async {
+    final L10n t = L10n.of(context);
+    await TtsService.instance.testSpeak(t.ttsTestVoice);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(t.settingsPlayingTestVoice)),
+    );
+  }
+
+  /// What the app writes to Health and where its access is managed. iOS has
+  /// no link straight to an app's Health permissions, so it says where.
+  void _showHealthInfo() {
+    final L10n t = L10n.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (context) {
+        final r = Responsive.of(context);
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(r.spaceXl, 0, r.spaceXl, r.spaceXl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Image.asset('assets/Icon - Apple Health.png',
+                        width: r.iconLg, height: r.iconLg),
+                    SizedBox(width: r.spaceMd),
+                    Expanded(
+                      child: Text(
+                        t.settingsAppleHealth,
+                        style: TextStyle(
+                            fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: r.spaceMd),
+                Text(t.settingsAppleHealthBody,
+                    style: TextStyle(fontSize: r.fontBody, height: 1.4)),
+                SizedBox(height: r.spaceLg),
+                Text(t.settingsManagePermissions,
+                    style: TextStyle(
+                        fontSize: r.fontBody, fontWeight: FontWeight.w600)),
+                SizedBox(height: r.spaceXs),
+                Text(t.settingsManagePermissionsHint,
+                    style: TextStyle(
+                        fontSize: r.fontBody, color: kInfoSecondaryText)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _profileSubtitle(L10n t) {
+    if (!LocalProfileService.isLoggedIn) return t.settingsNotLoggedIn;
+    final String id = LocalProfileService.userId ?? '';
+    return t.settingsProfile(
+      LocalProfileService.displayName ?? t.settingsProfileUnnamed,
+      id.length > 6 ? id.substring(0, 6) : id,
+    );
+  }
+
+  Future<void> _logout() async {
+    await LocalProfileService.signOutLocal();
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(L10n.of(context).settingsLoggedOut),
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
+  Future<void> _open(Widget page) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    // Login and diagnostics change what the rows show.
+    if (mounted) setState(() {});
+    _loadLocalStats();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
     final AppSettingsData settings = AppSettings.value;
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+      backgroundColor: _canvas,
       appBar: AppBar(
-        automaticallyImplyLeading: true,
-        backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+        backgroundColor: _canvas,
         // Material 3 tints the bar when content scrolls under it.
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: true,
         title: Text(
-          L10n.of(context).settingsTitle,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+          t.settingsTitle,
+          style: TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
         ),
       ),
       body: ListView(
+        padding: EdgeInsets.fromLTRB(
+            r.pagePadding.left, 0, r.pagePadding.right, r.spaceXl),
         children: [
-          ListTile(
-            title: Text(
-              L10n.of(context).settingsAccessibilitySection,
-              style: TextStyle(fontWeight: FontWeight.bold),
+          InfoSectionLabel(t.settingsSectionMeasurement),
+          SettingsCard(children: [
+            SettingsRow(
+              icon: Symbols.notifications,
+              tint: kInfoAccent,
+              title: t.settingsReminder,
+              subtitle: t.settingsReminderHint,
+              trailing: SettingsSwitch(
+                  value: _reminderEnabled, onChanged: _setReminderEnabled),
+              onTap: () => _setReminderEnabled(!_reminderEnabled),
             ),
-          ),
-          const SizedBox(height: 4),
-          ListTile(
-            title: Text(L10n.of(context).settingsDisplayMode),
-            subtitle: Text(L10n.of(context).settingsDisplayModeHint),
-          ),
-          RadioGroup<UserMode>(
-            groupValue: _userMode,
-            onChanged: (v) {
-              if (v == null) return;
-              setState(() => _userMode = v);
-              AppSettings.setUserMode(v);
-            },
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RadioListTile<UserMode>(
-                  value: UserMode.patient,
-                  title: Text(L10n.of(context).settingsPatientMode),
-                  subtitle: Text(L10n.of(context).settingsPatientModeHint),
-                ),
-                RadioListTile<UserMode>(
-                  value: UserMode.doctor,
-                  title: Text(L10n.of(context).settingsDoctorMode),
-                  subtitle: Text(L10n.of(context).settingsDoctorModeHint),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 24),
-          SwitchListTile(
-            secondary: const Icon(Symbols.settings_accessibility),
-            title: Text(L10n.of(context).settingsSeniorMode),
-            subtitle: Text(L10n.of(context).settingsSeniorModeHint),
-            value: _seniorMode,
-            onChanged: (v) {
-              setState(() => _seniorMode = v);
-              AppSettings.setSeniorMode(v);
-            },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Symbols.contrast),
-            title: Text(L10n.of(context).settingsHighContrast),
-            subtitle: Text(L10n.of(context).settingsHighContrastHint),
-            value: _highContrast,
-            onChanged: (v) {
-              setState(() => _highContrast = v);
-              AppSettings.setHighContrast(v);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Symbols.format_size),
-            title: Text(L10n.of(context).settingsTextSize),
-            subtitle: Text('${(_textScale * 100).round()}%'),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Slider(
-              min: 1.0,
-              max: 1.4,
-              divisions: 4,
-              label: '${(_textScale * 100).round()}%',
-              value: _textScale,
-              onChanged: (v) {
-                setState(() => _textScale = v);
-                AppSettings.setTextScale(v);
-              },
-            ),
-          ),
-          const Divider(height: 24),
-          // ─── Apple Health transparency (Apple Review 2.5.1) ─────
-          const ListTile(
-            title: Text(
-              'Apple Health',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          ListTile(
-            leading: Image.asset(
-              'assets/Icon - Apple Health.png',
-              width: 28,
-              height: 28,
-            ),
-            title: Text(L10n.of(context).settingsAppleHealth),
-            subtitle: Text(
-              L10n.of(context).settingsAppleHealthBody,
-            ),
-            isThreeLine: true,
-          ),
-          ListTile(
-            leading: const Icon(Symbols.settings),
-            title: Text(L10n.of(context).settingsManagePermissions),
-            subtitle: Text(
-              L10n.of(context).settingsManagePermissionsHint,
-            ),
-          ),
-          const Divider(height: 24),
-          ListTile(
-            title: Text(
-              L10n.of(context).settingsReminderSection,
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          SwitchListTile(
-            secondary: const Icon(Symbols.notifications),
-            title: Text(L10n.of(context).settingsReminder),
-            subtitle: Text(L10n.of(context).settingsReminderHint),
-            value: _reminderEnabled,
-            onChanged: _setReminderEnabled,
-          ),
-          if (_reminderEnabled)
-            ListTile(
-              leading: const Icon(Symbols.schedule),
-              title: Text(L10n.of(context).settingsReminderTime),
-              trailing: Text(
-                TimeOfDay(
+            if (_reminderEnabled)
+              SettingsRow(
+                icon: Symbols.schedule,
+                tint: kInfoAccent,
+                title: t.settingsReminderTime,
+                value: TimeOfDay(
                         hour: _reminderMinutes ~/ 60,
                         minute: _reminderMinutes % 60)
                     .format(context),
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                chevron: true,
+                onTap: _pickReminderTime,
               ),
-              onTap: _pickReminderTime,
+          ]),
+          InfoSectionLabel(t.settingsSectionDisplay),
+          SettingsCard(children: [
+            SettingsRow(
+              icon: Symbols.language,
+              tint: _blue,
+              title: t.settingsAppLanguage,
+              value: _languageLabel(settings.language),
+              chevron: true,
+              onTap: () => _pickLanguage(settings.language),
             ),
-          const Divider(height: 24),
-          ListTile(
-            title: Text(
-              L10n.of(context).settingsGeneralSection,
-              style: TextStyle(fontWeight: FontWeight.bold),
+            SettingsRow(
+              icon: Symbols.person,
+              tint: _blue,
+              title: t.settingsDisplayMode,
+              subtitle: _userMode == UserMode.patient
+                  ? t.settingsPatientModeHint
+                  : t.settingsDoctorModeHint,
+              below: SettingsSegments<UserMode>(
+                options: [
+                  (UserMode.patient, t.settingsPatientModeShort),
+                  (UserMode.doctor, t.settingsDoctorModeShort),
+                ],
+                selected: _userMode,
+                onSelected: (v) {
+                  setState(() => _userMode = v);
+                  AppSettings.setUserMode(v);
+                },
+              ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.volume_up),
-            title: Text(L10n.of(context).settingsTestVoice),
-            subtitle: Text(L10n.of(context).settingsTestVoiceHint),
-            onTap: () async {
-              await TtsService.instance
-                  .testSpeak(L10n.of(context).ttsTestVoice);
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(L10n.of(context).settingsPlayingTestVoice)),
-              );
-            },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Symbols.vibration),
-            title: Text(L10n.of(context).settingsHaptics),
-            subtitle: Text(L10n.of(context).settingsHapticsHint),
-            value: _haptics,
-            onChanged: (v) {
-              setState(() => _haptics = v);
-              AppSettings.setHaptics(v);
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            title: Text(
-              L10n.of(context).settingsResearchSection,
-              style: TextStyle(fontWeight: FontWeight.bold),
+            SettingsRow(
+              icon: Symbols.format_size,
+              tint: _blue,
+              title: t.settingsTextSize,
+              value: '${(_textScale * 100).round()} %',
+              below: SliderTheme(
+                data: SliderThemeData(
+                  activeTrackColor: kInfoAccent,
+                  inactiveTrackColor: kInfoAccentTint,
+                  thumbColor: kInfoAccent,
+                  overlayColor: kInfoAccent.withValues(alpha: 0.12),
+                  valueIndicatorColor: kInfoAccent,
+                ),
+                child: Slider(
+                  min: 1.0,
+                  max: 1.4,
+                  divisions: 4,
+                  label: '${(_textScale * 100).round()} %',
+                  value: _textScale,
+                  onChanged: (v) {
+                    setState(() => _textScale = v);
+                    AppSettings.setTextScale(v);
+                  },
+                ),
+              ),
             ),
-          ),
-          SwitchListTile(
-            secondary: const Icon(Symbols.science),
-            title: Text(L10n.of(context).settingsResearchMode),
-            subtitle: Text(L10n.of(context).settingsResearchModeHint),
-            value: _researchMode,
-            onChanged: (v) {
-              setState(() => _researchMode = v);
-              AppSettings.setResearchMode(v);
-            },
-          ),
-          if (_researchMode) ...[
-            ListTile(
-              leading: const Icon(Symbols.description),
-              title: Text(L10n.of(context).settingsExportFormat),
-              subtitle: Text(_exportFormatLabel(_exportFormat)),
-              trailing: const Icon(Symbols.chevron_right),
-              onTap: _pickExportFormat,
-            ),
-            ListTile(
-              leading: const Icon(Symbols.list_alt),
-              title: Text(L10n.of(context).settingsResearchFields),
-              subtitle: Text(_researchFields.join(' · ')),
-              trailing: const Icon(Symbols.chevron_right),
-              onTap: _editResearchFields,
-            ),
-          ],
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Symbols.login),
-            title: Text(L10n.of(context).settingsLogin),
-            subtitle: Text(
-              !LocalProfileService.isLoggedIn
-                  ? L10n.of(context).settingsNotLoggedIn
-                  : L10n.of(context).settingsProfile(
-                      LocalProfileService.displayName ??
-                          L10n.of(context).settingsProfileUnnamed,
-                      (LocalProfileService.userId ?? '').substring(0, 6)),
-            ),
-            trailing: const Icon(Symbols.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-              );
-            },
-          ),
-          if (LocalProfileService.isLoggedIn)
-            ListTile(
-              leading: const Icon(Symbols.logout),
-              title: Text(L10n.of(context).settingsLogout),
-              subtitle: Text(L10n.of(context).settingsLogoutHint),
-              onTap: () async {
-                await LocalProfileService.signOutLocal();
-                if (!context.mounted) return;
-                setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(L10n.of(context).settingsLoggedOut),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+            SettingsRow(
+              icon: Symbols.settings_accessibility,
+              tint: _blue,
+              title: t.settingsSeniorMode,
+              subtitle: t.settingsSeniorModeHint,
+              trailing: SettingsSwitch(
+                value: _seniorMode,
+                onChanged: (v) {
+                  setState(() => _seniorMode = v);
+                  AppSettings.setSeniorMode(v);
+                },
+              ),
+              onTap: () {
+                setState(() => _seniorMode = !_seniorMode);
+                AppSettings.setSeniorMode(_seniorMode);
               },
             ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Symbols.qr_code),
-            title: Text(L10n.of(context).settingsMyQrForDoctor),
-            subtitle: Text(L10n.of(context).settingsMyQrForDoctorHint),
-            trailing: const Icon(Symbols.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const QrCodePage()),
-              );
-            },
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            secondary: const Icon(Symbols.folder),
-            title: Text(L10n.of(context).settingsStoreLocally),
-            subtitle: Text(L10n.of(context).settingsStoreLocallyHint),
-            value: _saveRecords,
-            onChanged: (v) {
-              setState(() => _saveRecords = v);
-              AppSettings.setSaveRecords(v);
-            },
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            secondary: const Icon(Symbols.flash_on),
-            title: Text(L10n.of(context).settingsTorchDuring),
-            subtitle: Text(L10n.of(context).settingsTorchDuringHint),
-            value: _flashDuringMeasurement,
-            onChanged: (v) => setState(() => _flashDuringMeasurement = v),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Symbols.language),
-            title: Text(L10n.of(context).settingsAppLanguage),
-            subtitle: Text(_languageLabel(settings.language)),
-            trailing: const Icon(Symbols.chevron_right),
-            onTap: () => _pickLanguage(settings.language),
-          ),
-          const Divider(height: 24),
-          ListTile(
-            title: Text(
-              L10n.of(context).settingsLogSection,
-              style: TextStyle(fontWeight: FontWeight.bold),
+            SettingsRow(
+              icon: Symbols.contrast,
+              tint: _blue,
+              title: t.settingsHighContrast,
+              subtitle: t.settingsHighContrastHint,
+              trailing: SettingsSwitch(
+                value: _highContrast,
+                onChanged: (v) {
+                  setState(() => _highContrast = v);
+                  AppSettings.setHighContrast(v);
+                },
+              ),
+              onTap: () {
+                setState(() => _highContrast = !_highContrast);
+                AppSettings.setHighContrast(_highContrast);
+              },
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.insights),
-            title: Text(L10n.of(context).settingsLocalCount),
-            subtitle: Text('$_measurementsCount'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.access_time),
-            title: Text(L10n.of(context).settingsLastMeasurement),
-            subtitle: Text(_formatLastMeasurement(context)),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _openLog,
-                  icon: const Icon(Icons.open_in_new),
-                  label: Text(L10n.of(context).settingsOpenLog),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _shareLog,
-                  icon: const Icon(Icons.share),
-                  label: Text(L10n.of(context).settingsShareLog),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _clearLog,
-                  icon: const Icon(Icons.delete),
-                  label: Text(L10n.of(context).settingsClearLog),
-                  // The theme's green label was unreadable on red.
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE53935),
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
+          ]),
+          InfoSectionLabel(t.settingsSectionSound),
+          SettingsCard(children: [
+            SettingsRow(
+              icon: Symbols.volume_up,
+              title: t.settingsVoiceGuidance,
+              subtitle: t.settingsVoiceSample,
+              chevron: true,
+              onTap: _playVoiceSample,
             ),
-          ),
+            SettingsRow(
+              icon: Symbols.vibration,
+              title: t.settingsHaptics,
+              subtitle: t.settingsHapticsHint,
+              trailing: SettingsSwitch(
+                value: _haptics,
+                onChanged: (v) {
+                  setState(() => _haptics = v);
+                  AppSettings.setHaptics(v);
+                },
+              ),
+              onTap: () {
+                setState(() => _haptics = !_haptics);
+                AppSettings.setHaptics(_haptics);
+              },
+            ),
+          ]),
+          InfoSectionLabel(t.settingsSectionData),
+          SettingsCard(children: [
+            // Apple Health transparency (Apple Review 2.5.1).
+            SettingsRow(
+              image: 'assets/Icon - Apple Health.png',
+              title: t.settingsHealthShort,
+              subtitle: t.settingsHealthShortHint,
+              chevron: true,
+              onTap: _showHealthInfo,
+            ),
+            SettingsRow(
+              icon: Symbols.lock,
+              tint: _green,
+              title: t.settingsDataLocal,
+              subtitle: t.settingsDataLocalHint,
+            ),
+          ]),
+          InfoSectionLabel(t.settingsResearchSection),
+          SettingsCard(children: [
+            SettingsRow(
+              icon: Symbols.science,
+              tint: _purple,
+              title: t.settingsResearchMode,
+              subtitle: t.settingsResearchModeHint,
+              trailing: SettingsSwitch(
+                value: _researchMode,
+                onChanged: (v) {
+                  setState(() => _researchMode = v);
+                  AppSettings.setResearchMode(v);
+                },
+              ),
+              onTap: () {
+                setState(() => _researchMode = !_researchMode);
+                AppSettings.setResearchMode(_researchMode);
+              },
+            ),
+            if (_researchMode) ...[
+              SettingsRow(
+                icon: Symbols.description,
+                tint: _purple,
+                title: t.settingsExportFormat,
+                subtitle: _exportFormatLabel(_exportFormat),
+                chevron: true,
+                onTap: _pickExportFormat,
+              ),
+              SettingsRow(
+                icon: Symbols.list_alt,
+                tint: _purple,
+                title: t.settingsResearchFields,
+                subtitle: _researchFields.join(' · '),
+                chevron: true,
+                onTap: _editResearchFields,
+              ),
+            ],
+          ]),
+          InfoSectionLabel(t.settingsSectionProfile),
+          SettingsCard(children: [
+            SettingsRow(
+              icon: Symbols.login,
+              title: t.settingsLogin,
+              subtitle: _profileSubtitle(t),
+              chevron: true,
+              onTap: () => _open(const LoginPage()),
+            ),
+            if (LocalProfileService.isLoggedIn)
+              SettingsRow(
+                icon: Symbols.logout,
+                title: t.settingsLogout,
+                subtitle: t.settingsLogoutHint,
+                onTap: _logout,
+              ),
+            SettingsRow(
+              icon: Symbols.qr_code,
+              title: t.settingsMyQrForDoctor,
+              subtitle: t.settingsMyQrForDoctorHint,
+              chevron: true,
+              onTap: () => _open(const QrCodePage()),
+            ),
+          ]),
+          InfoSectionLabel(t.settingsSectionSupport),
+          SettingsCard(children: [
+            SettingsRow(
+              icon: Symbols.bug_report,
+              title: t.settingsDiagnostics,
+              subtitle: t.recordsMeasurementsCount(_measurementsCount),
+              chevron: true,
+              onTap: () => _open(const DiagnosticsPage()),
+            ),
+          ]),
+          if (_version != null) ...[
+            SizedBox(height: r.spaceXl),
+            Center(
+              child: Text(
+                'Tepovka · ${t.infoVersion(_version!)}',
+                style:
+                    TextStyle(fontSize: r.fontCaption, color: Colors.black38),
+              ),
+            ),
+          ],
         ],
       ),
     );

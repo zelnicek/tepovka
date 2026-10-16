@@ -464,18 +464,6 @@ class L10nEn extends L10n {
   String get settingsMyQrForDoctorHint => 'Allows records to be found quickly';
 
   @override
-  String get settingsStoreLocally => 'Store records locally';
-
-  @override
-  String get settingsStoreLocallyHint => 'Saves measurements on this device';
-
-  @override
-  String get settingsTorchDuring => 'Torch during measurement';
-
-  @override
-  String get settingsTorchDuringHint => 'Improves light transmission for PPG';
-
-  @override
   String get settingsComingSoon => 'Coming soon';
 
   @override
@@ -1150,4 +1138,49 @@ class L10nEn extends L10n {
   @override
   String get summarySpo2Disclaimer =>
       'SpO2 is an estimate, not a substitute for a medical device. See a doctor if it reads below 95 %.';
+
+  @override
+  String get settingsSectionMeasurement => 'Measurement';
+
+  @override
+  String get settingsSectionDisplay => 'Display';
+
+  @override
+  String get settingsSectionSound => 'Sound and haptics';
+
+  @override
+  String get settingsSectionData => 'Data and privacy';
+
+  @override
+  String get settingsSectionProfile => 'Profile';
+
+  @override
+  String get settingsSectionSupport => 'Support';
+
+  @override
+  String get settingsPatientModeShort => 'Patient';
+
+  @override
+  String get settingsDoctorModeShort => 'Doctor';
+
+  @override
+  String get settingsVoiceGuidance => 'Voice guidance';
+
+  @override
+  String get settingsVoiceSample => 'Play a sample';
+
+  @override
+  String get settingsHealthShort => 'Apple Health';
+
+  @override
+  String get settingsHealthShortHint => 'Saves heart rate only';
+
+  @override
+  String get settingsDataLocal => 'Your data stays on this phone';
+
+  @override
+  String get settingsDataLocalHint => 'Tepovka sends nothing to a server';
+
+  @override
+  String get settingsDiagnostics => 'Diagnostics and logs';
 }
