@@ -687,5 +687,6 @@
   "tagStress": "Ve stresu",
   "summaryContextTitle": "Okolnosti měření",
   "recordsTags": "Štítky",
-  "metricsFrequencyNeedsLonger": "LF, HF a LF/HF ukazujeme jen u měření od 2 minut. Z kratšího záznamu je spolehlivě spočítat nejde."
+  "metricsFrequencyNeedsLonger": "LF, HF a LF/HF ukazujeme jen u měření od 2 minut. Z kratšího záznamu je spolehlivě spočítat nejde.",
+  "metricsHrvNeedsLonger": "Variabilitu tepu (HRV) ukazujeme jen u měření od 60 sekund. Z kratšího záznamu vychází příliš nepřesně."
 }

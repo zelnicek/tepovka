@@ -574,7 +574,7 @@ class _SummaryState extends State<Summary> {
   /// iOS only; Health Connect has no SDNN type.
   Future<double?> _sdnnForHealth() async {
     if (defaultTargetPlatform != TargetPlatform.iOS) return null;
-    if (widget.recordingDuration < 60) return null;
+    if (!_hrvShown) return null;
     final SpectralQuality? quality = await _quality;
     if (quality?.level != MeasurementQuality.good) return null;
     if (!_sdnn.isFinite || _sdnn <= 0 || _sdnn > 300) return null;
@@ -1485,6 +1485,7 @@ class _SummaryState extends State<Summary> {
   Widget _buildHrvSection(BuildContext context) {
     final r = Responsive.of(context);
     final L10n t = L10n.of(context);
+    if (!_hrvShown) return _note(context, t.metricsHrvNeedsLonger);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1514,6 +1515,11 @@ class _SummaryState extends State<Summary> {
       ],
     );
   }
+
+  /// HRV from under a minute is too far off to show (2026 study, see
+  /// [HrvCalculator.minTimeDomainSeconds]).
+  bool get _hrvShown =>
+      widget.recordingDuration >= HrvCalculator.minTimeDomainSeconds;
 
   /// LF and HF need two minutes (HRV standards ask for five); from a
   /// shorter recording the calculator returns zeros, which read as values.

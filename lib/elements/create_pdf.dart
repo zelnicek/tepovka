@@ -95,20 +95,23 @@ Future<String?> createPdf({
                   pw.Text(labels.duration('$duration'),
                       style: pw.TextStyle(font: ttf)),
                   pw.Text(labels.notes(notes), style: pw.TextStyle(font: ttf)),
-                  pw.SizedBox(height: 20),
-                  pw.Text(labels.hrvMetrics,
-                      style: pw.TextStyle(
-                          fontSize: 18,
-                          fontWeight: pw.FontWeight.bold,
-                          font: ttf)),
-                  pw.TableHelper.fromTextArray(
-                    headers: ['Metrika', 'Hodnota'],
-                    data: hrvMetrics.entries
-                        .map((e) => [e.key, e.value])
-                        .toList(),
-                    headerStyle: pw.TextStyle(font: ttf),
-                    cellStyle: pw.TextStyle(font: ttf),
-                  ),
+                  // No HRV table for recordings too short to give HRV.
+                  if (hrvMetrics.isNotEmpty) ...[
+                    pw.SizedBox(height: 20),
+                    pw.Text(labels.hrvMetrics,
+                        style: pw.TextStyle(
+                            fontSize: 18,
+                            fontWeight: pw.FontWeight.bold,
+                            font: ttf)),
+                    pw.TableHelper.fromTextArray(
+                      headers: ['Metrika', 'Hodnota'],
+                      data: hrvMetrics.entries
+                          .map((e) => [e.key, e.value])
+                          .toList(),
+                      headerStyle: pw.TextStyle(font: ttf),
+                      cellStyle: pw.TextStyle(font: ttf),
+                    ),
+                  ],
                   pw.SizedBox(height: 20),
                   if (chartImage != null) ...[
                     pw.Text(labels.signalChart,

@@ -2460,6 +2460,12 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'LF, HF a LF/HF ukazujeme jen u měření od 2 minut. Z kratšího záznamu je spolehlivě spočítat nejde.'**
   String get metricsFrequencyNeedsLonger;
+
+  /// No description provided for @metricsHrvNeedsLonger.
+  ///
+  /// In cs, this message translates to:
+  /// **'Variabilitu tepu (HRV) ukazujeme jen u měření od 60 sekund. Z kratšího záznamu vychází příliš nepřesně.'**
+  String get metricsHrvNeedsLonger;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

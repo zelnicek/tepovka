@@ -869,9 +869,11 @@ class _RecordsPageState extends State<RecordsPage> {
     final int hi = bpms.reduce(max);
     final List<int> recent = bpms.sublist(max(0, bpms.length - 14));
 
+    // HRV trends only from records long enough to show HRV at all.
     List<FlSpot> seriesFor(String key) {
       final List<FlSpot> spots = [];
       for (final Record rec in sorted) {
+        if (rec.duration < HrvCalculator.minTimeDomainSeconds) continue;
         final num? value = rec.hrv[key] is num ? rec.hrv[key] as num : null;
         if (value == null || value <= 0 || !value.isFinite) continue;
         spots.add(FlSpot(spots.length.toDouble(), value.toDouble()));
@@ -1554,7 +1556,10 @@ class _RecordsPageState extends State<RecordsPage> {
   /// HRV the record can stand behind: from measurements of at least 60 s
   /// (the length the app asks for when HRV matters) without a poor signal.
   double? _hrvFor(Record r, String key) {
-    if (r.duration < 60 || _signalQualityOf(r) == 'poor') return null;
+    if (r.duration < HrvCalculator.minTimeDomainSeconds ||
+        _signalQualityOf(r) == 'poor') {
+      return null;
+    }
     final Object? v = r.hrv[key];
     return v is num && v.isFinite && v > 0 ? v.toDouble() : null;
   }
@@ -2437,7 +2442,8 @@ class _RecordsPageState extends State<RecordsPage> {
 
     GlobalKey chartKey = GlobalKey();
 
-    // LF and HF only from two minutes up; below that they are zeros.
+    // HRV only from a minute up, LF and HF from two; below, they mislead.
+    final bool hrvShown = record.duration >= HrvCalculator.minTimeDomainSeconds;
     final bool frequencyShown =
         record.duration >= HrvCalculator.minFrequencySeconds;
 
@@ -2446,20 +2452,22 @@ class _RecordsPageState extends State<RecordsPage> {
       // touched across an async gap.
       final pdfLabels = PdfLabels.of(L10n.of(context));
       final chartImageBytes = await _captureChart(chartKey);
-      final hrvMetrics = {
-        'SDNN': '${sdnn.toStringAsFixed(2)} ms',
-        'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
-        'pNN50': '${pnn50.toStringAsFixed(2)} %',
-        'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
-        'SD1': '${sd1.toStringAsFixed(2)} ms',
-        'SD2': '${sd2.toStringAsFixed(2)} ms',
-        'SD2/SD1': sd2sd1.toStringAsFixed(2),
-        if (frequencyShown) ...{
-          'LF': '${lf.toStringAsFixed(2)} %',
-          'HF': '${hf.toStringAsFixed(2)} %',
-          'LF/HF': lfhf.toStringAsFixed(2),
+      final hrvMetrics = <String, String>{
+        if (hrvShown) ...{
+          'SDNN': '${sdnn.toStringAsFixed(2)} ms',
+          'RMSSD': '${rmssd.toStringAsFixed(2)} ms',
+          'pNN50': '${pnn50.toStringAsFixed(2)} %',
+          'Mean RR': '${meanRR.toStringAsFixed(2)} ms',
+          'SD1': '${sd1.toStringAsFixed(2)} ms',
+          'SD2': '${sd2.toStringAsFixed(2)} ms',
+          'SD2/SD1': sd2sd1.toStringAsFixed(2),
+          if (frequencyShown) ...{
+            'LF': '${lf.toStringAsFixed(2)} %',
+            'HF': '${hf.toStringAsFixed(2)} %',
+            'LF/HF': lfhf.toStringAsFixed(2),
+          },
+          'Stress Index': stressIndex.toStringAsFixed(2),
         },
-        'Stress Index': stressIndex.toStringAsFixed(2),
       };
       final pdfPath = await createPdf(
         labels: pdfLabels,
@@ -2772,26 +2780,37 @@ class _RecordsPageState extends State<RecordsPage> {
                           ? t.metricsBreathsPerMinute(
                               record.respiratoryRate.toStringAsFixed(1))
                           : '—'),
-                  _buildHRVCard('SDNN', '${sdnn.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('pNN50', '${pnn50.toStringAsFixed(2)} %'),
-                  _buildHRVCard(
-                      t.metricsAverageRr, '${meanRR.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('SD1', '${sd1.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('SD2', '${sd2.toStringAsFixed(2)} ms'),
-                  _buildHRVCard('SD2/SD1', sd2sd1.toStringAsFixed(2)),
-                  if (frequencyShown) ...[
-                    _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
-                    _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
-                    _buildHRVCard('LF/HF', lfhf.toStringAsFixed(2)),
+                  if (hrvShown) ...[
+                    _buildHRVCard('SDNN', '${sdnn.toStringAsFixed(2)} ms'),
+                    _buildHRVCard('RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
+                    _buildHRVCard('pNN50', '${pnn50.toStringAsFixed(2)} %'),
+                    _buildHRVCard(
+                        t.metricsAverageRr, '${meanRR.toStringAsFixed(2)} ms'),
+                    _buildHRVCard('SD1', '${sd1.toStringAsFixed(2)} ms'),
+                    _buildHRVCard('SD2', '${sd2.toStringAsFixed(2)} ms'),
+                    _buildHRVCard('SD2/SD1', sd2sd1.toStringAsFixed(2)),
+                    if (frequencyShown) ...[
+                      _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
+                      _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
+                      _buildHRVCard('LF/HF', lfhf.toStringAsFixed(2)),
+                    ],
+                    _buildHRVCard(
+                      t.metricsStressIndex,
+                      stressIndex.toStringAsFixed(2),
+                      valueColor: _getStressColor(stressIndex),
+                    ),
                   ],
-                  _buildHRVCard(
-                    t.metricsStressIndex,
-                    stressIndex.toStringAsFixed(2),
-                    valueColor: _getStressColor(stressIndex),
-                  ),
                 ]),
-                if (!frequencyShown)
+                if (!hrvShown)
+                  Padding(
+                    padding: EdgeInsets.only(top: r.spaceSm),
+                    child: Text(
+                      t.metricsHrvNeedsLonger,
+                      style: TextStyle(
+                          fontSize: r.fontSmall, color: kInfoSecondaryText),
+                    ),
+                  )
+                else if (!frequencyShown)
                   Padding(
                     padding: EdgeInsets.only(top: r.spaceSm),
                     child: Text(

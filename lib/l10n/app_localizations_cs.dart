@@ -1332,4 +1332,8 @@ class L10nCs extends L10n {
   @override
   String get metricsFrequencyNeedsLonger =>
       'LF, HF a LF/HF ukazujeme jen u měření od 2 minut. Z kratšího záznamu je spolehlivě spočítat nejde.';
+
+  @override
+  String get metricsHrvNeedsLonger =>
+      'Variabilitu tepu (HRV) ukazujeme jen u měření od 60 sekund. Z kratšího záznamu vychází příliš nepřesně.';
 }

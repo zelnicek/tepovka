@@ -133,6 +133,12 @@ class HrvCalculator {
   /// Shortest recording LF, HF and LF/HF are worth computing or showing for.
   /// The screens hide them below this instead of printing 0.00.
   static const double minFrequencySeconds = 120.0;
+
+  /// Shortest recording the time-domain HRV (SDNN, RMSSD, ...) is shown for.
+  /// Against ECG in the 2026 study, RMSSD from 25-30 s recordings was off by
+  /// 41 % on average (SD of the difference 19 ms); from about a minute, by
+  /// 26 % (SD 10 ms). See tepovka_rmssd_korekce.py in the study folder.
+  static const double minTimeDomainSeconds = 60.0;
   static const double _minDurationForVlf = 300.0;
 
   /// Spočítá kompletní HRV z IBI intervalů v ms.

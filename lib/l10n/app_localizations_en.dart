@@ -1348,4 +1348,8 @@ class L10nEn extends L10n {
   @override
   String get metricsFrequencyNeedsLonger =>
       'LF, HF and LF/HF are shown only for measurements of 2 minutes or more. A shorter recording cannot give them reliably.';
+
+  @override
+  String get metricsHrvNeedsLonger =>
+      'Heart rate variability (HRV) is shown only for measurements of 60 seconds or more; from a shorter recording it is too inaccurate.';
 }
