@@ -1117,4 +1117,30 @@ class L10nCs extends L10n {
 
   @override
   String get settingsProfileUnnamed => 'Uživatel';
+
+  @override
+  String get summaryDiscardTitle => 'Zahodit měření?';
+
+  @override
+  String get summaryDiscardBody => 'Výsledek se neuloží do historie.';
+
+  @override
+  String get summaryDiscard => 'Zahodit';
+
+  @override
+  String get summaryKeep => 'Ponechat';
+
+  @override
+  String get summaryWeakSignal =>
+      'Signál byl slabý, výsledek nemusí být přesný.';
+
+  @override
+  String get summaryMeasureAgain => 'Změřit znovu';
+
+  @override
+  String get summarySpo2ComingSoon => 'Funkce SpO2 bude brzy k dispozici.';
+
+  @override
+  String get summarySpo2Disclaimer =>
+      'SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře.';
 }

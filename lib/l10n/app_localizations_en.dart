@@ -1123,4 +1123,31 @@ class L10nEn extends L10n {
 
   @override
   String get settingsProfileUnnamed => 'User';
+
+  @override
+  String get summaryDiscardTitle => 'Discard measurement?';
+
+  @override
+  String get summaryDiscardBody =>
+      'The result won\'t be saved to your history.';
+
+  @override
+  String get summaryDiscard => 'Discard';
+
+  @override
+  String get summaryKeep => 'Keep';
+
+  @override
+  String get summaryWeakSignal =>
+      'The signal was weak, so the result may be off.';
+
+  @override
+  String get summaryMeasureAgain => 'Measure again';
+
+  @override
+  String get summarySpo2ComingSoon => 'SpO2 is coming soon.';
+
+  @override
+  String get summarySpo2Disclaimer =>
+      'SpO2 is an estimate, not a substitute for a medical device. See a doctor if it reads below 95 %.';
 }

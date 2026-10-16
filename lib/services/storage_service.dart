@@ -1,8 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class StorageService {
+  /// Bumped after every write, so screens showing records (the home card)
+  /// can refresh when another screen saved or deleted one.
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
   static const String _summaryFileName = 'measurement_summary.json';
   static const String _exportTxtFileName = 'measurement_export.txt';
 
@@ -35,6 +40,7 @@ class StorageService {
     final file = await _getSummaryFile();
     final content = json.encode(records);
     await file.writeAsString(content, mode: FileMode.write);
+    revision.value++;
   }
 
   Future<void> appendRecord(Map<String, dynamic> record) async {

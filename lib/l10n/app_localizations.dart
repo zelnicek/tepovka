@@ -2076,6 +2076,54 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Uživatel'**
   String get settingsProfileUnnamed;
+
+  /// No description provided for @summaryDiscardTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zahodit měření?'**
+  String get summaryDiscardTitle;
+
+  /// No description provided for @summaryDiscardBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Výsledek se neuloží do historie.'**
+  String get summaryDiscardBody;
+
+  /// No description provided for @summaryDiscard.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zahodit'**
+  String get summaryDiscard;
+
+  /// No description provided for @summaryKeep.
+  ///
+  /// In cs, this message translates to:
+  /// **'Ponechat'**
+  String get summaryKeep;
+
+  /// No description provided for @summaryWeakSignal.
+  ///
+  /// In cs, this message translates to:
+  /// **'Signál byl slabý, výsledek nemusí být přesný.'**
+  String get summaryWeakSignal;
+
+  /// No description provided for @summaryMeasureAgain.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změřit znovu'**
+  String get summaryMeasureAgain;
+
+  /// No description provided for @summarySpo2ComingSoon.
+  ///
+  /// In cs, this message translates to:
+  /// **'Funkce SpO2 bude brzy k dispozici.'**
+  String get summarySpo2ComingSoon;
+
+  /// No description provided for @summarySpo2Disclaimer.
+  ///
+  /// In cs, this message translates to:
+  /// **'SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře.'**
+  String get summarySpo2Disclaimer;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

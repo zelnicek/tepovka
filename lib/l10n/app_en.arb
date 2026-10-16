@@ -339,5 +339,13 @@
   "metricHrr120": "Drop 0–120 s",
   "metricTau": "Tau (estimate)",
   "settingsProfile": "Profile: {name} ({id}…)",
-  "settingsProfileUnnamed": "User"
+  "settingsProfileUnnamed": "User",
+  "summaryDiscardTitle": "Discard measurement?",
+  "summaryDiscardBody": "The result won't be saved to your history.",
+  "summaryDiscard": "Discard",
+  "summaryKeep": "Keep",
+  "summaryWeakSignal": "The signal was weak, so the result may be off.",
+  "summaryMeasureAgain": "Measure again",
+  "summarySpo2ComingSoon": "SpO2 is coming soon.",
+  "summarySpo2Disclaimer": "SpO2 is an estimate, not a substitute for a medical device. See a doctor if it reads below 95 %."
 }

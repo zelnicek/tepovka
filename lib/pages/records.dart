@@ -19,6 +19,8 @@ import 'package:tepovka/services/app_settings.dart';
 import 'dart:convert';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
+import 'package:tepovka/widgets/bpm_scale.dart';
+import 'package:tepovka/services/measurement_quality.dart';
 import 'package:tepovka/pages/about.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
@@ -317,10 +319,7 @@ class _RecordsPageState extends State<RecordsPage> {
     final Object? confidence = r.hrv['confidence'];
     if (confidence is! Map) return null;
     final Object? value = confidence['bpmConfidence'];
-    if (value is! num) return null;
-    if (value >= 0.6) return 'good';
-    if (value >= 0.3) return 'medium';
-    return 'poor';
+    return value is num ? measurementQualityFrom(value)?.name : null;
   }
 
   void _applyFilters() {
@@ -2102,7 +2101,7 @@ class _RecordsPageState extends State<RecordsPage> {
                           fontSize: r.fontSmall, color: kInfoSecondaryText),
                     ),
                     SizedBox(height: r.spaceLg),
-                    _bpmScale(context, calculatedAverageBPM),
+                    BpmScale(bpm: calculatedAverageBPM),
                   ],
                 ),
               ),
@@ -2325,77 +2324,6 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
       );
     }));
-  }
-
-  /// Where the reading falls between 30 and 220 bpm. The marker is placed
-  /// from the bar's real width; it used to use the screen width, which put it
-  /// in the wrong spot inside the old dialog.
-  Widget _bpmScale(BuildContext context, double bpm) {
-    final r = Responsive.of(context);
-    const double lo = 30;
-    const double hi = 220;
-    final double fraction = ((bpm.clamp(lo, hi) - lo) / (hi - lo)).toDouble();
-    TextStyle labelStyle() =>
-        TextStyle(fontSize: r.fontCaption, color: kInfoSecondaryText);
-    return ExcludeSemantics(
-      child: LayoutBuilder(builder: (context, constraints) {
-        final double width = constraints.maxWidth;
-        const double marker = 6;
-        final double x =
-            (fraction * width).clamp(marker / 2, width - marker / 2);
-        return Column(
-          children: [
-            SizedBox(
-              height: 12,
-              width: width,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(6),
-                        gradient: const LinearGradient(
-                          colors: [
-                            Colors.red,
-                            Colors.orange,
-                            Colors.green,
-                            Colors.orange,
-                            Colors.red,
-                          ],
-                          stops: [0.0, 0.11, 0.20, 0.55, 0.75],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: x - marker / 2,
-                    top: -4,
-                    bottom: -4,
-                    child: Container(
-                      width: marker,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(3),
-                        border: Border.all(color: Colors.black87, width: 1.5),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: r.spaceXs + 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('${lo.toInt()}', style: labelStyle()),
-                Text('${hi.toInt()}', style: labelStyle()),
-              ],
-            ),
-          ],
-        );
-      }),
-    );
   }
 
   Future<Uint8List?> _captureChart(GlobalKey key) async {

@@ -43,6 +43,7 @@ class _IntroPageState extends State<IntroPage> {
     super.initState();
     _loadRecords();
     ReminderService.openMeasureRequests.addListener(_openMeasureFromReminder);
+    StorageService.revision.addListener(_loadRecords);
     if (ReminderService.takeLaunchRequest()) {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _openMeasureFromReminder());
@@ -53,6 +54,7 @@ class _IntroPageState extends State<IntroPage> {
   void dispose() {
     ReminderService.openMeasureRequests
         .removeListener(_openMeasureFromReminder);
+    StorageService.revision.removeListener(_loadRecords);
     super.dispose();
   }
 

@@ -2,11 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:tepovka/services/storage_service.dart';
-import 'package:tepovka/pages/intro_page.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:tepovka/home.dart';
-import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:tepovka/pages/about.dart';
 import 'package:tepovka/ppg_algo.dart';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
@@ -15,6 +11,9 @@ import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/elements/peak_detector.dart';
 import 'package:tepovka/elements/hrv_calculator.dart';
 import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/services/measurement_quality.dart';
+import 'package:tepovka/widgets/bpm_scale.dart';
+import 'package:tepovka/widgets/info_widgets.dart';
 // Cloud sync disabled for local-only mode
 
 enum PatientStatus { normal, rest }
@@ -87,7 +86,6 @@ class Summary extends StatefulWidget {
 }
 
 class _SummaryState extends State<Summary> {
-  int _selectedIndex = 0;
   final Health _health = Health();
   // ignore: unused_field
   final List<HealthDataPoint> _healthDataList = [];
@@ -171,7 +169,6 @@ class _SummaryState extends State<Summary> {
   void initState() {
     //debugPrint('red_channel: ${widget.data}');
     super.initState();
-    _authorizeHealth();
     _respiratoryRate =
         (widget.respiratoryRate > 0 && widget.respiratoryRate <= 30)
             ? widget.respiratoryRate
@@ -331,13 +328,13 @@ class _SummaryState extends State<Summary> {
       height: 160,
       child: Card(
         color: Colors.white,
-        elevation: 2,
+        elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+          padding: const EdgeInsets.fromLTRB(8, 12, 16, 8),
           child: LineChart(
             LineChartData(
               gridData: const FlGridData(show: false),
@@ -539,33 +536,6 @@ class _SummaryState extends State<Summary> {
     if (!requested) {
       debugPrint('Uživatel odmítl přístup k HealthKit');
     } else {}
-  }
-
-  void _onItemTapped(int index) {
-    if (_selectedIndex == index) return;
-    setState(() {
-      _selectedIndex = index;
-    });
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const IntroPage()),
-        );
-        break;
-      case 1:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const Home()),
-        );
-        break;
-      case 2:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const About()),
-        );
-        break;
-    }
   }
 
   Future<void> _saveMeasurement() async {
@@ -809,6 +779,11 @@ class _SummaryState extends State<Summary> {
     return maxValue + 1.0;
   }
 
+  static const Color _canvas = Color.fromARGB(255, 242, 242, 242);
+
+  /// True while saving, to disable the buttons and show progress.
+  bool _busy = false;
+
   @override
   Widget build(BuildContext context) {
     final settings = AppSettings.value;
@@ -821,151 +796,334 @@ class _SummaryState extends State<Summary> {
     final double maxX = totalTime;
     // Section toggle: 0=Signal, 1=HRV, 2=HRR
     _summarySectionIndex = _summarySectionIndex.clamp(0, 2);
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
+    final bool patient = settings.userMode == UserMode.patient;
+    // Leaving is only through Save or Discard. A swipe back used to drop the
+    // measurement without a word.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _discard();
       },
-      child: Scaffold(
-        backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: const Color.fromARGB(255, 242, 242, 242),
-          centerTitle: true,
-          title: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                L10n.of(context).summaryTitle,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ],
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
+          backgroundColor: _canvas,
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            backgroundColor: _canvas,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            centerTitle: true,
+            title: Text(
+              L10n.of(context).summaryTitle,
+              style:
+                  TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
-        body: settings.userMode == UserMode.patient
-            ? _buildPatientBody(context)
-            : SingleChildScrollView(
-                child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 20),
-                    child: Column(
-                      children: [
-                        Text(
-                          L10n.of(context).summaryAverageHeartRate,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 20,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '${_effectiveAverageBpm.toInt()} bpm',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 40,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 20, horizontal: 20),
-                    child: _buildBpmGradientBar(context),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: TextField(
-                      controller: _notesController,
-                      style: const TextStyle(
-                        color: Colors.black,
-                      ),
-                      cursorColor: Colors.grey,
-                      decoration: InputDecoration(
-                        labelText: L10n.of(context).commonNote,
-                        labelStyle: const TextStyle(
-                          color: Color.fromARGB(255, 110, 109, 109),
-                        ),
-                        hintText: L10n.of(context).summaryNotesHint,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: const BorderSide(
-                            color: Colors.grey,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: const BorderSide(
-                            color: Colors.grey,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 110, 109, 109),
-                            width: 1.5,
-                          ),
-                        ),
-                        fillColor: Colors.white,
-                      ),
-                      maxLines: null,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Section toggle buttons
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildSectionChip(L10n.of(context).summaryTabSignal, 0),
-                        _buildSectionChip('HRV', 1),
-                        _buildSectionChip(
-                            L10n.of(context).summaryTabRecovery, 2),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Conditional sections
+          body: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+                r.pagePadding.left, r.spaceSm, r.pagePadding.right, r.spaceXl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _resultCard(context),
+                SizedBox(height: r.spaceMd),
+                if (patient)
+                  _patientCard(context)
+                else ...[
+                  _notesCard(context),
+                  SizedBox(height: r.spaceLg),
+                  _sectionSelector(context),
+                  SizedBox(height: r.spaceMd),
                   if (_summarySectionIndex == 0)
                     _buildSignalSection(chartWidth, minX, maxX, minY, maxY)
                   else if (_summarySectionIndex == 1)
                     _buildHrvSection(context)
                   else
                     _buildHrrSection(context),
-                  const SizedBox(height: 16),
-                  const SizedBox(height: 20),
-                  _buildSaveCancelRow(context),
                 ],
-              )),
-        bottomNavigationBar: GNav(
-          tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
-          gap: 0,
-          activeColor: Colors.black,
-          iconSize: r.iconMd,
-          backgroundColor: Colors.white,
-          color: Colors.grey,
-          selectedIndex: _selectedIndex,
-          onTabChange: _onItemTapped,
-          tabs: [
-            GButton(
-              icon: Symbols.family_home,
-              text: L10n.of(context).navMenu,
+              ],
             ),
-            GButton(
-              icon: Symbols.ecg_heart,
-              text: L10n.of(context).navMeasure,
+          ),
+          // Save and Discard take the place of the bottom bar: leaving through
+          // the bar lost the measurement.
+          bottomNavigationBar: _actionBar(context),
+        ),
+      ),
+    );
+  }
+
+  /// Average heart rate, length and signal quality, with a nudge to measure
+  /// again when the signal was weak.
+  Widget _resultCard(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final MeasurementQuality? quality = measurementQualityFrom(_bpmConfidence);
+    final int bpm = _effectiveAverageBpm.round();
+    return InfoCard(
+      child: Column(
+        children: [
+          Text(
+            t.summaryAverageHeartRate.replaceAll(RegExp(r':\s*$'), ''),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: r.fontBody, color: kInfoSecondaryText),
+          ),
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: bpm > 0 ? '$bpm' : t.homeNoReading,
+                style: TextStyle(
+                    fontSize: r.fontDisplayXl * 1.15,
+                    fontWeight: FontWeight.bold),
+              ),
+              TextSpan(
+                text: ' ${t.homeBpmUnit}',
+                style: TextStyle(
+                    fontSize: r.fontBodyLg, color: kInfoSecondaryText),
+              ),
+            ]),
+          ),
+          Text(
+            [
+              t.homeSecondsSuffix(widget.recordingDuration),
+              if (quality != null) t.a11ySignalQuality(quality.label(t)),
+              if (_respiratoryRate > 0)
+                t.metricsBreathsPerMinute(_respiratoryRate.toStringAsFixed(0)),
+            ].join(' · '),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText),
+          ),
+          SizedBox(height: r.spaceLg),
+          BpmScale(bpm: _effectiveAverageBpm),
+          if (quality == MeasurementQuality.poor) ...[
+            SizedBox(height: r.spaceMd),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                  r.spaceMd, r.spaceSm + 2, r.spaceXs, r.spaceXs),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E0),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          size: r.iconSm, color: const Color(0xFF8A5300)),
+                      SizedBox(width: r.spaceSm),
+                      Expanded(
+                        child: Text(
+                          t.summaryWeakSignal,
+                          style: TextStyle(
+                              fontSize: r.fontSmall,
+                              color: const Color(0xFF8A5300)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF8A5300)),
+                      onPressed: _busy ? null : _measureAgain,
+                      child: Text(
+                        t.summaryMeasureAgain,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            GButton(
-              icon: Symbols.help,
-              text: L10n.of(context).navInfo,
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Patient mode: a plain verdict instead of the metrics.
+  Widget _patientCard(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final bool normal = _patientStatus() == PatientStatus.normal;
+    final Color foreground =
+        normal ? const Color(0xFF1E6B34) : const Color(0xFF8A5300);
+    return InfoCard(
+      color: normal ? const Color(0xFFE6F4EA) : const Color(0xFFFFF4E0),
+      child: Row(
+        children: [
+          Icon(normal ? Icons.check_circle : Icons.pause_circle_filled,
+              color: foreground, size: r.iconLg),
+          SizedBox(width: r.spaceMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  normal ? t.summaryInNorm : t.summaryRest,
+                  style: TextStyle(
+                      fontSize: r.fontTitle,
+                      fontWeight: FontWeight.bold,
+                      color: foreground),
+                ),
+                SizedBox(height: r.spaceXs / 2),
+                Text(
+                  normal ? t.summaryContinueActivity : t.summaryShortRest,
+                  style: TextStyle(fontSize: r.fontBody, color: foreground),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _notesCard(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return InfoCard(
+      padding: EdgeInsets.fromLTRB(r.spaceLg, r.spaceXs, r.spaceLg, r.spaceXs),
+      child: TextField(
+        controller: _notesController,
+        maxLines: null,
+        textCapitalization: TextCapitalization.sentences,
+        cursorColor: kInfoAccent,
+        style: TextStyle(fontSize: r.fontBody, color: Colors.black),
+        decoration: InputDecoration(
+          labelText: t.commonNote,
+          hintText: t.summaryNotesHint,
+          border: InputBorder.none,
+          labelStyle: const TextStyle(color: kInfoSecondaryText),
+          floatingLabelStyle: const TextStyle(color: kInfoSecondaryText),
+        ),
+      ),
+    );
+  }
+
+  /// Signal, HRV and recovery as one row of options, like the measurement
+  /// length on the measure screen.
+  Widget _sectionSelector(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final List<String> labels = [
+      t.summaryTabSignal,
+      'HRV',
+      t.summaryTabRecovery,
+    ];
+    return Row(
+      children: [
+        for (int i = 0; i < labels.length; i++)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: r.spaceXs / 2),
+              child: Semantics(
+                button: true,
+                selected: _summarySectionIndex == i,
+                inMutuallyExclusiveGroup: true,
+                label: labels[i],
+                excludeSemantics: true,
+                child: Material(
+                  color: _summarySectionIndex == i ? kInfoAccent : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => setState(() => _summarySectionIndex = i),
+                    child: SizedBox(
+                      height: r.iconXl * 1.15,
+                      child: Center(
+                        child: Text(
+                          labels[i],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: r.fontBody,
+                            fontWeight: FontWeight.w600,
+                            color: _summarySectionIndex == i
+                                ? Colors.white
+                                : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _actionBar(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            r.pagePadding.left, r.spaceSm, r.pagePadding.right, r.spaceSm),
+        child: Row(
+          children: [
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: kInfoAccent,
+                minimumSize: Size(r.iconXl * 2.4, r.iconXl * 1.4),
+              ),
+              onPressed: _busy ? null : _discard,
+              child: Text(
+                t.summaryDiscard,
+                style: TextStyle(
+                    fontSize: r.fontBodyLg, fontWeight: FontWeight.w600),
+              ),
+            ),
+            SizedBox(width: r.spaceMd),
+            Expanded(
+              child: SizedBox(
+                height: r.iconXl * 1.4,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: kInfoAccent,
+                    disabledBackgroundColor: kInfoAccent.withValues(alpha: 0.6),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: _busy ? null : _saveAndLeave,
+                  child: _busy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: Colors.white),
+                        )
+                      // Apple Health transparency (Guideline 2.5.1): saving
+                      // also writes the heart rate to Health, so its icon
+                      // sits on the button.
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              t.commonSave,
+                              style: TextStyle(
+                                  fontSize: r.fontBodyLg,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
+                            ),
+                            SizedBox(width: r.spaceSm),
+                            Image.asset(
+                              'assets/Icon - Apple Health.png',
+                              width: 22,
+                              height: 22,
+                              semanticLabel: 'Apple Health',
+                            ),
+                          ],
+                        ),
+                ),
+              ),
             ),
           ],
         ),
@@ -973,295 +1131,61 @@ class _SummaryState extends State<Summary> {
     );
   }
 
-  Widget _buildBpmGradientBar(BuildContext context) {
-    return Container(
-      height: 40,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.red.withValues(alpha: 1),
-                    Colors.orange.withValues(alpha: 1),
-                    Colors.green.withValues(alpha: 1),
-                    Colors.orange.withValues(alpha: 1),
-                    Colors.red.withValues(alpha: 1),
-                  ],
-                  stops: const [
-                    0.0,
-                    0.11,
-                    0.20,
-                    0.55,
-                    0.75,
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
+  /// Saves the record, then the heart rate to Apple Health, then returns to
+  /// the home screen. Health access is asked here, when saving to it is what
+  /// the user chose, rather than the moment the summary opened.
+  Future<void> _saveAndLeave() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    await _saveMeasurement();
+    if (!_saveSucceeded) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    try {
+      await _authorizeHealth();
+      await _saveToAppleHealth(_effectiveAverageBpm);
+    } catch (e) {
+      // The record is saved; Health is a bonus and must not block leaving.
+      debugPrint('Apple Health write failed: $e');
+    }
+    if (!mounted) return;
+    _leave();
+  }
+
+  Future<void> _discard() async {
+    final L10n t = L10n.of(context);
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(t.summaryDiscardTitle),
+        content: Text(t.summaryDiscardBody),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.black87),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(t.summaryKeep),
           ),
-          Positioned(
-            left: ((_effectiveAverageBpm.clamp(30, 220) - 30) / (220 - 30)) *
-                (MediaQuery.of(context).size.width - 40),
-            child: Container(
-              width: 10,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-          Center(
-            child: Text(
-              '${_effectiveAverageBpm.toInt()} bpm',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 10,
-            top: 10,
-            child: Text(
-              '30',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const Positioned(
-            right: 10,
-            top: 10,
-            child: Text(
-              '220',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Colors.white,
-              ),
-            ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: kInfoAccent),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(t.summaryDiscard),
           ),
         ],
       ),
     );
+    if (confirmed == true && mounted) _leave();
   }
 
-  Widget _buildSaveCancelRow(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool compact = constraints.maxWidth < 380;
-        return Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: compact ? 8 : 16,
-          runSpacing: 8,
-          children: [
-            IconButton(
-              icon: const Icon(
-                Symbols.heart_broken,
-                size: 30,
-              ),
-              color: const Color.fromARGB(255, 222, 16, 1),
-              onPressed: () async {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const IntroPage()),
-                );
-              },
-            ),
-            InkWell(
-              onTap: () async {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const IntroPage()),
-                );
-              },
-              child: AnimatedScale(
-                duration: const Duration(milliseconds: 100),
-                scale: _isSaving ? 1.0 : 1.1,
-                child: Text(
-                  L10n.of(context).commonCancel,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 222, 16, 1),
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(
-                Symbols.heart_plus,
-                size: 45,
-              ),
-              color: Colors.blue,
-              tooltip: L10n.of(context).summarySaveToHealth,
-              onPressed: _isSaving
-                  ? null
-                  : () async {
-                      await _saveMeasurement();
-                      if (!_saveSucceeded) return;
-                      await _saveToAppleHealth(_effectiveAverageBpm);
-                      if (!context.mounted) return;
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const IntroPage()),
-                      );
-                    },
-            ),
-            InkWell(
-              onTap: _isSaving
-                  ? null
-                  : () async {
-                      await _saveMeasurement();
-                      if (!_saveSucceeded) return;
-                      await _saveToAppleHealth(_effectiveAverageBpm);
-                      if (!context.mounted) return;
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const IntroPage()),
-                      );
-                    },
-              child: AnimatedScale(
-                duration: const Duration(milliseconds: 100),
-                scale: _isSaving ? 1.0 : 1.1,
-                // Apple Health transparency (Guideline 2.5.1): malý discrete
-                // badge u tlačítka, ne dominantní – Apple ho vidí, uživatele
-                // neotravuje.
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      L10n.of(context).commonSave,
-                      style: TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Image.asset(
-                      'assets/Icon - Apple Health.png',
-                      width: 22,
-                      height: 22,
-                      semanticLabel: 'Apple Health',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  /// Back to the home screen, which is the root route. Pushing a new home
+  /// screen here stacked a second copy on top of the first.
+  void _leave() => Navigator.of(context).popUntil((route) => route.isFirst);
 
-  Widget _buildPatientBody(BuildContext context) {
-    final status = _patientStatus();
-    final Color bg = status == PatientStatus.normal
-        ? const Color(0xFF2ECC71)
-        : const Color(0xFFF39C12);
-    final String title = status == PatientStatus.normal
-        ? L10n.of(context).summaryInNorm
-        : L10n.of(context).summaryRest;
-    final String subtitle = status == PatientStatus.normal
-        ? L10n.of(context).summaryContinueActivity
-        : L10n.of(context).summaryShortRest;
-
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 24),
-            child: Column(
-              children: [
-                Text(
-                  L10n.of(context).summaryAverageHeartRate,
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${_effectiveAverageBpm.toInt()} bpm',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 42,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-            child: _buildBpmGradientBar(context),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              color: bg,
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          status == PatientStatus.normal
-                              ? Icons.check_circle
-                              : Icons.pause_circle_filled,
-                          color: Colors.white,
-                          size: 36,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildSaveCancelRow(context),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
+  /// Replaces this summary with a fresh measurement; nothing is saved.
+  void _measureAgain() {
+    Navigator.of(context)
+        .pushReplacement(MaterialPageRoute(builder: (_) => const Home()));
   }
 
   PatientStatus _patientStatus() {
@@ -1276,344 +1200,274 @@ class _SummaryState extends State<Summary> {
   // Section toggle state
   int _summarySectionIndex = 0;
 
-  Widget _buildSectionChip(String label, int index) {
-    final bool selected = _summarySectionIndex == index;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) {
-        setState(() => _summarySectionIndex = index);
-      },
-      selectedColor: Colors.blue.shade100,
-      backgroundColor: Colors.white,
-      labelStyle: TextStyle(
-        color: selected ? Colors.blue.shade900 : Colors.black,
-        fontWeight: FontWeight.w600,
+  /// The recorded pulse wave, scrollable over the whole measurement.
+  Widget _buildSignalSection(
+      double chartWidth, double minX, double maxX, double minY, double maxY) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return InfoCard(
+      padding: EdgeInsets.fromLTRB(r.spaceMd, r.spaceMd, r.spaceMd, r.spaceSm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            t.measurePulseWave,
+            style:
+                TextStyle(fontSize: r.fontCaption, color: kInfoSecondaryText),
+          ),
+          SizedBox(height: r.spaceXs),
+          if (_smoothedData.isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: r.spaceXl),
+              child: Center(
+                child: Text(
+                  t.recordsNoWaveform,
+                  style: TextStyle(
+                      fontSize: r.fontBody, color: kInfoSecondaryText),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 150,
+              child: Scrollbar(
+                controller: _signalScrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _signalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: chartWidth,
+                    child: RepaintBoundary(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          LineChart(
+                            LineChartData(
+                              clipData: const FlClipData(
+                                left: false,
+                                right: true,
+                                top: true,
+                                bottom: true,
+                              ),
+                              gridData: const FlGridData(show: false),
+                              titlesData: const FlTitlesData(show: false),
+                              borderData: FlBorderData(show: false),
+                              minX: minX,
+                              maxX: maxX,
+                              minY: minY,
+                              maxY: maxY,
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: _smoothedData,
+                                  isCurved: false,
+                                  color: kInfoAccent,
+                                  barWidth: 2.0,
+                                  isStrokeCapRound: true,
+                                  dotData: const FlDotData(show: false),
+                                  belowBarData: BarAreaData(show: false),
+                                ),
+                                LineChartBarData(
+                                  spots: _peakSpots,
+                                  isCurved: false,
+                                  color: Colors.transparent,
+                                  barWidth: 0,
+                                  dotData: FlDotData(
+                                    show: true,
+                                    getDotPainter:
+                                        (spot, percent, barData, index) =>
+                                            FlDotCirclePainter(
+                                      radius: 3,
+                                      color: const Color(0xFF1A73E8),
+                                      strokeWidth: 0,
+                                    ),
+                                  ),
+                                  belowBarData: BarAreaData(show: false),
+                                ),
+                              ],
+                            ),
+                            duration: Duration.zero,
+                          ),
+                          ..._labels.map((label) {
+                            final posX =
+                                ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                    chartWidth;
+                            return Positioned(
+                              left: posX,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 1.0,
+                                color: Colors.black.withValues(alpha: 0.08),
+                              ),
+                            );
+                          }),
+                          ..._labels.map((label) {
+                            final posX =
+                                ((label.x - minX) / (maxX - minX + 1e-6)) *
+                                    chartWidth;
+                            return Positioned(
+                              left: posX,
+                              bottom: 0,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  label.time,
+                                  style: const TextStyle(
+                                      fontSize: 9, color: Colors.black45),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildSignalSection(
-      double chartWidth, double minX, double maxX, double minY, double maxY) {
-    return SizedBox(
-      height: 170,
-      child: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: Scrollbar(
-          controller: _signalScrollController,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _signalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: chartWidth,
-              child: RepaintBoundary(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    LineChart(
-                      LineChartData(
-                        clipData: const FlClipData(
-                          left: false,
-                          right: true,
-                          top: true,
-                          bottom: true,
-                        ),
-                        gridData: const FlGridData(show: false),
-                        titlesData: const FlTitlesData(show: false),
-                        borderData: FlBorderData(
-                          show: true,
-                          border: Border.all(
-                              color: Colors.grey.withValues(alpha: 0.3)),
-                        ),
-                        minX: minX,
-                        maxX: maxX,
-                        minY: minY,
-                        maxY: maxY,
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: _smoothedData,
-                            isCurved: false,
-                            color: const Color.fromARGB(255, 246, 41, 0),
-                            barWidth: 2.0,
-                            isStrokeCapRound: true,
-                            dotData: const FlDotData(show: false),
-                            belowBarData: BarAreaData(
-                              show: false,
-                            ),
-                          ),
-                          LineChartBarData(
-                            spots: _peakSpots,
-                            isCurved: false,
-                            color: Colors.transparent,
-                            barWidth: 0,
-                            dotData: FlDotData(
-                              show: true,
-                              getDotPainter: (spot, percent, barData, index) =>
-                                  FlDotCirclePainter(
-                                radius: 3,
-                                color: Colors.blue,
-                                strokeWidth: 0,
-                              ),
-                            ),
-                            belowBarData: BarAreaData(show: false),
-                          ),
-                        ],
-                      ),
-                      duration: Duration.zero,
-                    ),
-                    ..._labels.map((label) {
-                      final posX = ((label.x - minX) / (maxX - minX + 1e-6)) *
-                          chartWidth;
-                      return Positioned(
-                        left: posX,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 1.0,
-                          color: Colors.grey.withValues(alpha: 0.5),
-                        ),
-                      );
-                    }),
-                    ..._labels.map((label) {
-                      final posX = ((label.x - minX) / (maxX - minX + 1e-6)) *
-                          chartWidth;
-                      return Positioned(
-                        left: posX,
-                        bottom: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            label.time,
-                            style: const TextStyle(
-                                fontSize: 9, color: Colors.black),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
+  /// A short tinted note, used for the SpO2 caveats.
+  Widget _note(BuildContext context, String text) {
+    final r = Responsive.of(context);
+    return Container(
+      padding: EdgeInsets.all(r.spaceMd),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E0),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline,
+              size: r.iconSm, color: const Color(0xFF8A5300)),
+          SizedBox(width: r.spaceSm),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                  fontSize: r.fontSmall, color: const Color(0xFF8A5300)),
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _metricGrid(BuildContext context, List<Widget> cards) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: _responsiveGridColumns(context),
+      childAspectRatio: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      children: cards,
     );
   }
 
   Widget _buildHrvSection(BuildContext context) {
-    final columns = _responsiveGridColumns(context);
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // If SpO2 not yet available, show short note so user knows it's being prepared
-        if (_spo2 <= 0.0)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-            child: Card(
-              color: Colors.yellow[50],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.orange.withValues(alpha: 0.6)),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(10),
-                child: Text(
-                  L10n.of(context).summarySpo2Pending,
-                  style: TextStyle(fontSize: 13, color: Colors.black87),
-                ),
-              ),
-            ),
+        if (_spo2 <= 0.0) ...[
+          _note(context, t.summarySpo2Pending),
+          SizedBox(height: r.spaceMd),
+        ],
+        _metricGrid(context, [
+          _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
+          _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
+          _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
+          _buildHRVCard(t.metricsAverageRr, '${_meanRR.toStringAsFixed(2)} ms'),
+          _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
+          _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
+          _buildHRVCard('SD2/SD1', _sd2sd1.toStringAsFixed(2)),
+          _buildHRVCard('LF', '${_lf.toStringAsFixed(2)} %'),
+          _buildHRVCard('HF', '${_hf.toStringAsFixed(2)} %'),
+          _buildHRVCard('LF/HF', _lfhf.toStringAsFixed(2)),
+          _buildHRVCard(
+            t.metricsStressIndex,
+            _stressIndex.toStringAsFixed(2),
+            valueColor: _getStressColor(_stressIndex),
           ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            L10n.of(context).metricsHrvAnalysis,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: columns,
-            childAspectRatio: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            children: [
-              _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
-              _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
-              _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
-              _buildHRVCard(L10n.of(context).metricsAverageRr,
-                  '${_meanRR.toStringAsFixed(2)} ms'),
-              _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
-              _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
-              _buildHRVCard('SD2/SD1', _sd2sd1.toStringAsFixed(2)),
-              _buildHRVCard('LF', '${_lf.toStringAsFixed(2)} %'),
-              _buildHRVCard('HF', '${_hf.toStringAsFixed(2)} %'),
-              _buildHRVCard('LF/HF', _lfhf.toStringAsFixed(2)),
-              _buildHRVCard(
-                'Index stresu',
-                _stressIndex.toStringAsFixed(2),
-                valueColor: _getStressColor(_stressIndex),
-              ),
-            ],
-          ),
-        ),
+        ]),
       ],
     );
   }
 
   Widget _buildRespAndSpo2Info(BuildContext context) {
-    final columns = _responsiveGridColumns(context);
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
     if (kReleaseMode) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Card(
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
-          ),
-          child: const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Funkce SpO2 bude brzy k dispozici.',
-              style: TextStyle(fontSize: 14, color: Colors.black87),
-            ),
-          ),
-        ),
-      );
+      return _note(context, t.summarySpo2ComingSoon);
     }
-
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: columns,
-            childAspectRatio: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            children: [
-              _buildHRVCard(
-                L10n.of(context).metricsRespiratoryRate,
-                _respiratoryRate > 0
-                    ? L10n.of(context).metricsBreathsPerMinute(
-                        _respiratoryRate.toStringAsFixed(1))
-                    : '—',
-              ),
-              _buildHRVCard(
-                'SpO2',
-                _spo2 > 0 ? '${_spo2.toStringAsFixed(1)} %' : '—',
-                valueColor: _spo2 >= 95
-                    ? Colors.green
-                    : _spo2 >= 90
-                        ? Colors.orange
-                        : Colors.red,
-              ),
-            ],
+        _metricGrid(context, [
+          _buildHRVCard(
+            t.metricsRespiratoryRate,
+            _respiratoryRate > 0
+                ? t.metricsBreathsPerMinute(_respiratoryRate.toStringAsFixed(1))
+                : '—',
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Card(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: const BorderSide(color: Color.fromARGB(120, 158, 158, 158)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline,
-                      size: 16, color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'SpO2 je orientacni hodnota. Neni nahradou lekarskeho pristroje. Pri hodnotach pod 95 % vyhledejte lekare.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          _buildHRVCard(
+            'SpO2',
+            _spo2 > 0 ? '${_spo2.toStringAsFixed(1)} %' : '—',
+            valueColor: _spo2 >= 95
+                ? Colors.green
+                : _spo2 >= 90
+                    ? Colors.orange
+                    : Colors.red,
           ),
-        ),
+        ]),
+        SizedBox(height: r.spaceMd),
+        _note(context, t.summarySpo2Disclaimer),
       ],
     );
   }
 
   Widget _buildHrrSection(BuildContext context) {
-    final columns = _responsiveGridColumns(context);
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              L10n.of(context).metricsHeartRateRecovery,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.symmetric(horizontal: r.spaceXs),
           child: Text(
-            L10n.of(context).metricsRecoveryIntro,
-            style: const TextStyle(fontSize: 13, color: Colors.black54),
+            t.metricsRecoveryIntro,
+            style: TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: r.spaceMd),
         _buildRespAndSpo2Info(context),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: _buildHrrChart(),
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: columns,
-            childAspectRatio: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            children: [
-              _buildHRVCard(L10n.of(context).metricHr0,
-                  _hr0 > 0 ? '${_hr0.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard(L10n.of(context).metricHr60,
-                  _hr60 > 0 ? '${_hr60.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard(L10n.of(context).metricHrr60,
-                  _hrr60 > 0 ? '${_hrr60.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard(L10n.of(context).metricSlope60,
-                  '${_slope60BpmPerMin.toStringAsFixed(1)} bpm/min'),
-              _buildHRVCard(L10n.of(context).metricHr120,
-                  _hr120 > 0 ? '${_hr120.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard(L10n.of(context).metricHrr120,
-                  _hrr120 > 0 ? '${_hrr120.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard(L10n.of(context).metricTau,
-                  _tauSec > 0 ? '${_tauSec.toStringAsFixed(1)} s' : '—'),
-            ],
-          ),
-        ),
+        SizedBox(height: r.spaceMd),
+        _buildHrrChart(),
+        SizedBox(height: r.spaceMd),
+        _metricGrid(context, [
+          _buildHRVCard(
+              t.metricHr0, _hr0 > 0 ? '${_hr0.toStringAsFixed(1)} bpm' : '—'),
+          _buildHRVCard(t.metricHr60,
+              _hr60 > 0 ? '${_hr60.toStringAsFixed(1)} bpm' : '—'),
+          _buildHRVCard(t.metricHrr60,
+              _hrr60 > 0 ? '${_hrr60.toStringAsFixed(1)} bpm' : '—'),
+          _buildHRVCard(t.metricSlope60,
+              '${_slope60BpmPerMin.toStringAsFixed(1)} bpm/min'),
+          _buildHRVCard(t.metricHr120,
+              _hr120 > 0 ? '${_hr120.toStringAsFixed(1)} bpm' : '—'),
+          _buildHRVCard(t.metricHrr120,
+              _hrr120 > 0 ? '${_hrr120.toStringAsFixed(1)} bpm' : '—'),
+          _buildHRVCard(t.metricTau,
+              _tauSec > 0 ? '${_tauSec.toStringAsFixed(1)} s' : '—'),
+        ]),
       ],
     );
   }
@@ -1744,16 +1598,13 @@ class _SummaryState extends State<Summary> {
     final hint = _getMetricInfoText(title);
     return InkWell(
       onTap: () => _showAnchoredMetricInfo(title, value, iconKey),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(14),
       child: Card(
-        elevation: 2,
+        elevation: 0,
+        margin: EdgeInsets.zero,
         color: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(
-            color: Color.fromARGB(120, 158, 158, 158),
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Stack(
           children: [

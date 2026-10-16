@@ -554,5 +554,13 @@
       }
     }
   },
-  "settingsProfileUnnamed": "Uživatel"
+  "settingsProfileUnnamed": "Uživatel",
+  "summaryDiscardTitle": "Zahodit měření?",
+  "summaryDiscardBody": "Výsledek se neuloží do historie.",
+  "summaryDiscard": "Zahodit",
+  "summaryKeep": "Ponechat",
+  "summaryWeakSignal": "Signál byl slabý, výsledek nemusí být přesný.",
+  "summaryMeasureAgain": "Změřit znovu",
+  "summarySpo2ComingSoon": "Funkce SpO2 bude brzy k dispozici.",
+  "summarySpo2Disclaimer": "SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře."
 }
