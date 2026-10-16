@@ -37,7 +37,7 @@
 		<key>NSHealthShareUsageDescription</key>
 		<string>Aplikace potřebuje přístup k HealthKit pro čtení dat tepové frekvence.</string>
 		<key>NSHealthUpdateUsageDescription</key>
-		<string>Aplikace potřebuje přístup k HealthKit pro ukládání tepové frekvence.</string>
+		<string>Aplikace potřebuje přístup k HealthKit pro ukládání tepové frekvence a variability srdečního rytmu (HRV).</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Tato aplikace potřebuje přístup k mikrofonu pro použití blesku při měření.</string>
 		<key>NSMotionUsageDescription</key>

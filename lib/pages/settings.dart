@@ -6,8 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/pages/diagnostics_page.dart';
-import 'package:tepovka/pages/login_page.dart';
-import 'package:tepovka/pages/qr_code_page.dart';
+import 'package:tepovka/pages/profile_page.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/services/local_profile_service.dart';
 import 'package:tepovka/services/reminder_service.dart';
@@ -236,27 +235,17 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String _profileSubtitle(L10n t) {
-    if (!LocalProfileService.isLoggedIn) return t.settingsNotLoggedIn;
+    if (!LocalProfileService.isLoggedIn) return t.settingsMyProfileHint;
     final String id = LocalProfileService.userId ?? '';
-    return t.settingsProfile(
+    return t.settingsMyProfileSummary(
       LocalProfileService.displayName ?? t.settingsProfileUnnamed,
       id.length > 6 ? id.substring(0, 6) : id,
     );
   }
 
-  Future<void> _logout() async {
-    await LocalProfileService.signOutLocal();
-    if (!mounted) return;
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(L10n.of(context).settingsLoggedOut),
-      duration: const Duration(seconds: 2),
-    ));
-  }
-
   Future<void> _open(Widget page) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-    // Signing in or out on the login page changes what the rows show.
+    // Creating or removing the profile changes what its row shows.
     if (mounted) setState(() {});
   }
 
@@ -470,32 +459,15 @@ class _SettingsPageState extends State<SettingsPage> {
           ]),
           InfoSectionLabel(t.settingsSectionProfile),
           SettingsCard(tint: SettingsTint.profile, children: [
-            SettingsRow(
-              icon: Symbols.login,
-              title: t.settingsLogin,
-              subtitle: _profileSubtitle(t),
-              chevron: true,
-              onTap: () => _open(const LoginPage()),
-            ),
-            // Without a profile there is no code yet; the login page makes
-            // one and shows it.
+            // One row for the profile and its QR code: the page creates the
+            // profile when there is none and shows the code when there is.
             SettingsRow(
               icon: Symbols.qr_code,
-              title: t.settingsMyQrForDoctor,
-              subtitle: t.settingsMyQrForDoctorHint,
+              title: t.settingsMyProfile,
+              subtitle: _profileSubtitle(t),
               chevron: true,
-              onTap: () => _open(LocalProfileService.isLoggedIn
-                  ? const QrCodePage()
-                  : const LoginPage()),
+              onTap: () => _open(const ProfilePage()),
             ),
-            if (LocalProfileService.isLoggedIn)
-              SettingsRow(
-                icon: Symbols.logout,
-                title: t.settingsLogout,
-                subtitle: t.settingsLogoutHint,
-                destructive: true,
-                onTap: _logout,
-              ),
           ]),
           InfoSectionLabel(t.settingsSectionSupport),
           SettingsCard(tint: SettingsTint.support, children: [

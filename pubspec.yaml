@@ -72,6 +72,8 @@ flutter:
     - assets/Icon - Apple Health.png
     - assets/Apple_Health_badge_US-UK_blk_sRGB.svg
     - assets/guide/finger_on_camera.png
+    # For the PDF report; the app's own text uses the system font.
+    - assets/fonts/Roboto-Bold.ttf
 
   fonts:
     - family: Roboto

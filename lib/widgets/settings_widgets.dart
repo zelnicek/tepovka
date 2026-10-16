@@ -23,10 +23,14 @@ class SettingsCard extends StatelessWidget {
   const SettingsCard({
     super.key,
     this.tint = SettingsTint.support,
+    this.outlined = false,
     required this.children,
   });
 
   final Color tint;
+
+  /// A hairline around the card, for when it sits on white (in a sheet).
+  final bool outlined;
   final List<Widget> children;
 
   @override
@@ -36,7 +40,12 @@ class SettingsCard extends StatelessWidget {
       tint: tint,
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: outlined
+              ? const BorderSide(color: Color(0xFFE6E6E6))
+              : BorderSide.none,
+        ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [

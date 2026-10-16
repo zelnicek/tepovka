@@ -790,7 +790,7 @@ abstract class L10n {
   /// No description provided for @settingsAppleHealthBody.
   ///
   /// In cs, this message translates to:
-  /// **'Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. Aplikace zapisuje pouze typ „Tepová frekvence\". Žádná další data se neodesílají ani nečtou.'**
+  /// **'Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. U měření od 60 sekund s dobrým signálem se uloží i variabilita srdečního rytmu (HRV, SDNN). Žádná další data se neodesílají ani nečtou.'**
   String get settingsAppleHealthBody;
 
   /// No description provided for @settingsManagePermissions.
@@ -876,48 +876,6 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Každý řádek je jedno pole formuláře.'**
   String get settingsPreMeasurementFieldsHint;
-
-  /// No description provided for @settingsLogin.
-  ///
-  /// In cs, this message translates to:
-  /// **'Přihlášení'**
-  String get settingsLogin;
-
-  /// No description provided for @settingsNotLoggedIn.
-  ///
-  /// In cs, this message translates to:
-  /// **'Nepřihlášen'**
-  String get settingsNotLoggedIn;
-
-  /// No description provided for @settingsLogout.
-  ///
-  /// In cs, this message translates to:
-  /// **'Odhlásit se'**
-  String get settingsLogout;
-
-  /// No description provided for @settingsLogoutHint.
-  ///
-  /// In cs, this message translates to:
-  /// **'Odstraní aktivní přihlášení na tomto zařízení'**
-  String get settingsLogoutHint;
-
-  /// No description provided for @settingsLoggedOut.
-  ///
-  /// In cs, this message translates to:
-  /// **'Odhlášeno'**
-  String get settingsLoggedOut;
-
-  /// No description provided for @settingsMyQrForDoctor.
-  ///
-  /// In cs, this message translates to:
-  /// **'Můj QR kód pro lékaře'**
-  String get settingsMyQrForDoctor;
-
-  /// No description provided for @settingsMyQrForDoctorHint.
-  ///
-  /// In cs, this message translates to:
-  /// **'Umožní rychlé vyhledání záznamů'**
-  String get settingsMyQrForDoctorHint;
 
   /// No description provided for @settingsComingSoon.
   ///
@@ -1045,12 +1003,6 @@ abstract class L10n {
   /// **'Sdílet'**
   String get loginShare;
 
-  /// No description provided for @loginLogout.
-  ///
-  /// In cs, this message translates to:
-  /// **'Odhlásit'**
-  String get loginLogout;
-
   /// No description provided for @loginLocalProfile.
   ///
   /// In cs, this message translates to:
@@ -1080,12 +1032,6 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'4–6 číslic pro zámek profilu'**
   String get loginPinHint;
-
-  /// No description provided for @loginSaveProfile.
-  ///
-  /// In cs, this message translates to:
-  /// **'Uložit profil a zobrazit QR'**
-  String get loginSaveProfile;
 
   /// No description provided for @loginSignInFirst.
   ///
@@ -2041,12 +1987,6 @@ abstract class L10n {
   /// **'Tau (odhad)'**
   String get metricTau;
 
-  /// No description provided for @settingsProfile.
-  ///
-  /// In cs, this message translates to:
-  /// **'Profil: {name} ({id}…)'**
-  String settingsProfile(String name, String id);
-
   /// No description provided for @settingsProfileUnnamed.
   ///
   /// In cs, this message translates to:
@@ -2170,7 +2110,7 @@ abstract class L10n {
   /// No description provided for @settingsHealthShortHint.
   ///
   /// In cs, this message translates to:
-  /// **'Ukládá jen tepovou frekvenci'**
+  /// **'Ukládá tep a HRV'**
   String get settingsHealthShortHint;
 
   /// No description provided for @settingsDataLocal.
@@ -2196,6 +2136,300 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Pro řešení potíží s aplikací'**
   String get settingsDiagnosticsHint;
+
+  /// No description provided for @settingsMyProfile.
+  ///
+  /// In cs, this message translates to:
+  /// **'Můj profil'**
+  String get settingsMyProfile;
+
+  /// No description provided for @settingsMyProfileHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jméno a QR kód pro lékaře'**
+  String get settingsMyProfileHint;
+
+  /// No description provided for @settingsMyProfileSummary.
+  ///
+  /// In cs, this message translates to:
+  /// **'{name} · ID {id}'**
+  String settingsMyProfileSummary(String name, String id);
+
+  /// No description provided for @profileCreate.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vytvořit profil'**
+  String get profileCreate;
+
+  /// No description provided for @profileLocalHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Profil zůstává jen v tomto telefonu. Lékař podle QR kódu rychle najde vaše záznamy.'**
+  String get profileLocalHint;
+
+  /// No description provided for @profileRemove.
+  ///
+  /// In cs, this message translates to:
+  /// **'Odebrat profil'**
+  String get profileRemove;
+
+  /// No description provided for @profileRemoveTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Odebrat profil?'**
+  String get profileRemoveTitle;
+
+  /// No description provided for @profileRemoveBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jméno a QR kód zmizí z aplikace. Měření v historii zůstanou.'**
+  String get profileRemoveBody;
+
+  /// No description provided for @profileRemoveConfirm.
+  ///
+  /// In cs, this message translates to:
+  /// **'Odebrat'**
+  String get profileRemoveConfirm;
+
+  /// No description provided for @profileRemoved.
+  ///
+  /// In cs, this message translates to:
+  /// **'Profil odebrán'**
+  String get profileRemoved;
+
+  /// No description provided for @settingsClearLogTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vymazat log?'**
+  String get settingsClearLogTitle;
+
+  /// No description provided for @settingsClearLogBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'Záznam událostí pro podporu se smaže. Měření zůstanou.'**
+  String get settingsClearLogBody;
+
+  /// No description provided for @settingsClearLogConfirm.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vymazat'**
+  String get settingsClearLogConfirm;
+
+  /// No description provided for @recordsSelectAll.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vybrat vše'**
+  String get recordsSelectAll;
+
+  /// No description provided for @recordsSelectNone.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zrušit výběr'**
+  String get recordsSelectNone;
+
+  /// No description provided for @recordsExportSelected.
+  ///
+  /// In cs, this message translates to:
+  /// **'Exportovat ({count})'**
+  String recordsExportSelected(int count);
+
+  /// No description provided for @recordsExportTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Exportovat {count} měření'**
+  String recordsExportTitle(int count);
+
+  /// No description provided for @recordsExportPdf.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zpráva pro lékaře (PDF)'**
+  String get recordsExportPdf;
+
+  /// No description provided for @recordsExportPdfHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Souhrn, graf a tabulka měření'**
+  String get recordsExportPdfHint;
+
+  /// No description provided for @recordsExportTable.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tabulka (CSV)'**
+  String get recordsExportTable;
+
+  /// No description provided for @recordsExportTableHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jeden řádek na měření, pro Excel'**
+  String get recordsExportTableHint;
+
+  /// No description provided for @recordsExportRaw.
+  ///
+  /// In cs, this message translates to:
+  /// **'Kompletní data'**
+  String get recordsExportRaw;
+
+  /// No description provided for @recordsExportRawHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Průběh signálu ve formátu {format}, soubor na měření'**
+  String recordsExportRawHint(String format);
+
+  /// No description provided for @recordsExportFailed.
+  ///
+  /// In cs, this message translates to:
+  /// **'Export se nepodařil'**
+  String get recordsExportFailed;
+
+  /// No description provided for @recordsWeeklyTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tep po týdnech'**
+  String get recordsWeeklyTitle;
+
+  /// No description provided for @recordsWeeklyLower.
+  ///
+  /// In cs, this message translates to:
+  /// **'o {n} méně než týden předtím'**
+  String recordsWeeklyLower(int n);
+
+  /// No description provided for @recordsWeeklyHigher.
+  ///
+  /// In cs, this message translates to:
+  /// **'o {n} více než týden předtím'**
+  String recordsWeeklyHigher(int n);
+
+  /// No description provided for @recordsWeeklySame.
+  ///
+  /// In cs, this message translates to:
+  /// **'stejně jako týden předtím'**
+  String get recordsWeeklySame;
+
+  /// No description provided for @recordsWeeklyCaption.
+  ///
+  /// In cs, this message translates to:
+  /// **'Průměr za týden, posledních 8 týdnů, bez měření se špatným signálem'**
+  String get recordsWeeklyCaption;
+
+  /// No description provided for @reportTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přehled měření tepu'**
+  String get reportTitle;
+
+  /// No description provided for @reportPatient.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pacient: {name} · ID {id}'**
+  String reportPatient(String name, String id);
+
+  /// No description provided for @reportPeriod.
+  ///
+  /// In cs, this message translates to:
+  /// **'Období: {period}'**
+  String reportPeriod(String period);
+
+  /// No description provided for @reportCreated.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vytvořeno v aplikaci Tepovka {date}'**
+  String reportCreated(String date);
+
+  /// No description provided for @reportMeasurements.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měření'**
+  String get reportMeasurements;
+
+  /// No description provided for @reportAverage.
+  ///
+  /// In cs, this message translates to:
+  /// **'Průměrný tep'**
+  String get reportAverage;
+
+  /// No description provided for @reportRange.
+  ///
+  /// In cs, this message translates to:
+  /// **'Rozmezí'**
+  String get reportRange;
+
+  /// No description provided for @reportSdnn.
+  ///
+  /// In cs, this message translates to:
+  /// **'Průměr SDNN'**
+  String get reportSdnn;
+
+  /// No description provided for @reportChartTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tep v jednotlivých měřeních'**
+  String get reportChartTitle;
+
+  /// No description provided for @reportTableTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Seznam měření'**
+  String get reportTableTitle;
+
+  /// No description provided for @reportColDate.
+  ///
+  /// In cs, this message translates to:
+  /// **'Datum'**
+  String get reportColDate;
+
+  /// No description provided for @reportColTime.
+  ///
+  /// In cs, this message translates to:
+  /// **'Čas'**
+  String get reportColTime;
+
+  /// No description provided for @reportColDuration.
+  ///
+  /// In cs, this message translates to:
+  /// **'Délka'**
+  String get reportColDuration;
+
+  /// No description provided for @reportColBpm.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tep'**
+  String get reportColBpm;
+
+  /// No description provided for @reportColQuality.
+  ///
+  /// In cs, this message translates to:
+  /// **'Signál'**
+  String get reportColQuality;
+
+  /// No description provided for @reportColNote.
+  ///
+  /// In cs, this message translates to:
+  /// **'Poznámka'**
+  String get reportColNote;
+
+  /// No description provided for @reportDisclaimer.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tepovka měří tep kamerou telefonu (fotopletysmografie). Hodnoty jsou orientační; aplikace není zdravotnický prostředek a neslouží k diagnostice. HRV (SDNN, RMSSD) je uvedena jen u měření od 60 s, která neměla špatný signál.'**
+  String get reportDisclaimer;
+
+  /// No description provided for @reportPage.
+  ///
+  /// In cs, this message translates to:
+  /// **'Strana {page} z {pages}'**
+  String reportPage(int page, int pages);
+
+  /// No description provided for @summarySavedToHealthWithHrv.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tep a HRV uloženy do Apple Zdraví'**
+  String get summarySavedToHealthWithHrv;
+
+  /// No description provided for @reportQualityUnknown.
+  ///
+  /// In cs, this message translates to:
+  /// **'Bez hodnocení'**
+  String get reportQualityUnknown;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

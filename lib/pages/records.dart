@@ -29,6 +29,12 @@ import 'package:tepovka/pages/about.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 import 'package:fftea/fftea.dart';
+import 'package:csv/csv.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:tepovka/elements/report_pdf.dart';
+import 'package:tepovka/services/local_profile_service.dart';
+import 'package:tepovka/services/weekly_trend.dart';
+import 'package:tepovka/widgets/settings_widgets.dart';
 
 /// Nominální snímkovací frekvence kamery. Skutečná bývá nižší (~24 fps) —
 /// měření proti Faros 180 EKG a oxymetru v srpnu 2026 dalo poměr 1.232
@@ -240,6 +246,9 @@ class _RecordsPageState extends State<RecordsPage> {
   String _sortMode = 'date_desc'; // date_desc|date_asc|bpm_desc|bpm_asc
   bool _selectionMode = false;
   final Set<String> _selectedKeys = <String>{}; // key: "date_time"
+
+  /// While the selected records are being written for sharing.
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -474,29 +483,14 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   /// Asks before deleting. Returns whether to go ahead.
-  Future<bool> _confirmDelete({String? body}) async {
+  Future<bool> _confirmDelete({String? body}) {
     final L10n t = L10n.of(context);
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(t.recordsConfirmDeleteTitle),
-        content: Text(body ?? t.recordsConfirmDeleteBody),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.black87),
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(t.commonCancel),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: kInfoAccent),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(t.commonDelete),
-          ),
-        ],
-      ),
+    return confirmDestructive(
+      context,
+      title: t.recordsConfirmDeleteTitle,
+      body: body ?? t.recordsConfirmDeleteBody,
+      confirmLabel: t.commonDelete,
     );
-    return confirmed ?? false;
   }
 
   Future<void> _deleteRecord(Record record) async {
@@ -1340,34 +1334,405 @@ class _RecordsPageState extends State<RecordsPage> {
     );
   }
 
+  /// Export as the main action, delete beside it, smaller and outlined, so
+  /// the destructive one is not the big red button.
   Widget _selectionBar(BuildContext context) {
     final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
     final int count = _selectedKeys.length;
+    final bool canDelete = count > 0 && !_exporting;
+    final double height = r.iconXl * 1.4;
     return SafeArea(
       top: false,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
             r.pagePadding.left, r.spaceSm, r.pagePadding.right, r.spaceSm),
         child: SizedBox(
-          height: r.iconXl * 1.4,
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: kInfoAccent,
-              disabledBackgroundColor: const Color(0xFFE0E0E0),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-            ),
-            onPressed: count == 0 ? null : _deleteSelected,
-            icon: const Icon(Icons.delete_outline),
-            label: Text(
-              L10n.of(context).recordsDeleteSelected(count),
-              style: TextStyle(
-                  fontSize: r.fontBodyLg, fontWeight: FontWeight.bold),
-            ),
+          height: height,
+          child: Row(
+            children: [
+              Expanded(
+                child: SettingsPrimaryButton(
+                  icon: Symbols.ios_share,
+                  label: t.recordsExportSelected(count),
+                  busy: _exporting,
+                  onPressed: count == 0 ? null : _exportSelected,
+                ),
+              ),
+              SizedBox(width: r.spaceSm),
+              SizedBox(
+                width: height,
+                height: height,
+                child: Tooltip(
+                  message: t.recordsDeleteSelected(count),
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kInfoAccent,
+                      backgroundColor: Colors.white,
+                      padding: EdgeInsets.zero,
+                      side: BorderSide(
+                          color: canDelete
+                              ? kInfoAccent
+                              : const Color(0xFFE0E0E0)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: canDelete ? _deleteSelected : null,
+                    child: Icon(Icons.delete_outline, size: r.iconMd),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  bool get _allVisibleSelected =>
+      _visible.isNotEmpty &&
+      _visible.every((r) => _selectedKeys.contains('${r.date}_${r.time}'));
+
+  void _toggleSelectAll() {
+    final bool all = _allVisibleSelected;
+    setState(() {
+      for (final Record r in _visible) {
+        final String key = '${r.date}_${r.time}';
+        if (all) {
+          _selectedKeys.remove(key);
+        } else {
+          _selectedKeys.add(key);
+        }
+      }
+    });
+  }
+
+  /// Shares the selected measurements: as a report for the doctor, as one
+  /// table, or as the full recordings in the format chosen in Settings.
+  Future<void> _exportSelected() async {
+    final L10n t = L10n.of(context);
+    final List<Record> chosen = _records
+        .where((r) => _selectedKeys.contains('${r.date}_${r.time}'))
+        .toList()
+      ..sort((a, b) => _instantOf(a).compareTo(_instantOf(b)));
+    if (chosen.isEmpty) return;
+    final String rawFormat = AppSettings.value.exportFormat.name.toUpperCase();
+    final _ExportKind? kind = await showSettingsSheet<_ExportKind>(
+      context,
+      builder: (sheetContext) => SettingsSheet(
+        title: t.recordsExportTitle(chosen.length),
+        children: [
+          SettingsCard(
+            tint: SettingsTint.data,
+            outlined: true,
+            children: [
+              SettingsRow(
+                icon: Symbols.picture_as_pdf,
+                title: t.recordsExportPdf,
+                subtitle: t.recordsExportPdfHint,
+                chevron: true,
+                onTap: () => Navigator.pop(sheetContext, _ExportKind.report),
+              ),
+              SettingsRow(
+                icon: Symbols.table_chart,
+                title: t.recordsExportTable,
+                subtitle: t.recordsExportTableHint,
+                chevron: true,
+                onTap: () => Navigator.pop(sheetContext, _ExportKind.table),
+              ),
+              SettingsRow(
+                icon: Symbols.data_object,
+                title: t.recordsExportRaw,
+                subtitle: t.recordsExportRawHint(rawFormat),
+                chevron: true,
+                onTap: () => Navigator.pop(sheetContext, _ExportKind.raw),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (kind == null) return;
+    // Everything that needs the context, before the next await.
+    final ReportLabels labels = ReportLabels.of(t);
+    final List<ReportEntry> entries = [for (final r in chosen) _reportEntry(r)];
+    final List<String> header = _reportHeader(t, chosen);
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    // iPad shows the share sheet as a popover and needs somewhere to anchor.
+    final Rect? origin =
+        box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    setState(() => _exporting = true);
+    try {
+      final List<String?> made = switch (kind) {
+        _ExportKind.report => [await _createReport(entries, labels, header)],
+        _ExportKind.table => [await _createSummaryCsv(chosen)],
+        _ExportKind.raw => [
+            for (final Record r in chosen) await _createExport(r),
+          ],
+      };
+      final List<String> paths = made.whereType<String>().toList();
+      if (paths.isEmpty) throw StateError('no file was written');
+      await SharePlus.instance.share(ShareParams(
+        files: [for (final String path in paths) XFile(path)],
+        sharePositionOrigin: origin,
+      ));
+    } catch (e) {
+      debugPrint('Export of selected records failed: $e');
+      messenger.showSnackBar(SnackBar(
+        content: Text(t.recordsExportFailed),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  /// HRV the record can stand behind: from measurements of at least 60 s
+  /// (the length the app asks for when HRV matters) without a poor signal.
+  double? _hrvFor(Record r, String key) {
+    if (r.duration < 60 || _signalQualityOf(r) == 'poor') return null;
+    final Object? v = r.hrv[key];
+    return v is num && v.isFinite && v > 0 ? v.toDouble() : null;
+  }
+
+  ReportEntry _reportEntry(Record r) {
+    final DateTime when = _instantOf(r);
+    return ReportEntry(
+      date: _formatShortDate(when),
+      time: _formatTime(when),
+      durationS: r.duration,
+      bpm: r.averageBPM,
+      sdnnMs: _hrvFor(r, 'sdnn'),
+      rmssdMs: _hrvFor(r, 'rmssd'),
+      quality: _signalQualityOf(r),
+      note: r.notesContent.trim().replaceAll(RegExp(r'\s+'), ' '),
+    );
+  }
+
+  /// Who, which days and when the report was made, under its title.
+  List<String> _reportHeader(L10n t, List<Record> chosen) {
+    final String from = _formatShortDate(_instantOf(chosen.first));
+    final String to = _formatShortDate(_instantOf(chosen.last));
+    final String id = LocalProfileService.userId ?? '';
+    return [
+      if (LocalProfileService.isLoggedIn)
+        t.reportPatient(
+          LocalProfileService.displayName ?? t.settingsProfileUnnamed,
+          id.length > 6 ? id.substring(0, 6) : id,
+        ),
+      t.reportPeriod(from == to ? from : '$from – $to'),
+      t.reportCreated(_formatShortDate(DateTime.now())),
+    ];
+  }
+
+  static String _fileStamp() =>
+      DateFormat('yyyy-MM-dd_HHmm').format(DateTime.now());
+
+  Future<String?> _createReport(List<ReportEntry> entries, ReportLabels labels,
+      List<String> header) async {
+    try {
+      final Uint8List bytes = await buildReportPdf(
+          entries: entries, labels: labels, headerLines: header);
+      final Directory dir = await getTemporaryDirectory();
+      final File file = File('${dir.path}/Tepovka_${_fileStamp()}.pdf');
+      await file.writeAsBytes(bytes);
+      return file.path;
+    } catch (e) {
+      debugPrint('Error creating the report: $e');
+      return null;
+    }
+  }
+
+  /// One row per measurement, for Excel or pandas. Starts with a byte order
+  /// mark, without which Excel reads the Czech letters as another encoding.
+  Future<String?> _createSummaryCsv(List<Record> chosen) async {
+    try {
+      final List<String> metaKeys = [
+        ...{for (final Record r in chosen) ...r.metadata.keys}
+      ];
+      String one(double? v) => v == null ? '' : v.toStringAsFixed(1);
+      final List<List<Object>> rows = [
+        [
+          'date',
+          'time',
+          'started_at',
+          'duration_s',
+          'bpm',
+          'signal_quality',
+          'sdnn_ms',
+          'rmssd_ms',
+          'notes',
+          ...metaKeys,
+        ],
+        for (final Record r in chosen)
+          [
+            r.date,
+            r.time,
+            r.startedAt,
+            r.duration,
+            r.averageBPM > 0 ? r.averageBPM : '',
+            _signalQualityOf(r) ?? '',
+            one(_hrvFor(r, 'sdnn')),
+            one(_hrvFor(r, 'rmssd')),
+            r.notesContent,
+            for (final String k in metaKeys) r.metadata[k] ?? '',
+          ],
+      ];
+      final Directory dir = await getTemporaryDirectory();
+      final File file = File('${dir.path}/Tepovka_${_fileStamp()}.csv');
+      await file
+          .writeAsString('\uFEFF${const ListToCsvConverter().convert(rows)}');
+      return file.path;
+    } catch (e) {
+      debugPrint('Error creating the table: $e');
+      return null;
+    }
+  }
+
+  /// Average heart rate per week over the last eight weeks, from all records
+  /// whatever the filters, since it is about time. Readings with a poor
+  /// signal are left out: they would move the average, not the heart. Null
+  /// until two weeks have a reading.
+  Widget? _weeklyTrendCard() {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final List<WeekAverage> weeks = weeklyAverages([
+      for (final Record rec in _records)
+        if (_signalQualityOf(rec) != 'poor') (_instantOf(rec), rec.averageBPM),
+    ], now: DateTime.now());
+    final List<int> values = [
+      for (final WeekAverage w in weeks)
+        if (w.bpm != null) w.bpm!
+    ];
+    if (values.length < 2) return null;
+    final int lo = values.reduce(min);
+    final int hi = values.reduce(max);
+    final int latestIndex = weeks.lastIndexWhere((w) => w.bpm != null);
+    final int latest = weeks[latestIndex].bpm!;
+    // Only against the calendar week right before, so "the week before"
+    // is literally true.
+    final int? before = latestIndex > 0 ? weeks[latestIndex - 1].bpm : null;
+    final String? delta = before == null
+        ? null
+        : latest == before
+            ? t.recordsWeeklySame
+            : latest < before
+                ? t.recordsWeeklyLower(before - latest)
+                : t.recordsWeeklyHigher(latest - before);
+
+    final double barArea = r.iconXl * 1.5;
+    final double labelHeight = r.fontCaption * 1.6;
+    return InfoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(t.recordsWeeklyTitle,
+              style: TextStyle(
+                  fontSize: r.fontBodyLg, fontWeight: FontWeight.w600)),
+          SizedBox(height: r.spaceXs),
+          Text.rich(TextSpan(children: [
+            TextSpan(
+              text: '$latest',
+              style: TextStyle(
+                  fontSize: r.fontTitleLg, fontWeight: FontWeight.bold),
+            ),
+            TextSpan(
+              text: ' ${t.homeBpmUnit}',
+              style:
+                  TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText),
+            ),
+            if (delta != null)
+              TextSpan(
+                text: '  ·  $delta',
+                style:
+                    TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText),
+              ),
+          ])),
+          SizedBox(height: r.spaceMd),
+          ExcludeSemantics(
+            child: SizedBox(
+              height: barArea + labelHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (int i = 0; i < weeks.length; i++) ...[
+                    if (i > 0) SizedBox(width: r.spaceXs + 2),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (weeks[i].bpm != null)
+                            SizedBox(
+                              height: labelHeight,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('${weeks[i].bpm}',
+                                    style: TextStyle(
+                                        fontSize: r.fontCaption,
+                                        color: kInfoSecondaryText)),
+                              ),
+                            ),
+                          Container(
+                            height: weeks[i].bpm == null
+                                ? 3
+                                : hi == lo
+                                    ? barArea * 0.6
+                                    : barArea *
+                                        (0.3 +
+                                            0.7 *
+                                                (weeks[i].bpm! - lo) /
+                                                (hi - lo)),
+                            decoration: BoxDecoration(
+                              color: weeks[i].bpm == null
+                                  ? const Color(0xFFE6E6E6)
+                                  : i == latestIndex
+                                      ? kInfoAccent
+                                      : const Color(0xFFF6C9C6),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: r.spaceXs),
+          ExcludeSemantics(
+            child: Row(
+              children: [
+                for (int i = 0; i < weeks.length; i++) ...[
+                  if (i > 0) SizedBox(width: r.spaceXs + 2),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(_weekLabel(weeks[i].weekStart),
+                          style: TextStyle(
+                              fontSize: r.fontCaption, color: Colors.black45)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(height: r.spaceSm),
+          Text(t.recordsWeeklyCaption,
+              style: TextStyle(fontSize: r.fontCaption, color: Colors.black45)),
+        ],
+      ),
+    );
+  }
+
+  String _weekLabel(DateTime start) {
+    try {
+      return DateFormat.Md(_locale).format(start);
+    } catch (_) {
+      return '${start.day}. ${start.month}.';
+    }
   }
 
   Widget _buildHRVCard(String title, String value, {Color? valueColor}) {
@@ -2710,6 +3075,14 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
         title: Text(t.recordsSelectedCount(_selectedKeys.length),
             style: titleStyle),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: kInfoAccent),
+            onPressed: _toggleSelectAll,
+            child: Text(
+                _allVisibleSelected ? t.recordsSelectNone : t.recordsSelectAll),
+          ),
+        ],
       );
     }
     return AppBar(
@@ -2773,6 +3146,10 @@ class _RecordsPageState extends State<RecordsPage> {
                     SizedBox(height: r.spaceMd),
                   ],
                   _buildSummaryCard(),
+                  if (_weeklyTrendCard() case final Widget trend) ...[
+                    SizedBox(height: r.spaceMd),
+                    trend,
+                  ],
                   if (_visible.isEmpty)
                     _noMatch(context)
                   else
@@ -2817,6 +3194,9 @@ class TimeLabel {
 
   TimeLabel(this.x, this.time);
 }
+
+/// What the selected records are shared as.
+enum _ExportKind { report, table, raw }
 
 /// Predpocitana data pro export ve vsech formatech.
 class _ExportBundle {

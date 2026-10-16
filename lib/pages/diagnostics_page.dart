@@ -95,6 +95,15 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
   }
 
   Future<void> _clearLog() async {
+    final L10n t = L10n.of(context);
+    if (!await confirmDestructive(
+      context,
+      title: t.settingsClearLogTitle,
+      body: t.settingsClearLogBody,
+      confirmLabel: t.settingsClearLogConfirm,
+    )) {
+      return;
+    }
     try {
       final path = await LocalLogger.getLogFilePath();
       if (path != null && await File(path).exists()) {

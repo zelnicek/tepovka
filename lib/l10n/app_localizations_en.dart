@@ -395,7 +395,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsAppleHealthBody =>
-      'After a measurement you can save your heart rate to the Health app. Tepovka writes only the “Heart rate” type. No other data is sent or read.';
+      'After a measurement you can save your heart rate to the Health app. For measurements of 60 seconds or more with a good signal, heart rate variability (HRV, SDNN) is saved too. No other data is sent or read.';
 
   @override
   String get settingsManagePermissions => 'Manage permissions';
@@ -441,27 +441,6 @@ class L10nEn extends L10n {
 
   @override
   String get settingsPreMeasurementFieldsHint => 'Each line is one form field.';
-
-  @override
-  String get settingsLogin => 'Sign-in';
-
-  @override
-  String get settingsNotLoggedIn => 'Not signed in';
-
-  @override
-  String get settingsLogout => 'Sign out';
-
-  @override
-  String get settingsLogoutHint => 'Removes the active sign-in on this device';
-
-  @override
-  String get settingsLoggedOut => 'Signed out';
-
-  @override
-  String get settingsMyQrForDoctor => 'My QR code for clinicians';
-
-  @override
-  String get settingsMyQrForDoctorHint => 'Allows records to be found quickly';
 
   @override
   String get settingsComingSoon => 'Coming soon';
@@ -534,9 +513,6 @@ class L10nEn extends L10n {
   String get loginShare => 'Share';
 
   @override
-  String get loginLogout => 'Sign out';
-
-  @override
   String get loginLocalProfile => 'Local profile';
 
   @override
@@ -550,9 +526,6 @@ class L10nEn extends L10n {
 
   @override
   String get loginPinHint => '4–6 digits to lock the profile';
-
-  @override
-  String get loginSaveProfile => 'Save profile and show QR';
 
   @override
   String get loginSignInFirst => 'Please sign in first.';
@@ -1105,11 +1078,6 @@ class L10nEn extends L10n {
   String get metricTau => 'Tau (estimate)';
 
   @override
-  String settingsProfile(String name, String id) {
-    return 'Profile: $name ($id…)';
-  }
-
-  @override
   String get settingsProfileUnnamed => 'User';
 
   @override
@@ -1173,7 +1141,7 @@ class L10nEn extends L10n {
   String get settingsHealthShort => 'Apple Health';
 
   @override
-  String get settingsHealthShortHint => 'Saves heart rate only';
+  String get settingsHealthShortHint => 'Saves heart rate and HRV';
 
   @override
   String get settingsDataLocal => 'Your data stays on this phone';
@@ -1186,4 +1154,184 @@ class L10nEn extends L10n {
 
   @override
   String get settingsDiagnosticsHint => 'For troubleshooting the app';
+
+  @override
+  String get settingsMyProfile => 'My profile';
+
+  @override
+  String get settingsMyProfileHint => 'Name and QR code for your doctor';
+
+  @override
+  String settingsMyProfileSummary(String name, String id) {
+    return '$name · ID $id';
+  }
+
+  @override
+  String get profileCreate => 'Create profile';
+
+  @override
+  String get profileLocalHint =>
+      'The profile stays on this phone. Your doctor uses the QR code to find your records quickly.';
+
+  @override
+  String get profileRemove => 'Remove profile';
+
+  @override
+  String get profileRemoveTitle => 'Remove the profile?';
+
+  @override
+  String get profileRemoveBody =>
+      'Your name and QR code will be removed from the app. Your measurements stay in the history.';
+
+  @override
+  String get profileRemoveConfirm => 'Remove';
+
+  @override
+  String get profileRemoved => 'Profile removed';
+
+  @override
+  String get settingsClearLogTitle => 'Clear the log?';
+
+  @override
+  String get settingsClearLogBody =>
+      'The event log for support will be deleted. Your measurements stay.';
+
+  @override
+  String get settingsClearLogConfirm => 'Clear';
+
+  @override
+  String get recordsSelectAll => 'Select all';
+
+  @override
+  String get recordsSelectNone => 'Deselect all';
+
+  @override
+  String recordsExportSelected(int count) {
+    return 'Export ($count)';
+  }
+
+  @override
+  String recordsExportTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Export $count measurements',
+      one: 'Export 1 measurement',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get recordsExportPdf => 'Report for your doctor (PDF)';
+
+  @override
+  String get recordsExportPdfHint =>
+      'Summary, chart and table of the measurements';
+
+  @override
+  String get recordsExportTable => 'Table (CSV)';
+
+  @override
+  String get recordsExportTableHint => 'One row per measurement, for Excel';
+
+  @override
+  String get recordsExportRaw => 'Full data';
+
+  @override
+  String recordsExportRawHint(String format) {
+    return 'Signal waveform as $format, one file per measurement';
+  }
+
+  @override
+  String get recordsExportFailed => 'Export failed';
+
+  @override
+  String get recordsWeeklyTitle => 'Heart rate by week';
+
+  @override
+  String recordsWeeklyLower(int n) {
+    return '$n lower than the week before';
+  }
+
+  @override
+  String recordsWeeklyHigher(int n) {
+    return '$n higher than the week before';
+  }
+
+  @override
+  String get recordsWeeklySame => 'same as the week before';
+
+  @override
+  String get recordsWeeklyCaption =>
+      'Weekly average over the last 8 weeks, without readings with a poor signal';
+
+  @override
+  String get reportTitle => 'Heart rate report';
+
+  @override
+  String reportPatient(String name, String id) {
+    return 'Patient: $name · ID $id';
+  }
+
+  @override
+  String reportPeriod(String period) {
+    return 'Period: $period';
+  }
+
+  @override
+  String reportCreated(String date) {
+    return 'Created with Tepovka on $date';
+  }
+
+  @override
+  String get reportMeasurements => 'Measurements';
+
+  @override
+  String get reportAverage => 'Average heart rate';
+
+  @override
+  String get reportRange => 'Range';
+
+  @override
+  String get reportSdnn => 'Average SDNN';
+
+  @override
+  String get reportChartTitle => 'Heart rate per measurement';
+
+  @override
+  String get reportTableTitle => 'All measurements';
+
+  @override
+  String get reportColDate => 'Date';
+
+  @override
+  String get reportColTime => 'Time';
+
+  @override
+  String get reportColDuration => 'Length';
+
+  @override
+  String get reportColBpm => 'HR';
+
+  @override
+  String get reportColQuality => 'Signal';
+
+  @override
+  String get reportColNote => 'Note';
+
+  @override
+  String get reportDisclaimer =>
+      'Tepovka measures heart rate with the phone camera (photoplethysmography). The values are indicative; the app is not a medical device and is not meant for diagnosis. HRV (SDNN, RMSSD) is shown only for measurements of 60 s or more without a poor signal.';
+
+  @override
+  String reportPage(int page, int pages) {
+    return 'Page $page of $pages';
+  }
+
+  @override
+  String get summarySavedToHealthWithHrv =>
+      'Heart rate and HRV saved to Apple Health';
+
+  @override
+  String get reportQualityUnknown => 'Not graded';
 }

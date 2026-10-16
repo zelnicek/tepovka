@@ -545,22 +545,36 @@ class _SummaryState extends State<Summary> {
     super.dispose();
   }
 
-  Future<void> _authorizeHealth() async {
-    final types = [
-      HealthDataType.HEART_RATE,
-    ];
-    final permissionGranted = await _health.requestAuthorization(
-      [HealthDataType.HEART_RATE],
-      permissions: [HealthDataAccess.READ_WRITE],
+  /// Asks for Health access once, for heart rate and, when this measurement
+  /// has one worth writing, heart rate variability.
+  Future<void> _authorizeHealth({required bool withHrv}) async {
+    final bool granted = await _health.requestAuthorization(
+      [
+        HealthDataType.HEART_RATE,
+        if (withHrv) HealthDataType.HEART_RATE_VARIABILITY_SDNN,
+      ],
+      permissions: [
+        HealthDataAccess.READ_WRITE,
+        if (withHrv) HealthDataAccess.WRITE,
+      ],
     );
-    if (!permissionGranted) {
+    if (!granted) {
       debugPrint('Oprávnění k zápisu do Apple Health nebylo uděleno.');
-      return;
     }
-    bool requested = await _health.requestAuthorization(types);
-    if (!requested) {
-      debugPrint('Uživatel odmítl přístup k HealthKit');
-    } else {}
+  }
+
+  /// SDNN worth writing to Health as heart rate variability, or null. Only
+  /// from a minute or more with a good signal: Apple's own HRV readings are
+  /// one-minute recordings, and a shorter or noisier camera recording would
+  /// put a number in the user's health record it cannot stand behind.
+  /// iOS only; Health Connect has no SDNN type.
+  Future<double?> _sdnnForHealth() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+    if (widget.recordingDuration < 60) return null;
+    final SpectralQuality? quality = await _quality;
+    if (quality?.level != MeasurementQuality.good) return null;
+    if (!_sdnn.isFinite || _sdnn <= 0 || _sdnn > 300) return null;
+    return _sdnn;
   }
 
   Future<void> _saveMeasurement() async {
@@ -712,7 +726,7 @@ class _SummaryState extends State<Summary> {
   /// The save buttons leave the screen only when it did.
   bool _saveSucceeded = false;
 
-  Future<void> _saveToAppleHealth(double bpm) async {
+  Future<void> _saveToAppleHealth(double bpm, {double? sdnn}) async {
     // Guard against invalid BPM values (Health Connect requires >= 1)
     if (bpm.isNaN || !bpm.isFinite || bpm <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -735,6 +749,19 @@ class _SummaryState extends State<Summary> {
       startTime: start,
       endTime: end,
     );
+    bool hrvSaved = false;
+    if (success && sdnn != null) {
+      try {
+        hrvSaved = await _health.writeHealthData(
+          value: sdnn,
+          type: HealthDataType.HEART_RATE_VARIABILITY_SDNN,
+          startTime: start,
+          endTime: end,
+        );
+      } catch (e) {
+        debugPrint('HRV write to Apple Health failed: $e');
+      }
+    }
     if (!mounted) return;
     if (success) {
       debugPrint('Heart rate written to Apple Health');
@@ -744,7 +771,9 @@ class _SummaryState extends State<Summary> {
             children: [
               Expanded(
                 child: Text(
-                  L10n.of(context).summarySavedToHealth,
+                  hrvSaved
+                      ? L10n.of(context).summarySavedToHealthWithHrv
+                      : L10n.of(context).summarySavedToHealth,
                   style: TextStyle(
                     color: const Color.fromARGB(255, 192, 192, 192),
                   ),
@@ -1163,9 +1192,10 @@ class _SummaryState extends State<Summary> {
     );
   }
 
-  /// Saves the record, then the heart rate to Apple Health, then returns to
-  /// the home screen. Health access is asked here, when saving to it is what
-  /// the user chose, rather than the moment the summary opened.
+  /// Saves the record, then the heart rate (and HRV when it qualifies) to
+  /// Apple Health, then returns to the home screen. Health access is asked
+  /// here, when saving to it is what the user chose, rather than the moment
+  /// the summary opened.
   Future<void> _saveAndLeave() async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -1175,8 +1205,9 @@ class _SummaryState extends State<Summary> {
       return;
     }
     try {
-      await _authorizeHealth();
-      await _saveToAppleHealth(_effectiveAverageBpm);
+      final double? sdnn = await _sdnnForHealth();
+      await _authorizeHealth(withHrv: sdnn != null);
+      await _saveToAppleHealth(_effectiveAverageBpm, sdnn: sdnn);
     } catch (e) {
       // The record is saved; Health is a bonus and must not block leaving.
       debugPrint('Apple Health write failed: $e');

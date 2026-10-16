@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tepovka/elements/responsive.dart';
+import 'package:tepovka/l10n/app_localizations.dart';
 
 /// Building blocks shared by the "How it works" and "About" pages, so the two
 /// stay visually consistent: white rounded cards on the app's grey canvas,
@@ -7,6 +8,38 @@ import 'package:tepovka/elements/responsive.dart';
 const Color kInfoAccent = Color(0xFFE53935);
 const Color kInfoAccentTint = Color(0xFFFDECEA);
 const Color kInfoSecondaryText = Color(0xFF6E6D6D);
+
+/// Asks before an action that cannot be undone, the action in red. Every
+/// such action in the app goes through here, so they all ask the same way.
+/// Returns whether to go ahead.
+Future<bool> confirmDestructive(
+  BuildContext context, {
+  required String title,
+  required String body,
+  required String confirmLabel,
+}) async {
+  final bool? confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: Colors.white,
+      title: Text(title),
+      content: Text(body),
+      actions: [
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: Colors.black87),
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(L10n.of(dialogContext).commonCancel),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: kInfoAccent),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
+}
 
 /// White rounded card. Tappable when [onTap] is set.
 class InfoCard extends StatelessWidget {

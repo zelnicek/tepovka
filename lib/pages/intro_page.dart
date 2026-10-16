@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/services/haptics.dart';
@@ -31,8 +30,6 @@ class IntroPage extends StatefulWidget {
 }
 
 class _IntroPageState extends State<IntroPage> {
-  int _selectedIndex = 0;
-
   /// Stored measurements, oldest first. Empty until loaded.
   List<Record> _records = const [];
 
@@ -102,22 +99,6 @@ class _IntroPageState extends State<IntroPage> {
     if (mounted) _loadRecords();
   }
 
-  Future<void> _onItemTapped(int index) async {
-    if (_selectedIndex == index) return;
-    setState(() => _selectedIndex = index);
-    switch (index) {
-      case 1:
-        await _open(const Home());
-        break;
-      case 2:
-        await _open(const About());
-        break;
-    }
-    // Back on this screen: the bar must point at it again, not at the tab
-    // that was tapped to leave.
-    if (mounted) setState(() => _selectedIndex = 0);
-  }
-
   String _formatWhen(BuildContext context, DateTime when) {
     final L10n t = L10n.of(context);
     final String locale = Localizations.localeOf(context).toString();
@@ -148,7 +129,8 @@ class _IntroPageState extends State<IntroPage> {
     final double wordmarkWidth = (r.width * 0.27).clamp(96.0, 130.0);
 
     // No app bar: the header scrolls with the page, so it can grow with the
-    // text size instead of being clipped by a fixed toolbar height.
+    // text size instead of being clipped by a fixed toolbar height. No bottom
+    // bar either: every place it led to already has its card on this screen.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -208,22 +190,6 @@ class _IntroPageState extends State<IntroPage> {
               ),
             ],
           ),
-        ),
-        bottomNavigationBar: GNav(
-          tabMargin: EdgeInsets.symmetric(horizontal: r.spaceSm),
-          gap: r.spaceSm,
-          activeColor: Colors.black,
-          iconSize: r.iconMd,
-          haptic: Haptics.enabled,
-          backgroundColor: Colors.white,
-          color: Colors.grey,
-          selectedIndex: _selectedIndex,
-          onTabChange: _onItemTapped,
-          tabs: [
-            GButton(icon: Symbols.family_home, text: t.navMenu),
-            GButton(icon: Symbols.ecg_heart, text: t.navMeasure),
-            GButton(icon: Symbols.help, text: t.navInfo),
-          ],
         ),
       ),
     );

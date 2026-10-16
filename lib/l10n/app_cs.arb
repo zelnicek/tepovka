@@ -170,7 +170,7 @@
   "settingsHighContrast": "Vysoký kontrast",
   "settingsHighContrastHint": "Černý text na bílém pozadí",
   "settingsAppleHealth": "Propojení s Apple Health",
-  "settingsAppleHealthBody": "Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. Aplikace zapisuje pouze typ „Tepová frekvence\". Žádná další data se neodesílají ani nečtou.",
+  "settingsAppleHealthBody": "Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. U měření od 60 sekund s dobrým signálem se uloží i variabilita srdečního rytmu (HRV, SDNN). Žádná další data se neodesílají ani nečtou.",
   "settingsManagePermissions": "Spravovat oprávnění",
   "settingsManagePermissionsHint": "Otevřete Nastavení → Soukromí → Zdraví → Tepovka",
   "settingsGeneralSection": "Obecné",
@@ -185,13 +185,6 @@
   "settingsExportFormat": "Formát exportu",
   "settingsPreMeasurementFields": "Údaje před měřením",
   "settingsPreMeasurementFieldsHint": "Každý řádek je jedno pole formuláře.",
-  "settingsLogin": "Přihlášení",
-  "settingsNotLoggedIn": "Nepřihlášen",
-  "settingsLogout": "Odhlásit se",
-  "settingsLogoutHint": "Odstraní aktivní přihlášení na tomto zařízení",
-  "settingsLoggedOut": "Odhlášeno",
-  "settingsMyQrForDoctor": "Můj QR kód pro lékaře",
-  "settingsMyQrForDoctorHint": "Umožní rychlé vyhledání záznamů",
   "settingsComingSoon": "Připravujeme",
   "settingsLocalCount": "Počet měření uložených lokálně",
   "settingsLastMeasurement": "Poslední měření",
@@ -237,13 +230,11 @@
   "loginIdCopied": "ID zkopírováno do schránky",
   "loginCopyId": "Kopírovat ID",
   "loginShare": "Sdílet",
-  "loginLogout": "Odhlásit",
   "loginLocalProfile": "Lokální profil",
   "loginName": "Jméno",
   "loginNameHint": "Zadejte vaše jméno",
   "loginPin": "PIN (volitelné)",
   "loginPinHint": "4–6 číslic pro zámek profilu",
-  "loginSaveProfile": "Uložit profil a zobrazit QR",
   "loginSignInFirst": "Nejprve se prosím přihlašte.",
   "consentTitle": "Souhlas se zpracováním dat",
   "consentBody": "Provoz aplikace vyžaduje zpracování obrazových snímků z fotoaparátu k výpočtu srdeční frekvence a souvisejících metrik.\n\nAplikace neodesílá vaše snímky na servery a data ukládá pouze lokálně, pokud s tím výslovně souhlasíte.\n\nDůležité: tato aplikace není lékařský přístroj. Hodnoty jako SpO2 jsou orientační a nemusí být ihned dostupné nebo přesné. Nepoužívejte aplikaci jako náhradu lékařského zařízení — při obavách vyhledejte odbornou lékařskou pomoc.",
@@ -539,17 +530,6 @@
   "metricHr120": "HR v 120. s",
   "metricHrr120": "Pokles 0–120 s",
   "metricTau": "Tau (odhad)",
-  "settingsProfile": "Profil: {name} ({id}…)",
-  "@settingsProfile": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      }
-    }
-  },
   "settingsProfileUnnamed": "Uživatel",
   "summaryDiscardTitle": "Zahodit měření?",
   "summaryDiscardBody": "Výsledek se neuloží do historie.",
@@ -570,9 +550,137 @@
   "settingsVoiceGuidance": "Hlasové pokyny",
   "settingsVoiceSample": "Přehrát ukázku",
   "settingsHealthShort": "Apple Zdraví",
-  "settingsHealthShortHint": "Ukládá jen tepovou frekvenci",
+  "settingsHealthShortHint": "Ukládá tep a HRV",
   "settingsDataLocal": "Data zůstávají v telefonu",
   "settingsDataLocalHint": "Tepovka nic neodesílá na server",
   "settingsDiagnostics": "Diagnostika a logy",
-  "settingsDiagnosticsHint": "Pro řešení potíží s aplikací"
+  "settingsDiagnosticsHint": "Pro řešení potíží s aplikací",
+  "settingsMyProfile": "Můj profil",
+  "settingsMyProfileHint": "Jméno a QR kód pro lékaře",
+  "settingsMyProfileSummary": "{name} · ID {id}",
+  "@settingsMyProfileSummary": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "profileCreate": "Vytvořit profil",
+  "profileLocalHint": "Profil zůstává jen v tomto telefonu. Lékař podle QR kódu rychle najde vaše záznamy.",
+  "profileRemove": "Odebrat profil",
+  "profileRemoveTitle": "Odebrat profil?",
+  "profileRemoveBody": "Jméno a QR kód zmizí z aplikace. Měření v historii zůstanou.",
+  "profileRemoveConfirm": "Odebrat",
+  "profileRemoved": "Profil odebrán",
+  "settingsClearLogTitle": "Vymazat log?",
+  "settingsClearLogBody": "Záznam událostí pro podporu se smaže. Měření zůstanou.",
+  "settingsClearLogConfirm": "Vymazat",
+  "recordsSelectAll": "Vybrat vše",
+  "recordsSelectNone": "Zrušit výběr",
+  "recordsExportSelected": "Exportovat ({count})",
+  "@recordsExportSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsExportTitle": "Exportovat {count} měření",
+  "@recordsExportTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsExportPdf": "Zpráva pro lékaře (PDF)",
+  "recordsExportPdfHint": "Souhrn, graf a tabulka měření",
+  "recordsExportTable": "Tabulka (CSV)",
+  "recordsExportTableHint": "Jeden řádek na měření, pro Excel",
+  "recordsExportRaw": "Kompletní data",
+  "recordsExportRawHint": "Průběh signálu ve formátu {format}, soubor na měření",
+  "@recordsExportRawHint": {
+    "placeholders": {
+      "format": {
+        "type": "String"
+      }
+    }
+  },
+  "recordsExportFailed": "Export se nepodařil",
+  "recordsWeeklyTitle": "Tep po týdnech",
+  "recordsWeeklyLower": "o {n} méně než týden předtím",
+  "@recordsWeeklyLower": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsWeeklyHigher": "o {n} více než týden předtím",
+  "@recordsWeeklyHigher": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsWeeklySame": "stejně jako týden předtím",
+  "recordsWeeklyCaption": "Průměr za týden, posledních 8 týdnů, bez měření se špatným signálem",
+  "reportTitle": "Přehled měření tepu",
+  "reportPatient": "Pacient: {name} · ID {id}",
+  "@reportPatient": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "reportPeriod": "Období: {period}",
+  "@reportPeriod": {
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "reportCreated": "Vytvořeno v aplikaci Tepovka {date}",
+  "@reportCreated": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "reportMeasurements": "Měření",
+  "reportAverage": "Průměrný tep",
+  "reportRange": "Rozmezí",
+  "reportSdnn": "Průměr SDNN",
+  "reportChartTitle": "Tep v jednotlivých měřeních",
+  "reportTableTitle": "Seznam měření",
+  "reportColDate": "Datum",
+  "reportColTime": "Čas",
+  "reportColDuration": "Délka",
+  "reportColBpm": "Tep",
+  "reportColQuality": "Signál",
+  "reportColNote": "Poznámka",
+  "reportDisclaimer": "Tepovka měří tep kamerou telefonu (fotopletysmografie). Hodnoty jsou orientační; aplikace není zdravotnický prostředek a neslouží k diagnostice. HRV (SDNN, RMSSD) je uvedena jen u měření od 60 s, která neměla špatný signál.",
+  "reportPage": "Strana {page} z {pages}",
+  "@reportPage": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "summarySavedToHealthWithHrv": "Tep a HRV uloženy do Apple Zdraví",
+  "reportQualityUnknown": "Bez hodnocení"
 }

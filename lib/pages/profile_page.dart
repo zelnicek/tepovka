@@ -11,21 +11,30 @@ import 'package:tepovka/widgets/info_widgets.dart';
 import 'package:tepovka/widgets/settings_widgets.dart';
 
 /// The local profile: a form until one exists, then its QR code for the
-/// doctor. Laid out with the same cards and rows as Settings.
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+/// doctor. Nothing here is an account; the profile never leaves the phone,
+/// so the page says "profile", not "sign in". Laid out with the same cards
+/// and rows as Settings.
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _ProfilePageState extends State<ProfilePage> {
   static const Color _canvas = Color.fromARGB(255, 242, 242, 242);
 
   bool _busy = false;
 
   final _nameController = TextEditingController();
   final _pinController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // The button waits for a name instead of silently ignoring the tap.
+    _nameController.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -47,11 +56,22 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _logout() async {
+  /// Hides the profile after asking. The ID is kept, so a profile created
+  /// again later shows the same QR code the doctor already knows.
+  Future<void> _remove() async {
+    final L10n t = L10n.of(context);
+    if (!await confirmDestructive(
+      context,
+      title: t.profileRemoveTitle,
+      body: t.profileRemoveBody,
+      confirmLabel: t.profileRemoveConfirm,
+    )) {
+      return;
+    }
     await LocalProfileService.signOutLocal();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(L10n.of(context).settingsLoggedOut),
+      content: Text(t.profileRemoved),
       duration: const Duration(seconds: 2),
     ));
     setState(() {});
@@ -78,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
         surfaceTintColor: Colors.transparent,
         centerTitle: true,
         title: Text(
-          t.settingsLogin,
+          t.settingsMyProfile,
           style: TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
         ),
       ),
@@ -114,12 +134,20 @@ class _LoginPageState extends State<LoginPage> {
           textInputAction: TextInputAction.done,
         ),
       ]),
+      Padding(
+        padding: EdgeInsets.fromLTRB(r.spaceXs, r.spaceSm, r.spaceXs, 0),
+        child: Text(
+          t.profileLocalHint,
+          style: TextStyle(
+              fontSize: r.fontSmall, color: kInfoSecondaryText, height: 1.4),
+        ),
+      ),
       SizedBox(height: r.spaceXl),
       SettingsPrimaryButton(
         icon: Symbols.person_add,
-        label: t.loginSaveProfile,
+        label: t.profileCreate,
         busy: _busy,
-        onPressed: _save,
+        onPressed: _nameController.text.trim().isEmpty ? null : _save,
       ),
     ];
   }
@@ -191,10 +219,10 @@ class _LoginPageState extends State<LoginPage> {
       SizedBox(height: r.spaceLg),
       SettingsCard(children: [
         SettingsRow(
-          icon: Symbols.logout,
-          title: t.loginLogout,
+          icon: Symbols.person_remove,
+          title: t.profileRemove,
           destructive: true,
-          onTap: _logout,
+          onTap: _remove,
         ),
       ]),
     ];

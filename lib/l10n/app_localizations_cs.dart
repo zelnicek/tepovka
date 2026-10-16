@@ -393,7 +393,7 @@ class L10nCs extends L10n {
 
   @override
   String get settingsAppleHealthBody =>
-      'Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. Aplikace zapisuje pouze typ „Tepová frekvence\". Žádná další data se neodesílají ani nečtou.';
+      'Po dokončení měření můžete tepovou frekvenci uložit do aplikace Zdraví. U měření od 60 sekund s dobrým signálem se uloží i variabilita srdečního rytmu (HRV, SDNN). Žádná další data se neodesílají ani nečtou.';
 
   @override
   String get settingsManagePermissions => 'Spravovat oprávnění';
@@ -439,28 +439,6 @@ class L10nCs extends L10n {
   @override
   String get settingsPreMeasurementFieldsHint =>
       'Každý řádek je jedno pole formuláře.';
-
-  @override
-  String get settingsLogin => 'Přihlášení';
-
-  @override
-  String get settingsNotLoggedIn => 'Nepřihlášen';
-
-  @override
-  String get settingsLogout => 'Odhlásit se';
-
-  @override
-  String get settingsLogoutHint =>
-      'Odstraní aktivní přihlášení na tomto zařízení';
-
-  @override
-  String get settingsLoggedOut => 'Odhlášeno';
-
-  @override
-  String get settingsMyQrForDoctor => 'Můj QR kód pro lékaře';
-
-  @override
-  String get settingsMyQrForDoctorHint => 'Umožní rychlé vyhledání záznamů';
 
   @override
   String get settingsComingSoon => 'Připravujeme';
@@ -533,9 +511,6 @@ class L10nCs extends L10n {
   String get loginShare => 'Sdílet';
 
   @override
-  String get loginLogout => 'Odhlásit';
-
-  @override
   String get loginLocalProfile => 'Lokální profil';
 
   @override
@@ -549,9 +524,6 @@ class L10nCs extends L10n {
 
   @override
   String get loginPinHint => '4–6 číslic pro zámek profilu';
-
-  @override
-  String get loginSaveProfile => 'Uložit profil a zobrazit QR';
 
   @override
   String get loginSignInFirst => 'Nejprve se prosím přihlašte.';
@@ -1099,11 +1071,6 @@ class L10nCs extends L10n {
   String get metricTau => 'Tau (odhad)';
 
   @override
-  String settingsProfile(String name, String id) {
-    return 'Profil: $name ($id…)';
-  }
-
-  @override
   String get settingsProfileUnnamed => 'Uživatel';
 
   @override
@@ -1166,7 +1133,7 @@ class L10nCs extends L10n {
   String get settingsHealthShort => 'Apple Zdraví';
 
   @override
-  String get settingsHealthShortHint => 'Ukládá jen tepovou frekvenci';
+  String get settingsHealthShortHint => 'Ukládá tep a HRV';
 
   @override
   String get settingsDataLocal => 'Data zůstávají v telefonu';
@@ -1179,4 +1146,176 @@ class L10nCs extends L10n {
 
   @override
   String get settingsDiagnosticsHint => 'Pro řešení potíží s aplikací';
+
+  @override
+  String get settingsMyProfile => 'Můj profil';
+
+  @override
+  String get settingsMyProfileHint => 'Jméno a QR kód pro lékaře';
+
+  @override
+  String settingsMyProfileSummary(String name, String id) {
+    return '$name · ID $id';
+  }
+
+  @override
+  String get profileCreate => 'Vytvořit profil';
+
+  @override
+  String get profileLocalHint =>
+      'Profil zůstává jen v tomto telefonu. Lékař podle QR kódu rychle najde vaše záznamy.';
+
+  @override
+  String get profileRemove => 'Odebrat profil';
+
+  @override
+  String get profileRemoveTitle => 'Odebrat profil?';
+
+  @override
+  String get profileRemoveBody =>
+      'Jméno a QR kód zmizí z aplikace. Měření v historii zůstanou.';
+
+  @override
+  String get profileRemoveConfirm => 'Odebrat';
+
+  @override
+  String get profileRemoved => 'Profil odebrán';
+
+  @override
+  String get settingsClearLogTitle => 'Vymazat log?';
+
+  @override
+  String get settingsClearLogBody =>
+      'Záznam událostí pro podporu se smaže. Měření zůstanou.';
+
+  @override
+  String get settingsClearLogConfirm => 'Vymazat';
+
+  @override
+  String get recordsSelectAll => 'Vybrat vše';
+
+  @override
+  String get recordsSelectNone => 'Zrušit výběr';
+
+  @override
+  String recordsExportSelected(int count) {
+    return 'Exportovat ($count)';
+  }
+
+  @override
+  String recordsExportTitle(int count) {
+    return 'Exportovat $count měření';
+  }
+
+  @override
+  String get recordsExportPdf => 'Zpráva pro lékaře (PDF)';
+
+  @override
+  String get recordsExportPdfHint => 'Souhrn, graf a tabulka měření';
+
+  @override
+  String get recordsExportTable => 'Tabulka (CSV)';
+
+  @override
+  String get recordsExportTableHint => 'Jeden řádek na měření, pro Excel';
+
+  @override
+  String get recordsExportRaw => 'Kompletní data';
+
+  @override
+  String recordsExportRawHint(String format) {
+    return 'Průběh signálu ve formátu $format, soubor na měření';
+  }
+
+  @override
+  String get recordsExportFailed => 'Export se nepodařil';
+
+  @override
+  String get recordsWeeklyTitle => 'Tep po týdnech';
+
+  @override
+  String recordsWeeklyLower(int n) {
+    return 'o $n méně než týden předtím';
+  }
+
+  @override
+  String recordsWeeklyHigher(int n) {
+    return 'o $n více než týden předtím';
+  }
+
+  @override
+  String get recordsWeeklySame => 'stejně jako týden předtím';
+
+  @override
+  String get recordsWeeklyCaption =>
+      'Průměr za týden, posledních 8 týdnů, bez měření se špatným signálem';
+
+  @override
+  String get reportTitle => 'Přehled měření tepu';
+
+  @override
+  String reportPatient(String name, String id) {
+    return 'Pacient: $name · ID $id';
+  }
+
+  @override
+  String reportPeriod(String period) {
+    return 'Období: $period';
+  }
+
+  @override
+  String reportCreated(String date) {
+    return 'Vytvořeno v aplikaci Tepovka $date';
+  }
+
+  @override
+  String get reportMeasurements => 'Měření';
+
+  @override
+  String get reportAverage => 'Průměrný tep';
+
+  @override
+  String get reportRange => 'Rozmezí';
+
+  @override
+  String get reportSdnn => 'Průměr SDNN';
+
+  @override
+  String get reportChartTitle => 'Tep v jednotlivých měřeních';
+
+  @override
+  String get reportTableTitle => 'Seznam měření';
+
+  @override
+  String get reportColDate => 'Datum';
+
+  @override
+  String get reportColTime => 'Čas';
+
+  @override
+  String get reportColDuration => 'Délka';
+
+  @override
+  String get reportColBpm => 'Tep';
+
+  @override
+  String get reportColQuality => 'Signál';
+
+  @override
+  String get reportColNote => 'Poznámka';
+
+  @override
+  String get reportDisclaimer =>
+      'Tepovka měří tep kamerou telefonu (fotopletysmografie). Hodnoty jsou orientační; aplikace není zdravotnický prostředek a neslouží k diagnostice. HRV (SDNN, RMSSD) je uvedena jen u měření od 60 s, která neměla špatný signál.';
+
+  @override
+  String reportPage(int page, int pages) {
+    return 'Strana $page z $pages';
+  }
+
+  @override
+  String get summarySavedToHealthWithHrv => 'Tep a HRV uloženy do Apple Zdraví';
+
+  @override
+  String get reportQualityUnknown => 'Bez hodnocení';
 }
