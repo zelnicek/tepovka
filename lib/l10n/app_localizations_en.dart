@@ -24,13 +24,13 @@ class L10nEn extends L10n {
   String get commonTapForExplanation => 'Tip: tap for an explanation';
 
   @override
-  String get navMenu => 'MENU';
+  String get navMenu => 'Home';
 
   @override
-  String get navMeasure => 'MEASURE';
+  String get navMeasure => 'Measure';
 
   @override
-  String get navInfo => 'INFO';
+  String get navInfo => 'Info';
 
   @override
   String get homeReady => 'Ready to measure';
@@ -133,16 +133,16 @@ class L10nEn extends L10n {
   String get ttsTestVoice => 'The test voice is working.';
 
   @override
-  String get introTitle => 'HOME';
+  String get introTitle => 'Home';
 
   @override
-  String get introStartMeasurement => 'START MEASUREMENT';
+  String get introStartMeasurement => 'Start measurement';
 
   @override
-  String get introRecords => 'RECORDS';
+  String get introRecords => 'Records';
 
   @override
-  String get summaryTitle => 'RESULT';
+  String get summaryTitle => 'Result';
 
   @override
   String get summaryAverageHeartRate => 'Average heart rate:';
@@ -354,7 +354,7 @@ class L10nEn extends L10n {
   String get recordsExportTxt => 'Export TXT';
 
   @override
-  String get settingsTitle => 'SETTINGS';
+  String get settingsTitle => 'Settings';
 
   @override
   String get settingsAccessibilitySection => 'Accessibility and readability';
@@ -421,7 +421,7 @@ class L10nEn extends L10n {
   String get settingsHapticsHint => 'Vibration on actions in the app';
 
   @override
-  String get settingsResearchSection => 'RESEARCH MODE';
+  String get settingsResearchSection => 'Research mode';
 
   @override
   String get settingsResearchMode => 'Research mode';
@@ -683,7 +683,7 @@ class L10nEn extends L10n {
       'In August 2026 we validated the processing against a Bittium Faros 180 ECG Holter and a pulse oximeter across measurements with 13 participants. On stored recordings reprocessed with the same detector the app uses, the pulse matched the ECG with a mean deviation below 2 bpm — comparable to how closely the two reference devices agree with each other.\nAccuracy does, however, depend on signal quality: with movement, weak perfusion or a poorly placed finger the estimate is considerably worse. Every measurement therefore carries a quality rating — do not rely on measurements marked as poor.\nTreat the variability parameters (SDNN, RMSSD) as indicative only; the camera\'s frame rate is coarse for those. This app is not a medical device and is not intended for diagnosis.';
 
   @override
-  String get infoTitle => 'ABOUT US';
+  String get infoTitle => 'About us';
 
   @override
   String get infoIntro =>
@@ -848,13 +848,13 @@ class L10nEn extends L10n {
   String get hintGood => 'Great, hold it just like this.';
 
   @override
-  String get aboutPageTitle => 'HOW IT WORKS';
+  String get aboutPageTitle => 'How it works';
 
   @override
   String get aboutGuideSubtitle => 'Five steps to a reliable measurement';
 
   @override
-  String get introAboutApp => 'ABOUT THE APP';
+  String get introAboutApp => 'About the app';
 
   @override
   String get infoProjectTitle => 'About the Tepovka project';
@@ -1094,4 +1094,33 @@ class L10nEn extends L10n {
 
   @override
   String get reminderBody => 'Take your pulse, it only takes half a minute.';
+
+  @override
+  String get metricHr0 => 'HR (0–10 s)';
+
+  @override
+  String get metricHr60 => 'HR at 60 s';
+
+  @override
+  String get metricHrr60 => 'Drop 0–60 s';
+
+  @override
+  String get metricSlope60 => 'Slope (0–60 s)';
+
+  @override
+  String get metricHr120 => 'HR at 120 s';
+
+  @override
+  String get metricHrr120 => 'Drop 0–120 s';
+
+  @override
+  String get metricTau => 'Tau (estimate)';
+
+  @override
+  String settingsProfile(String name, String id) {
+    return 'Profile: $name ($id…)';
+  }
+
+  @override
+  String get settingsProfileUnnamed => 'User';
 }

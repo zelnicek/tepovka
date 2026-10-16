@@ -474,7 +474,6 @@ class _SummaryState extends State<Summary> {
     _hf = hrv.hfNorm;
     _lfhf = hrv.lfHfRatio;
 
-
     // Fallback RR estimate from RR-interval modulation when algo RR is unavailable.
     if (_respiratoryRate == 0.0 && rrIntervals.length >= 10) {
       const double windowSec = 6.0;
@@ -539,8 +538,7 @@ class _SummaryState extends State<Summary> {
     bool requested = await _health.requestAuthorization(types);
     if (!requested) {
       debugPrint('Uživatel odmítl přístup k HealthKit');
-    } else {
-    }
+    } else {}
   }
 
   void _onItemTapped(int index) {
@@ -722,8 +720,7 @@ class _SummaryState extends State<Summary> {
     if (bpm.isNaN || !bpm.isFinite || bpm <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(L10n.of(context).summaryInvalidHeartRate),
+          content: Text(L10n.of(context).summaryInvalidHeartRate),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
         ),
@@ -930,7 +927,8 @@ class _SummaryState extends State<Summary> {
                       children: [
                         _buildSectionChip(L10n.of(context).summaryTabSignal, 0),
                         _buildSectionChip('HRV', 1),
-                        _buildSectionChip(L10n.of(context).summaryTabRecovery, 2),
+                        _buildSectionChip(
+                            L10n.of(context).summaryTabRecovery, 2),
                       ],
                     ),
                   ),
@@ -1178,8 +1176,9 @@ class _SummaryState extends State<Summary> {
     final Color bg = status == PatientStatus.normal
         ? const Color(0xFF2ECC71)
         : const Color(0xFFF39C12);
-    final String title =
-        status == PatientStatus.normal ? L10n.of(context).summaryInNorm : L10n.of(context).summaryRest;
+    final String title = status == PatientStatus.normal
+        ? L10n.of(context).summaryInNorm
+        : L10n.of(context).summaryRest;
     final String subtitle = status == PatientStatus.normal
         ? L10n.of(context).summaryContinueActivity
         : L10n.of(context).summaryShortRest;
@@ -1324,8 +1323,8 @@ class _SummaryState extends State<Summary> {
                         titlesData: const FlTitlesData(show: false),
                         borderData: FlBorderData(
                           show: true,
-                          border:
-                              Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                          border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.3)),
                         ),
                         minX: minX,
                         maxX: maxX,
@@ -1450,7 +1449,8 @@ class _SummaryState extends State<Summary> {
               _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
               _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
               _buildHRVCard('pNN50', '${_pnn50.toStringAsFixed(2)} %'),
-              _buildHRVCard(L10n.of(context).metricsAverageRr, '${_meanRR.toStringAsFixed(2)} ms'),
+              _buildHRVCard(L10n.of(context).metricsAverageRr,
+                  '${_meanRR.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
               _buildHRVCard('SD2/SD1', _sd2sd1.toStringAsFixed(2)),
@@ -1507,7 +1507,8 @@ class _SummaryState extends State<Summary> {
               _buildHRVCard(
                 L10n.of(context).metricsRespiratoryRate,
                 _respiratoryRate > 0
-                    ? L10n.of(context).metricsBreathsPerMinute(_respiratoryRate.toStringAsFixed(1))
+                    ? L10n.of(context).metricsBreathsPerMinute(
+                        _respiratoryRate.toStringAsFixed(1))
                     : '—',
               ),
               _buildHRVCard(
@@ -1596,19 +1597,19 @@ class _SummaryState extends State<Summary> {
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
             children: [
-              _buildHRVCard('HR (0–10 s)',
+              _buildHRVCard(L10n.of(context).metricHr0,
                   _hr0 > 0 ? '${_hr0.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard('HR v 60. s',
+              _buildHRVCard(L10n.of(context).metricHr60,
                   _hr60 > 0 ? '${_hr60.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard('Pokles 0–60 s',
+              _buildHRVCard(L10n.of(context).metricHrr60,
                   _hrr60 > 0 ? '${_hrr60.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard('Sklon (0–60 s)',
+              _buildHRVCard(L10n.of(context).metricSlope60,
                   '${_slope60BpmPerMin.toStringAsFixed(1)} bpm/min'),
-              _buildHRVCard('HR v 120. s',
+              _buildHRVCard(L10n.of(context).metricHr120,
                   _hr120 > 0 ? '${_hr120.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard('Pokles 0–120 s',
+              _buildHRVCard(L10n.of(context).metricHrr120,
                   _hrr120 > 0 ? '${_hrr120.toStringAsFixed(1)} bpm' : '—'),
-              _buildHRVCard('Tau (odhad)',
+              _buildHRVCard(L10n.of(context).metricTau,
                   _tauSec > 0 ? '${_tauSec.toStringAsFixed(1)} s' : '—'),
             ],
           ),
@@ -1679,6 +1680,13 @@ class _SummaryState extends State<Summary> {
     if (title == t.metricsAverageRr) return t.tipMeanRr;
     if (title == t.metricsHeartRate) return t.tipGenericHrv;
     if (title == t.metricsStressIndex) return t.tipBaevsky;
+    if (title == t.metricHr0) return t.tipHr0;
+    if (title == t.metricHr60) return t.tipHr60;
+    if (title == t.metricHrr60) return t.tipHrr60;
+    if (title == t.metricSlope60) return t.tipHrSlope;
+    if (title == t.metricHr120) return t.tipHr120;
+    if (title == t.metricHrr120) return t.tipHrr120;
+    if (title == t.metricTau) return t.tipHrTau;
 
     switch (title) {
       // Technical abbreviations render identically in both languages.

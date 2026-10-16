@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tepovka/services/app_settings.dart';
@@ -101,6 +102,19 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _reminderMinutes = minutes);
     AppSettings.setReminderMinutes(minutes);
     await ReminderService.reschedule();
+  }
+
+  /// The stored ISO timestamp as a date and time in the app language.
+  String _formatLastMeasurement(BuildContext context) {
+    final DateTime? when = DateTime.tryParse(_lastMeasurement);
+    if (when == null) return _lastMeasurement;
+    final String locale = Localizations.localeOf(context).toString();
+    try {
+      return '${DateFormat.yMMMd(locale).format(when)} '
+          '${DateFormat.jm(locale).format(when)}';
+    } catch (_) {
+      return _lastMeasurement;
+    }
   }
 
   Future<void> _openLog() async {
@@ -281,13 +295,13 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(
         automaticallyImplyLeading: true,
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
+        // Material 3 tints the bar when content scrolls under it.
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         centerTitle: true,
         title: Text(
           L10n.of(context).settingsTitle,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
       ),
       body: ListView(
@@ -454,10 +468,9 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
           ListTile(
-            dense: true,
             title: Text(
               L10n.of(context).settingsResearchSection,
-              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.6),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           SwitchListTile(
@@ -493,7 +506,10 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: Text(
               !LocalProfileService.isLoggedIn
                   ? L10n.of(context).settingsNotLoggedIn
-                  : 'Profil: ${LocalProfileService.displayName ?? 'Uživatel'} (${(LocalProfileService.userId ?? '').substring(0, 6)}…) ',
+                  : L10n.of(context).settingsProfile(
+                      LocalProfileService.displayName ??
+                          L10n.of(context).settingsProfileUnnamed,
+                      (LocalProfileService.userId ?? '').substring(0, 6)),
             ),
             trailing: const Icon(Symbols.chevron_right),
             onTap: () {
@@ -573,7 +589,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             leading: const Icon(Icons.access_time),
             title: Text(L10n.of(context).settingsLastMeasurement),
-            subtitle: Text(_lastMeasurement),
+            subtitle: Text(_formatLastMeasurement(context)),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -596,7 +612,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   onPressed: _clearLog,
                   icon: const Icon(Icons.delete),
                   label: Text(L10n.of(context).settingsClearLog),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  // The theme's green label was unreadable on red.
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE53935),
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             ),

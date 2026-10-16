@@ -130,19 +130,19 @@ abstract class L10n {
   /// No description provided for @navMenu.
   ///
   /// In cs, this message translates to:
-  /// **'MENU'**
+  /// **'Domů'**
   String get navMenu;
 
   /// No description provided for @navMeasure.
   ///
   /// In cs, this message translates to:
-  /// **'MĚŘENÍ'**
+  /// **'Měření'**
   String get navMeasure;
 
   /// No description provided for @navInfo.
   ///
   /// In cs, this message translates to:
-  /// **'INFO'**
+  /// **'Info'**
   String get navInfo;
 
   /// App bar title before a measurement starts
@@ -334,25 +334,25 @@ abstract class L10n {
   /// No description provided for @introTitle.
   ///
   /// In cs, this message translates to:
-  /// **'DOMOVSKÁ STRÁNKA'**
+  /// **'Domovská stránka'**
   String get introTitle;
 
   /// No description provided for @introStartMeasurement.
   ///
   /// In cs, this message translates to:
-  /// **'ZAČÍT MĚŘENÍ'**
+  /// **'Začít měření'**
   String get introStartMeasurement;
 
   /// No description provided for @introRecords.
   ///
   /// In cs, this message translates to:
-  /// **'ZÁZNAMY'**
+  /// **'Záznamy'**
   String get introRecords;
 
   /// No description provided for @summaryTitle.
   ///
   /// In cs, this message translates to:
-  /// **'VÝSLEDEK'**
+  /// **'Výsledek'**
   String get summaryTitle;
 
   /// No description provided for @summaryAverageHeartRate.
@@ -712,7 +712,7 @@ abstract class L10n {
   /// No description provided for @settingsTitle.
   ///
   /// In cs, this message translates to:
-  /// **'NASTAVENÍ'**
+  /// **'Nastavení'**
   String get settingsTitle;
 
   /// No description provided for @settingsAccessibilitySection.
@@ -838,7 +838,7 @@ abstract class L10n {
   /// No description provided for @settingsResearchSection.
   ///
   /// In cs, this message translates to:
-  /// **'VÝZKUMNÝ REŽIM'**
+  /// **'Výzkumný režim'**
   String get settingsResearchSection;
 
   /// No description provided for @settingsResearchMode.
@@ -1306,7 +1306,7 @@ abstract class L10n {
   /// No description provided for @infoTitle.
   ///
   /// In cs, this message translates to:
-  /// **'O NÁS'**
+  /// **'O nás'**
   String get infoTitle;
 
   /// No description provided for @infoIntro.
@@ -1594,7 +1594,7 @@ abstract class L10n {
   /// No description provided for @aboutPageTitle.
   ///
   /// In cs, this message translates to:
-  /// **'JAK TO FUNGUJE?'**
+  /// **'Jak to funguje'**
   String get aboutPageTitle;
 
   /// No description provided for @aboutGuideSubtitle.
@@ -1606,7 +1606,7 @@ abstract class L10n {
   /// No description provided for @introAboutApp.
   ///
   /// In cs, this message translates to:
-  /// **'O APLIKACI'**
+  /// **'O aplikaci'**
   String get introAboutApp;
 
   /// No description provided for @infoProjectTitle.
@@ -2022,6 +2022,60 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Změřte si tep, stačí půl minuty.'**
   String get reminderBody;
+
+  /// No description provided for @metricHr0.
+  ///
+  /// In cs, this message translates to:
+  /// **'HR (0–10 s)'**
+  String get metricHr0;
+
+  /// No description provided for @metricHr60.
+  ///
+  /// In cs, this message translates to:
+  /// **'HR v 60. s'**
+  String get metricHr60;
+
+  /// No description provided for @metricHrr60.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pokles 0–60 s'**
+  String get metricHrr60;
+
+  /// No description provided for @metricSlope60.
+  ///
+  /// In cs, this message translates to:
+  /// **'Sklon (0–60 s)'**
+  String get metricSlope60;
+
+  /// No description provided for @metricHr120.
+  ///
+  /// In cs, this message translates to:
+  /// **'HR v 120. s'**
+  String get metricHr120;
+
+  /// No description provided for @metricHrr120.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pokles 0–120 s'**
+  String get metricHrr120;
+
+  /// No description provided for @metricTau.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tau (odhad)'**
+  String get metricTau;
+
+  /// No description provided for @settingsProfile.
+  ///
+  /// In cs, this message translates to:
+  /// **'Profil: {name} ({id}…)'**
+  String settingsProfile(String name, String id);
+
+  /// No description provided for @settingsProfileUnnamed.
+  ///
+  /// In cs, this message translates to:
+  /// **'Uživatel'**
+  String get settingsProfileUnnamed;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -11,9 +11,9 @@
   "@commonTapForExplanation": {
     "description": "Hint on metric cards that open an explanation"
   },
-  "navMenu": "MENU",
-  "navMeasure": "MĚŘENÍ",
-  "navInfo": "INFO",
+  "navMenu": "Domů",
+  "navMeasure": "Měření",
+  "navInfo": "Info",
   "homeReady": "Připraveno k měření",
   "@homeReady": {
     "description": "App bar title before a measurement starts"
@@ -62,10 +62,10 @@
   "ttsPoorContact": "Špatný kontakt s kamerou.",
   "ttsPlaceFinger": "Přiložte prst na kameru.",
   "ttsTestVoice": "Testovací hlas funguje.",
-  "introTitle": "DOMOVSKÁ STRÁNKA",
-  "introStartMeasurement": "ZAČÍT MĚŘENÍ",
-  "introRecords": "ZÁZNAMY",
-  "summaryTitle": "VÝSLEDEK",
+  "introTitle": "Domovská stránka",
+  "introStartMeasurement": "Začít měření",
+  "introRecords": "Záznamy",
+  "summaryTitle": "Výsledek",
   "summaryAverageHeartRate": "Průměrná tepová frekvence:",
   "summaryNotesHint": "Zadejte své poznámky k měření...",
   "summaryTabSignal": "Signál",
@@ -157,7 +157,7 @@
   },
   "recordsDownloadPdf": "Stáhnout PDF",
   "recordsExportTxt": "Export TXT",
-  "settingsTitle": "NASTAVENÍ",
+  "settingsTitle": "Nastavení",
   "settingsAccessibilitySection": "Dostupnost a čitelnost",
   "settingsDisplayMode": "Režim zobrazení",
   "settingsDisplayModeHint": "Zvolte: Pacient (zjednodušené) nebo Lékař (detailní)",
@@ -178,7 +178,7 @@
   "settingsPlayingTestVoice": "Přehrávám testovací hlášku...",
   "settingsHaptics": "Haptická odezva",
   "settingsHapticsHint": "Vibrace při akcích v aplikaci",
-  "settingsResearchSection": "VÝZKUMNÝ REŽIM",
+  "settingsResearchSection": "Výzkumný režim",
   "settingsResearchMode": "Režim pro výzkum",
   "settingsResearchModeHint": "Před měřením se vyplní údaje k záznamu a export je podrobnější",
   "settingsResearchFields": "Údaje vyplňované před měřením",
@@ -315,7 +315,7 @@
   "aboutGreenChannelBody": "Zelené světlo pohlcuje hemoglobin nejsilněji, takže se v něm změny prokrvení projeví nejvýrazněji. Červený kanál se přes prst přesvítí snáz, a slouží proto jako záloha, když je zelená příliš tmavá.",
   "aboutAccuracyTitle": "Jak přesné to je",
   "aboutAccuracyBody": "Zpracování jsme v srpnu 2026 ověřovali proti EKG holteru Bittium Faros 180 a pulznímu oxymetru na měřeních s 13 účastníky. Na uložených záznamech přepočtených stejným detektorem, jaký používá aplikace, se tep shodoval s EKG s průměrnou odchylkou pod 2 bpm — srovnatelně s tím, jak si odpovídají oba referenční přístroje navzájem.\nPřesnost ale závisí na kvalitě signálu: při pohybu, slabém prokrvení nebo špatně přiloženém prstu je odhad výrazně horší. U každého měření proto najdete i hodnocení kvality — měření označené jako špatné neberte vážně.\nParametry variability (SDNN, RMSSD) berte jen orientačně; na ně je snímkovací frekvence kamery hrubá. Aplikace není zdravotnický prostředek a neslouží k diagnostice.",
-  "infoTitle": "O NÁS",
+  "infoTitle": "O nás",
   "infoIntro": "Ahoj!\nS radostí Vám představujeme naši aplikaci s názvem Tepovka, která vzniká v rámci soutěže organizované Fakultou elektrotechniky a komunikačních technologií na Vysokém učení technickém v Brně. Tento projekt je výsledkem naší spolupráce v týmu, který spojuje nadšení pro biomedicínské inženýrství a snahu přinášet inovativní řešení do každodenního života.\n\nNaším cílem je vytvořit aplikaci, která umožní měření srdeční frekvence jednoduše pomocí smartphonu s kamerou a bleskem. Tato funkce je pouhým začátkem. V budoucnu plánujeme rozšířit aplikaci o pokročilejší funkce, jako je měření saturace kyslíku v krvi (oximetrie), detekce srdečních arytmií nebo dokonce měření krevního tlaku – pokud výzkumy ukáží, že je tato technologie proveditelná.\n\nAplikace vzniká za podpory VUT, které poskytuje nejen technologické zázemí, ale také odborné vedení, díky kterému můžeme naše nápady realizovat.",
   "infoTeamTitle": "Náš tým",
   "infoTeamBody": "Jsme studenti biomedicínského inženýrství a spojuje nás vášeň pro vývoj zdravotnických technologií. Náš tým tvoří:\n- Štěpán Zelníček\n- David Vavroušek\n- Jakub Kovář\n- Jakub Kaša\n\nKaždý z nás přispívá svými specifickými dovednostmi – od programování, přes design aplikací až po analýzu biologických dat. Naším hlavním cílem je vytvořit uživatelsky přívětivou a zároveň technologicky pokročilou aplikaci, která bude sloužit široké veřejnosti.",
@@ -394,7 +394,7 @@
   "hintPoorContact": "Prst kryje čočku jen zčásti. Posuňte ho, ať je náhled celý červený.",
   "hintWeakSignal": "Signál je slabý. Netlačte tolik a držte ruku v klidu.",
   "hintGood": "Výborně, takhle vydržte.",
-  "aboutPageTitle": "JAK TO FUNGUJE?",
+  "aboutPageTitle": "Jak to funguje",
   "aboutGuideSubtitle": "Pět kroků ke spolehlivému měření",
   "@guideStepOf": {
     "placeholders": {
@@ -406,7 +406,7 @@
       }
     }
   },
-  "introAboutApp": "O APLIKACI",
+  "introAboutApp": "O aplikaci",
   "infoProjectTitle": "O projektu Tepovka",
   "howSectionPrinciple": "Jak měření funguje",
   "howStepLight": "Světlo prosvítí prst",
@@ -535,5 +535,24 @@
   "settingsReminderDenied": "Oznámení jsou pro Tepovku vypnutá. Povolte je v Nastavení iOS.",
   "settingsReminderOpenSettings": "Otevřít Nastavení",
   "reminderTitle": "Čas na měření",
-  "reminderBody": "Změřte si tep, stačí půl minuty."
+  "reminderBody": "Změřte si tep, stačí půl minuty.",
+  "metricHr0": "HR (0–10 s)",
+  "metricHr60": "HR v 60. s",
+  "metricHrr60": "Pokles 0–60 s",
+  "metricSlope60": "Sklon (0–60 s)",
+  "metricHr120": "HR v 120. s",
+  "metricHrr120": "Pokles 0–120 s",
+  "metricTau": "Tau (odhad)",
+  "settingsProfile": "Profil: {name} ({id}…)",
+  "@settingsProfile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsProfileUnnamed": "Uživatel"
 }

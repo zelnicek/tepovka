@@ -98,22 +98,15 @@ class _AboutState extends State<About> {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 242, 242, 242),
       appBar: AppBar(
-        automaticallyImplyLeading: false,
         backgroundColor: const Color.fromARGB(255, 242, 242, 242),
         // Material 3 tints the bar when content scrolls under it, which shows
         // as a grey-green band over the white cards.
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: true,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              L10n.of(context).aboutPageTitle,
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: r.fontTitleLg),
-            ),
-          ],
+        title: Text(
+          L10n.of(context).aboutPageTitle,
+          style: TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
         ),
       ),
       body: SafeArea(

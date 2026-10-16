@@ -2287,34 +2287,34 @@ class _RecordsPageState extends State<RecordsPage> {
                 SizedBox(height: r.spaceSm),
                 metricGrid([
                   _buildHRVCard(
-                      'HR (0–10 s)',
+                      t.metricHr0,
                       (record.hrr['hr0'] ?? 0.0) > 0
                           ? '${(record.hrr['hr0'] ?? 0.0).toStringAsFixed(1)} bpm'
                           : '—'),
                   _buildHRVCard(
-                      'HR v 60. s',
+                      t.metricHr60,
                       (record.hrr['hr60'] ?? 0.0) > 0
                           ? '${(record.hrr['hr60'] ?? 0.0).toStringAsFixed(1)} bpm'
                           : '—'),
                   _buildHRVCard(
-                      'Pokles 0–60 s',
+                      t.metricHrr60,
                       (record.hrr['hrr60'] ?? 0.0) > 0
                           ? '${(record.hrr['hrr60'] ?? 0.0).toStringAsFixed(1)} bpm'
                           : '—'),
-                  _buildHRVCard('Sklon (0–60 s)',
+                  _buildHRVCard(t.metricSlope60,
                       '${(record.hrr['slope60_bpmPerMin'] ?? 0.0).toStringAsFixed(1)} bpm/min'),
                   _buildHRVCard(
-                      'HR v 120. s',
+                      t.metricHr120,
                       (record.hrr['hr120'] ?? 0.0) > 0
                           ? '${(record.hrr['hr120'] ?? 0.0).toStringAsFixed(1)} bpm'
                           : '—'),
                   _buildHRVCard(
-                      'Pokles 0–120 s',
+                      t.metricHrr120,
                       (record.hrr['hrr120'] ?? 0.0) > 0
                           ? '${(record.hrr['hrr120'] ?? 0.0).toStringAsFixed(1)} bpm'
                           : '—'),
                   _buildHRVCard(
-                      'Tau (odhad)',
+                      t.metricTau,
                       (record.hrr['tauSec'] ?? 0.0) > 0
                           ? '${(record.hrr['tauSec'] ?? 0.0).toStringAsFixed(1)} s'
                           : '—'),
@@ -2544,6 +2544,13 @@ class _RecordsPageState extends State<RecordsPage> {
     if (title == t.metricsAverageRr) return t.tipMeanRr;
     if (title == t.metricsHeartRate) return t.tipGenericHrv;
     if (title == t.metricsStressIndex) return t.tipBaevsky;
+    if (title == t.metricHr0) return t.tipHr0;
+    if (title == t.metricHr60) return t.tipHr60;
+    if (title == t.metricHrr60) return t.tipHrr60;
+    if (title == t.metricSlope60) return t.tipHrSlope;
+    if (title == t.metricHr120) return t.tipHr120;
+    if (title == t.metricHrr120) return t.tipHrr120;
+    if (title == t.metricTau) return t.tipHrTau;
 
     switch (title) {
       // Technical abbreviations render identically in both languages.

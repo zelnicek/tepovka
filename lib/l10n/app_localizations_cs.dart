@@ -24,13 +24,13 @@ class L10nCs extends L10n {
   String get commonTapForExplanation => 'Tip: klepni pro vysvětlení';
 
   @override
-  String get navMenu => 'MENU';
+  String get navMenu => 'Domů';
 
   @override
-  String get navMeasure => 'MĚŘENÍ';
+  String get navMeasure => 'Měření';
 
   @override
-  String get navInfo => 'INFO';
+  String get navInfo => 'Info';
 
   @override
   String get homeReady => 'Připraveno k měření';
@@ -132,16 +132,16 @@ class L10nCs extends L10n {
   String get ttsTestVoice => 'Testovací hlas funguje.';
 
   @override
-  String get introTitle => 'DOMOVSKÁ STRÁNKA';
+  String get introTitle => 'Domovská stránka';
 
   @override
-  String get introStartMeasurement => 'ZAČÍT MĚŘENÍ';
+  String get introStartMeasurement => 'Začít měření';
 
   @override
-  String get introRecords => 'ZÁZNAMY';
+  String get introRecords => 'Záznamy';
 
   @override
-  String get summaryTitle => 'VÝSLEDEK';
+  String get summaryTitle => 'Výsledek';
 
   @override
   String get summaryAverageHeartRate => 'Průměrná tepová frekvence:';
@@ -352,7 +352,7 @@ class L10nCs extends L10n {
   String get recordsExportTxt => 'Export TXT';
 
   @override
-  String get settingsTitle => 'NASTAVENÍ';
+  String get settingsTitle => 'Nastavení';
 
   @override
   String get settingsAccessibilitySection => 'Dostupnost a čitelnost';
@@ -418,7 +418,7 @@ class L10nCs extends L10n {
   String get settingsHapticsHint => 'Vibrace při akcích v aplikaci';
 
   @override
-  String get settingsResearchSection => 'VÝZKUMNÝ REŽIM';
+  String get settingsResearchSection => 'Výzkumný režim';
 
   @override
   String get settingsResearchMode => 'Režim pro výzkum';
@@ -683,7 +683,7 @@ class L10nCs extends L10n {
       'Zpracování jsme v srpnu 2026 ověřovali proti EKG holteru Bittium Faros 180 a pulznímu oxymetru na měřeních s 13 účastníky. Na uložených záznamech přepočtených stejným detektorem, jaký používá aplikace, se tep shodoval s EKG s průměrnou odchylkou pod 2 bpm — srovnatelně s tím, jak si odpovídají oba referenční přístroje navzájem.\nPřesnost ale závisí na kvalitě signálu: při pohybu, slabém prokrvení nebo špatně přiloženém prstu je odhad výrazně horší. U každého měření proto najdete i hodnocení kvality — měření označené jako špatné neberte vážně.\nParametry variability (SDNN, RMSSD) berte jen orientačně; na ně je snímkovací frekvence kamery hrubá. Aplikace není zdravotnický prostředek a neslouží k diagnostice.';
 
   @override
-  String get infoTitle => 'O NÁS';
+  String get infoTitle => 'O nás';
 
   @override
   String get infoIntro =>
@@ -847,13 +847,13 @@ class L10nCs extends L10n {
   String get hintGood => 'Výborně, takhle vydržte.';
 
   @override
-  String get aboutPageTitle => 'JAK TO FUNGUJE?';
+  String get aboutPageTitle => 'Jak to funguje';
 
   @override
   String get aboutGuideSubtitle => 'Pět kroků ke spolehlivému měření';
 
   @override
-  String get introAboutApp => 'O APLIKACI';
+  String get introAboutApp => 'O aplikaci';
 
   @override
   String get infoProjectTitle => 'O projektu Tepovka';
@@ -1088,4 +1088,33 @@ class L10nCs extends L10n {
 
   @override
   String get reminderBody => 'Změřte si tep, stačí půl minuty.';
+
+  @override
+  String get metricHr0 => 'HR (0–10 s)';
+
+  @override
+  String get metricHr60 => 'HR v 60. s';
+
+  @override
+  String get metricHrr60 => 'Pokles 0–60 s';
+
+  @override
+  String get metricSlope60 => 'Sklon (0–60 s)';
+
+  @override
+  String get metricHr120 => 'HR v 120. s';
+
+  @override
+  String get metricHrr120 => 'Pokles 0–120 s';
+
+  @override
+  String get metricTau => 'Tau (odhad)';
+
+  @override
+  String settingsProfile(String name, String id) {
+    return 'Profil: $name ($id…)';
+  }
+
+  @override
+  String get settingsProfileUnnamed => 'Uživatel';
 }
