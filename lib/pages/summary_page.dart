@@ -12,6 +12,7 @@ import 'package:tepovka/elements/peak_detector.dart';
 import 'package:tepovka/elements/hrv_calculator.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/services/measurement_quality.dart';
+import 'package:tepovka/elements/spectral_quality.dart';
 import 'package:tepovka/widgets/bpm_scale.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
 // Cloud sync disabled for local-only mode
@@ -192,6 +193,30 @@ class _SummaryState extends State<Summary> {
     _computeHRV(); // Compute remaining metrics (LF, HF, stress index)
     _computeHRRecovery();
     _buildRecoverySpots();
+    _quality = _gradeSignal();
+  }
+
+  /// Signal quality of this recording, graded off the UI thread; a long
+  /// recording takes dozens of FFTs.
+  late final Future<SpectralQuality?> _quality;
+  SpectralQuality? _qualityResult;
+  bool _qualityDone = false;
+
+  Future<SpectralQuality?> _gradeSignal() async {
+    final double fs = _fs;
+    final int expected = (widget.recordingDuration * fs).toInt();
+    // The same samples the export and the history detail use.
+    final List<double> data = widget.data.length > expected
+        ? widget.data.sublist(widget.data.length - expected)
+        : List<double>.from(widget.data);
+    final SpectralQuality? result = await compute(_gradeRecording, (data, fs));
+    if (mounted) {
+      setState(() {
+        _qualityResult = result;
+        _qualityDone = true;
+      });
+    }
+    return result;
   }
 
   void _computeBpmConfidenceInterval() {
@@ -582,6 +607,7 @@ class _SummaryState extends State<Summary> {
       for (int i = 1; i < _peakSpots.length; i++) {
         rrIntervalsMs.add((_peakSpots[i].x - _peakSpots[i - 1].x) * 1000.0);
       }
+      final SpectralQuality? quality = await _quality;
       final record = {
         'date': formattedDate,
         'time': formattedTime,
@@ -648,6 +674,7 @@ class _SummaryState extends State<Summary> {
           'slope60_bpmPerMin': _slope60BpmPerMin,
           'tauSec': _tauSec,
         },
+        if (quality != null) 'signalQuality': quality.toJson(),
         'recoveryChart': {
           'durationSec': widget.recordingDuration,
           'points': _recoverySpots
@@ -858,7 +885,12 @@ class _SummaryState extends State<Summary> {
   Widget _resultCard(BuildContext context) {
     final r = Responsive.of(context);
     final L10n t = L10n.of(context);
-    final MeasurementQuality? quality = measurementQualityFrom(_bpmConfidence);
+    // Too little signal to grade and no heart rate: that is a poor recording,
+    // not an unknown one.
+    final MeasurementQuality? quality = _qualityResult?.level ??
+        (_qualityDone && _effectiveAverageBpm <= 0
+            ? MeasurementQuality.poor
+            : null);
     final int bpm = _effectiveAverageBpm.round();
     return InfoCard(
       child: Column(
@@ -1737,3 +1769,7 @@ class _SummaryState extends State<Summary> {
     );
   }
 }
+
+/// Runs in a background isolate.
+SpectralQuality? _gradeRecording((List<double>, double) job) =>
+    assessRecording(job.$1, job.$2);

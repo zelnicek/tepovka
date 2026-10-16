@@ -21,11 +21,13 @@ import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
 import 'package:tepovka/widgets/bpm_scale.dart';
 import 'package:tepovka/services/measurement_quality.dart';
+import 'package:tepovka/elements/spectral_quality.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:tepovka/pages/about.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 import 'package:fftea/fftea.dart';
-import 'dart:typed_data';
 
 /// Nominální snímkovací frekvence kamery. Skutečná bývá nižší (~24 fps) —
 /// měření proti Faros 180 EKG a oxymetru v srpnu 2026 dalo poměr 1.232
@@ -69,6 +71,10 @@ class Record {
   final Map<String, dynamic> hrr; // HR Recovery metrics
   final Map<String, dynamic> recoveryChart; // Recovery chart points
 
+  /// [SpectralQuality.toJson] of the recording, written when it was saved.
+  /// Empty on records saved before quality was stored.
+  final Map<String, dynamic> signalQuality;
+
   Record({
     required this.date,
     required this.time,
@@ -91,6 +97,7 @@ class Record {
     required this.rawRgbSamples,
     required this.hrr,
     required this.recoveryChart,
+    this.signalQuality = const {},
   });
 
   /// Vzorkovací frekvence tohoto záznamu: nejdřív ze skutečných razítek
@@ -140,6 +147,7 @@ class Record {
       'rawRgbSamples': rawRgbSamples,
       'hrr': hrr,
       'recoveryChart': recoveryChart,
+      if (signalQuality.isNotEmpty) 'signalQuality': signalQuality,
     };
   }
 
@@ -191,6 +199,9 @@ class Record {
           : <Map<String, dynamic>>[],
       hrr: json['hrr'] ?? {},
       recoveryChart: json['recoveryChart'] ?? {},
+      signalQuality: json['signalQuality'] is Map
+          ? Map<String, dynamic>.from(json['signalQuality'] as Map)
+          : const {},
     );
   }
 }
@@ -276,6 +287,7 @@ class _RecordsPageState extends State<RecordsPage> {
             rawRgbSamples: rec.rawRgbSamples,
             hrr: rec.hrr,
             recoveryChart: rec.recoveryChart,
+            signalQuality: rec.signalQuality,
           ));
         }
 
@@ -283,6 +295,7 @@ class _RecordsPageState extends State<RecordsPage> {
           _records = updatedRecords;
         });
         _applyFilters();
+        unawaited(_gradeOlderRecords(updatedRecords));
         // Deliberately no save here: viewing the history must not rewrite it.
       } else {}
     } catch (e) {
@@ -311,15 +324,48 @@ class _RecordsPageState extends State<RecordsPage> {
   DateTime _instantOf(Record r) =>
       _parseRecordStart(r) ?? _parseRecordDateTime(r);
 
-  /// Signal quality from the confidence the analysis reported for the
-  /// measurement: 'good', 'medium' or 'poor', or null for records saved before
-  /// it was stored. The list used to grade records by HRV thresholds instead,
-  /// so every record without HRV showed up as "poor".
-  static String? _signalQualityOf(Record r) {
-    final Object? confidence = r.hrv['confidence'];
-    if (confidence is! Map) return null;
-    final Object? value = confidence['bpmConfidence'];
-    return value is num ? measurementQualityFrom(value)?.name : null;
+  /// Levels for records saved before quality was stored, computed from their
+  /// pulse wave once per visit and kept in memory only: viewing the history
+  /// must not rewrite it.
+  final Map<String, MeasurementQuality?> _computedQuality = {};
+
+  /// 'good', 'medium' or 'poor' from the spectral indicator validated against
+  /// ECG in the 2026 study, or null for records without a pulse wave. The
+  /// list used to grade records by HRV thresholds, which marked every record
+  /// without HRV as poor.
+  String? _signalQualityOf(Record r) {
+    final SpectralQuality? stored = SpectralQuality.fromJson(r.signalQuality);
+    if (stored != null) return stored.level.name;
+    return _computedQuality['${r.date}_${r.time}']?.name;
+  }
+
+  /// Grades the records that predate stored quality, off the UI thread.
+  Future<void> _gradeOlderRecords(List<Record> records) async {
+    final Map<String, (List<double>, double)> jobs = {};
+    for (final Record r in records) {
+      final String key = '${r.date}_${r.time}';
+      if (SpectralQuality.fromJson(r.signalQuality) != null ||
+          _computedQuality.containsKey(key)) {
+        continue;
+      }
+      final double fs = r.effectiveSampleRate;
+      final int expected = (r.duration * fs).toInt();
+      final List<double> data = r.dataForPlot.length > expected
+          ? r.dataForPlot.sublist(r.dataForPlot.length - expected)
+          : r.dataForPlot;
+      if (data.length >= 32) jobs[key] = (data, fs);
+    }
+    if (jobs.isEmpty) return;
+    final Map<String, String?> levels = await compute(_gradeAll, jobs);
+    if (!mounted) return;
+    setState(() {
+      for (final MapEntry<String, String?> e in levels.entries) {
+        _computedQuality[e.key] = MeasurementQuality.values
+            .where((q) => q.name == e.value)
+            .firstOrNull;
+      }
+    });
+    _applyFilters();
   }
 
   void _applyFilters() {
@@ -2816,3 +2862,9 @@ class _ExportBundle {
   final SqaResult quality;
   final String sampleRateSource;
 }
+
+/// Runs in a background isolate: grades each recording by its pulse wave.
+Map<String, String?> _gradeAll(Map<String, (List<double>, double)> jobs) => {
+      for (final MapEntry<String, (List<double>, double)> e in jobs.entries)
+        e.key: assessRecording(e.value.$1, e.value.$2)?.level.name,
+    };
