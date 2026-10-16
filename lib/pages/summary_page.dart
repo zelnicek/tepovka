@@ -1443,7 +1443,7 @@ class _SummaryState extends State<Summary> {
     );
   }
 
-  /// A short tinted note, used for the SpO2 caveats.
+  /// A short tinted note for a caveat about the numbers around it.
   Widget _note(BuildContext context, String text) {
     final r = Responsive.of(context);
     return Container(
@@ -1488,10 +1488,6 @@ class _SummaryState extends State<Summary> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_spo2 <= 0.0) ...[
-          _note(context, t.summarySpo2Pending),
-          SizedBox(height: r.spaceMd),
-        ],
         _metricGrid(context, [
           _buildHRVCard('SDNN', '${_sdnn.toStringAsFixed(2)} ms'),
           _buildHRVCard('RMSSD', '${_rmssd.toStringAsFixed(2)} ms'),
@@ -1500,50 +1496,29 @@ class _SummaryState extends State<Summary> {
           _buildHRVCard('SD1', '${_sd1.toStringAsFixed(2)} ms'),
           _buildHRVCard('SD2', '${_sd2.toStringAsFixed(2)} ms'),
           _buildHRVCard('SD2/SD1', _sd2sd1.toStringAsFixed(2)),
-          _buildHRVCard('LF', '${_lf.toStringAsFixed(2)} %'),
-          _buildHRVCard('HF', '${_hf.toStringAsFixed(2)} %'),
-          _buildHRVCard('LF/HF', _lfhf.toStringAsFixed(2)),
+          if (_frequencyHrvShown) ...[
+            _buildHRVCard('LF', '${_lf.toStringAsFixed(2)} %'),
+            _buildHRVCard('HF', '${_hf.toStringAsFixed(2)} %'),
+            _buildHRVCard('LF/HF', _lfhf.toStringAsFixed(2)),
+          ],
           _buildHRVCard(
             t.metricsStressIndex,
             _stressIndex.toStringAsFixed(2),
             valueColor: _getStressColor(_stressIndex),
           ),
         ]),
+        if (!_frequencyHrvShown) ...[
+          SizedBox(height: r.spaceMd),
+          _note(context, t.metricsFrequencyNeedsLonger),
+        ],
       ],
     );
   }
 
-  Widget _buildRespAndSpo2Info(BuildContext context) {
-    final r = Responsive.of(context);
-    final L10n t = L10n.of(context);
-    if (kReleaseMode) {
-      return _note(context, t.summarySpo2ComingSoon);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _metricGrid(context, [
-          _buildHRVCard(
-            t.metricsRespiratoryRate,
-            _respiratoryRate > 0
-                ? t.metricsBreathsPerMinute(_respiratoryRate.toStringAsFixed(1))
-                : '—',
-          ),
-          _buildHRVCard(
-            'SpO2',
-            _spo2 > 0 ? '${_spo2.toStringAsFixed(1)} %' : '—',
-            valueColor: _spo2 >= 95
-                ? Colors.green
-                : _spo2 >= 90
-                    ? Colors.orange
-                    : Colors.red,
-          ),
-        ]),
-        SizedBox(height: r.spaceMd),
-        _note(context, t.summarySpo2Disclaimer),
-      ],
-    );
-  }
+  /// LF and HF need two minutes (HRV standards ask for five); from a
+  /// shorter recording the calculator returns zeros, which read as values.
+  bool get _frequencyHrvShown =>
+      widget.recordingDuration >= HrvCalculator.minFrequencySeconds;
 
   Widget _buildHrrSection(BuildContext context) {
     final r = Responsive.of(context);
@@ -1558,8 +1533,6 @@ class _SummaryState extends State<Summary> {
             style: TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText),
           ),
         ),
-        SizedBox(height: r.spaceMd),
-        _buildRespAndSpo2Info(context),
         SizedBox(height: r.spaceMd),
         _buildHrrChart(),
         SizedBox(height: r.spaceMd),

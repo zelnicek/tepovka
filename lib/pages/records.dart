@@ -16,6 +16,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tepovka/elements/create_pdf.dart'; // Import the PDF creation function
 import 'package:tepovka/elements/unified_peak_detector.dart';
 import 'package:tepovka/elements/signal_quality_index.dart';
+import 'package:tepovka/elements/hrv_calculator.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'dart:convert';
 import 'package:tepovka/elements/responsive.dart';
@@ -2436,6 +2437,10 @@ class _RecordsPageState extends State<RecordsPage> {
 
     GlobalKey chartKey = GlobalKey();
 
+    // LF and HF only from two minutes up; below that they are zeros.
+    final bool frequencyShown =
+        record.duration >= HrvCalculator.minFrequencySeconds;
+
     Future<void> exportPdf(BuildContext context) async {
       // Resolve the PDF's text before the first await, so no BuildContext is
       // touched across an async gap.
@@ -2449,9 +2454,11 @@ class _RecordsPageState extends State<RecordsPage> {
         'SD1': '${sd1.toStringAsFixed(2)} ms',
         'SD2': '${sd2.toStringAsFixed(2)} ms',
         'SD2/SD1': sd2sd1.toStringAsFixed(2),
-        'LF': '${lf.toStringAsFixed(2)} %',
-        'HF': '${hf.toStringAsFixed(2)} %',
-        'LF/HF': lfhf.toStringAsFixed(2),
+        if (frequencyShown) ...{
+          'LF': '${lf.toStringAsFixed(2)} %',
+          'HF': '${hf.toStringAsFixed(2)} %',
+          'LF/HF': lfhf.toStringAsFixed(2),
+        },
         'Stress Index': stressIndex.toStringAsFixed(2),
       };
       final pdfPath = await createPdf(
@@ -2758,10 +2765,13 @@ class _RecordsPageState extends State<RecordsPage> {
               SizedBox(height: r.spaceMd),
               section(t.metricsHrvAnalysis, [
                 metricGrid([
+                  // 0 means no estimate, not zero breaths.
                   _buildHRVCard(
                       t.metricsRespiratoryRate,
-                      t.metricsBreathsPerMinute(
-                          record.respiratoryRate.toStringAsFixed(1))),
+                      record.respiratoryRate > 0
+                          ? t.metricsBreathsPerMinute(
+                              record.respiratoryRate.toStringAsFixed(1))
+                          : '—'),
                   _buildHRVCard('SDNN', '${sdnn.toStringAsFixed(2)} ms'),
                   _buildHRVCard('RMSSD', '${rmssd.toStringAsFixed(2)} ms'),
                   _buildHRVCard('pNN50', '${pnn50.toStringAsFixed(2)} %'),
@@ -2770,15 +2780,26 @@ class _RecordsPageState extends State<RecordsPage> {
                   _buildHRVCard('SD1', '${sd1.toStringAsFixed(2)} ms'),
                   _buildHRVCard('SD2', '${sd2.toStringAsFixed(2)} ms'),
                   _buildHRVCard('SD2/SD1', sd2sd1.toStringAsFixed(2)),
-                  _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
-                  _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
-                  _buildHRVCard('LF/HF', lfhf.toStringAsFixed(2)),
+                  if (frequencyShown) ...[
+                    _buildHRVCard('LF', '${lf.toStringAsFixed(2)} %'),
+                    _buildHRVCard('HF', '${hf.toStringAsFixed(2)} %'),
+                    _buildHRVCard('LF/HF', lfhf.toStringAsFixed(2)),
+                  ],
                   _buildHRVCard(
                     t.metricsStressIndex,
                     stressIndex.toStringAsFixed(2),
                     valueColor: _getStressColor(stressIndex),
                   ),
                 ]),
+                if (!frequencyShown)
+                  Padding(
+                    padding: EdgeInsets.only(top: r.spaceSm),
+                    child: Text(
+                      t.metricsFrequencyNeedsLonger,
+                      style: TextStyle(
+                          fontSize: r.fontSmall, color: kInfoSecondaryText),
+                    ),
+                  ),
               ]),
               SizedBox(height: r.spaceMd),
               section(t.metricsHeartRateRecovery, [

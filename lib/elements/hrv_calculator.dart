@@ -128,7 +128,11 @@ class HrvCalculator {
   static const double _hfHigh = 0.40;
 
   // Minimální délka záznamu pro spolehlivé spektrum.
-  static const double _minDurationForLf = 120.0;
+  static const double _minDurationForLf = minFrequencySeconds;
+
+  /// Shortest recording LF, HF and LF/HF are worth computing or showing for.
+  /// The screens hide them below this instead of printing 0.00.
+  static const double minFrequencySeconds = 120.0;
   static const double _minDurationForVlf = 300.0;
 
   /// Spočítá kompletní HRV z IBI intervalů v ms.

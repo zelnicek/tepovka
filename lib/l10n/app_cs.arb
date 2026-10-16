@@ -75,7 +75,6 @@
   "summaryRest": "Odpočívejte",
   "summaryContinueActivity": "Pokračujte v běžné aktivitě",
   "summaryShortRest": "Doporučujeme krátký odpočinek",
-  "summarySpo2Pending": "Poznámka: Hodnota SpO2 se právě připravuje a nemusí být okamžitě aktuální.",
   "summaryInvalidHeartRate": "Neplatná tepová frekvence (≤ 0). Záznam nebyl uložen.",
   "summarySavedToHealth": "Úspěšně uloženo do Apple Health",
   "summaryHealthSaveError": "Chyba při ukládání do Apple Health",
@@ -537,8 +536,6 @@
   "summaryKeep": "Ponechat",
   "summaryWeakSignal": "Signál byl slabý, výsledek nemusí být přesný.",
   "summaryMeasureAgain": "Změřit znovu",
-  "summarySpo2ComingSoon": "Funkce SpO2 bude brzy k dispozici.",
-  "summarySpo2Disclaimer": "SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře.",
   "settingsSectionMeasurement": "Měření",
   "settingsSectionDisplay": "Zobrazení",
   "settingsSectionSound": "Zvuk a vibrace",
@@ -689,5 +686,6 @@
   "tagCaffeine": "Po kávě",
   "tagStress": "Ve stresu",
   "summaryContextTitle": "Okolnosti měření",
-  "recordsTags": "Štítky"
+  "recordsTags": "Štítky",
+  "metricsFrequencyNeedsLonger": "LF, HF a LF/HF ukazujeme jen u měření od 2 minut. Z kratšího záznamu je spolehlivě spočítat nejde."
 }

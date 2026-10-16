@@ -171,10 +171,6 @@ class L10nCs extends L10n {
   String get summaryShortRest => 'Doporučujeme krátký odpočinek';
 
   @override
-  String get summarySpo2Pending =>
-      'Poznámka: Hodnota SpO2 se právě připravuje a nemusí být okamžitě aktuální.';
-
-  @override
   String get summaryInvalidHeartRate =>
       'Neplatná tepová frekvence (≤ 0). Záznam nebyl uložen.';
 
@@ -1093,13 +1089,6 @@ class L10nCs extends L10n {
   String get summaryMeasureAgain => 'Změřit znovu';
 
   @override
-  String get summarySpo2ComingSoon => 'Funkce SpO2 bude brzy k dispozici.';
-
-  @override
-  String get summarySpo2Disclaimer =>
-      'SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře.';
-
-  @override
   String get settingsSectionMeasurement => 'Měření';
 
   @override
@@ -1339,4 +1328,8 @@ class L10nCs extends L10n {
 
   @override
   String get recordsTags => 'Štítky';
+
+  @override
+  String get metricsFrequencyNeedsLonger =>
+      'LF, HF a LF/HF ukazujeme jen u měření od 2 minut. Z kratšího záznamu je spolehlivě spočítat nejde.';
 }

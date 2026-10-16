@@ -172,10 +172,6 @@ class L10nEn extends L10n {
   String get summaryShortRest => 'A short rest is recommended';
 
   @override
-  String get summarySpo2Pending =>
-      'Note: the SpO2 value is still being prepared and may not be up to date yet.';
-
-  @override
   String get summaryInvalidHeartRate =>
       'Invalid heart rate (≤ 0). The record was not saved.';
 
@@ -1101,13 +1097,6 @@ class L10nEn extends L10n {
   String get summaryMeasureAgain => 'Measure again';
 
   @override
-  String get summarySpo2ComingSoon => 'SpO2 is coming soon.';
-
-  @override
-  String get summarySpo2Disclaimer =>
-      'SpO2 is an estimate, not a substitute for a medical device. See a doctor if it reads below 95 %.';
-
-  @override
   String get settingsSectionMeasurement => 'Measurement';
 
   @override
@@ -1355,4 +1344,8 @@ class L10nEn extends L10n {
 
   @override
   String get recordsTags => 'Tags';
+
+  @override
+  String get metricsFrequencyNeedsLonger =>
+      'LF, HF and LF/HF are shown only for measurements of 2 minutes or more. A shorter recording cannot give them reliably.';
 }

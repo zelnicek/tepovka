@@ -52,7 +52,6 @@
   "summaryRest": "Take a rest",
   "summaryContinueActivity": "Carry on as normal",
   "summaryShortRest": "A short rest is recommended",
-  "summarySpo2Pending": "Note: the SpO2 value is still being prepared and may not be up to date yet.",
   "summaryInvalidHeartRate": "Invalid heart rate (≤ 0). The record was not saved.",
   "summarySavedToHealth": "Successfully saved to Apple Health",
   "summaryHealthSaveError": "Error saving to Apple Health",
@@ -332,8 +331,6 @@
   "summaryKeep": "Keep",
   "summaryWeakSignal": "The signal was weak, so the result may be off.",
   "summaryMeasureAgain": "Measure again",
-  "summarySpo2ComingSoon": "SpO2 is coming soon.",
-  "summarySpo2Disclaimer": "SpO2 is an estimate, not a substitute for a medical device. See a doctor if it reads below 95 %.",
   "settingsSectionMeasurement": "Measurement",
   "settingsSectionDisplay": "Display",
   "settingsSectionSound": "Sound and haptics",
@@ -405,5 +402,6 @@
   "tagCaffeine": "After coffee",
   "tagStress": "Stressed",
   "summaryContextTitle": "Measurement context",
-  "recordsTags": "Tags"
+  "recordsTags": "Tags",
+  "metricsFrequencyNeedsLonger": "LF, HF and LF/HF are shown only for measurements of 2 minutes or more. A shorter recording cannot give them reliably."
 }

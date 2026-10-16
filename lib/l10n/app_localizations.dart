@@ -409,12 +409,6 @@ abstract class L10n {
   /// **'Doporučujeme krátký odpočinek'**
   String get summaryShortRest;
 
-  /// No description provided for @summarySpo2Pending.
-  ///
-  /// In cs, this message translates to:
-  /// **'Poznámka: Hodnota SpO2 se právě připravuje a nemusí být okamžitě aktuální.'**
-  String get summarySpo2Pending;
-
   /// No description provided for @summaryInvalidHeartRate.
   ///
   /// In cs, this message translates to:
@@ -2029,18 +2023,6 @@ abstract class L10n {
   /// **'Změřit znovu'**
   String get summaryMeasureAgain;
 
-  /// No description provided for @summarySpo2ComingSoon.
-  ///
-  /// In cs, this message translates to:
-  /// **'Funkce SpO2 bude brzy k dispozici.'**
-  String get summarySpo2ComingSoon;
-
-  /// No description provided for @summarySpo2Disclaimer.
-  ///
-  /// In cs, this message translates to:
-  /// **'SpO2 je orientační hodnota a nenahrazuje lékařský přístroj. Při hodnotách pod 95 % vyhledejte lékaře.'**
-  String get summarySpo2Disclaimer;
-
   /// No description provided for @settingsSectionMeasurement.
   ///
   /// In cs, this message translates to:
@@ -2472,6 +2454,12 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Štítky'**
   String get recordsTags;
+
+  /// No description provided for @metricsFrequencyNeedsLonger.
+  ///
+  /// In cs, this message translates to:
+  /// **'LF, HF a LF/HF ukazujeme jen u měření od 2 minut. Z kratšího záznamu je spolehlivě spočítat nejde.'**
+  String get metricsFrequencyNeedsLonger;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
