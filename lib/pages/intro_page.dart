@@ -15,6 +15,7 @@ import 'package:tepovka/pages/records.dart';
 import 'package:tepovka/pages/settings.dart';
 import 'package:tepovka/services/reminder_service.dart';
 import 'package:tepovka/services/storage_service.dart';
+import 'package:tepovka/services/widget_service.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
 
 /// Home screen.
@@ -46,6 +47,10 @@ class _IntroPageState extends State<IntroPage> {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _openMeasureFromReminder());
     }
+    // Started by tapping the home-screen widget.
+    WidgetService.takeLaunchRequest().then((fromWidget) {
+      if (fromWidget && mounted) _openMeasureFromReminder();
+    });
   }
 
   @override
@@ -58,8 +63,9 @@ class _IntroPageState extends State<IntroPage> {
 
   bool _openingMeasureFromReminder = false;
 
-  /// A tapped reminder opens the measurement straight away. This screen is
-  /// the root route, so whatever was open on top of it is closed first.
+  /// A tapped reminder or home-screen widget opens the measurement straight
+  /// away. This screen is the root route, so whatever was open on top of it
+  /// is closed first.
   Future<void> _openMeasureFromReminder() async {
     if (!mounted || _openingMeasureFromReminder) return;
     _openingMeasureFromReminder = true;

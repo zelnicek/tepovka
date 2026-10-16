@@ -2,6 +2,7 @@ import UIKit
 import Flutter
 import AVFoundation
 import UserNotifications
+import WidgetKit
 // Offline-only: remove Google Sign-In integration
 
 /// UIScene lifecycle: apps built with the iOS 27 SDK are not launched on iOS 27
@@ -29,9 +30,86 @@ import UserNotifications
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TepovkaCameraLock") {
       CameraLockChannel.register(messenger: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TepovkaWidget") {
+      WidgetChannel.register(with: registrar)
+    }
+  }
+}
+
+/// Most k widgetu na ploše: aplikace mu předá shrnutí historie, widget jí
+/// vrátí klepnutí (otevřít měření).
+///
+/// Shrnutí je JSON v UserDefaults sdílené skupiny aplikací, odkud ho čte
+/// rozšíření TepovkaWidget. Klepnutí na widget otevře `tepovka://measure`;
+/// pod UIScene ho dostane scéna, a tak se tahle třída přihlásí jako scene
+/// delegate přes registrar. Když aplikace neběžela, přijde adresa se startem
+/// scény dřív, než se Dart stihne zeptat, a počká na `takeLaunchAction`.
+final class WidgetChannel: NSObject, FlutterSceneLifeCycleDelegate {
+  static let appGroup = "group.cz.mojetepovka.tepovka"
+  private static let summaryKey = "widget_summary"
+  private static var instance: WidgetChannel?
+
+  private let channel: FlutterMethodChannel
+  private var pendingMeasure = false
+
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let channel = WidgetChannel(messenger: registrar.messenger())
+    registrar.addSceneDelegate(channel)
+    instance = channel
   }
 
-  // No external URL handlers required for local-only mode
+  private init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(name: "tepovka/widget", binaryMessenger: messenger)
+    super.init()
+    channel.setMethodCallHandler { [weak self] call, result in
+      self?.handle(call, result)
+    }
+  }
+
+  private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+    switch call.method {
+    case "update":
+      guard let json = call.arguments as? String else {
+        result(FlutterError(code: "bad_args", message: "Expected a JSON string", details: nil))
+        return
+      }
+      UserDefaults(suiteName: WidgetChannel.appGroup)?.set(json, forKey: WidgetChannel.summaryKey)
+      WidgetCenter.shared.reloadAllTimelines()
+      result(nil)
+    case "takeLaunchAction":
+      result(pendingMeasure)
+      pendingMeasure = false
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private static func isMeasure(_ url: URL) -> Bool {
+    url.scheme == "tepovka" && url.host == "measure"
+  }
+
+  // Selektory jsou vypsané, aby přejmenování při importu z Objective-C
+  // nemohlo potichu způsobit, že se metody nikdy nezavolají.
+
+  /// Studený start z widgetu: adresa přijde s připojením scény.
+  @objc(scene:willConnectToSession:options:)
+  func scene(
+    _ scene: UIScene, willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions?
+  ) -> Bool {
+    guard let url = connectionOptions?.urlContexts.first?.url, WidgetChannel.isMeasure(url)
+    else { return false }
+    pendingMeasure = true
+    return true
+  }
+
+  /// Aplikace běží: měření se otevře hned.
+  @objc(scene:openURLContexts:)
+  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) -> Bool {
+    guard URLContexts.contains(where: { WidgetChannel.isMeasure($0.url) }) else { return false }
+    channel.invokeMethod("openMeasure", arguments: nil)
+    return true
+  }
 }
 
 /// Zámek nastavení kamery po dobu měření.

@@ -10,6 +10,7 @@ import 'package:tepovka/theme.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/services/local_profile_service.dart';
 import 'package:tepovka/services/reminder_service.dart';
+import 'package:tepovka/services/widget_service.dart';
 
 Future<void> main() async {
   runZonedGuarded(() async {
@@ -24,6 +25,8 @@ Future<void> main() async {
     await ReminderService.init();
     // Keeps the reminder plan a month ahead and in the current language.
     unawaited(ReminderService.reschedule());
+    // The home-screen widget shows the latest reading from the history.
+    unawaited(WidgetService.init());
 
     // Initialize local logger
     await LocalLogger.init();

@@ -1,0 +1,4 @@
+// The widget's version has to match the app's, which Flutter writes here.
+// Only this file, not Flutter/Debug.xcconfig: that one pulls in the app's
+// CocoaPods settings, which do not belong in the extension.
+#include "../Flutter/Generated.xcconfig"

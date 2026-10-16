@@ -72,6 +72,17 @@
 	     Flutter's own app template, except the delegate is FlutterSceneDelegate
 	     itself: the template's SceneDelegate subclass is empty, and using the
 	     framework class directly avoids adding a source file to the project. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>cz.mojetepovka.tepovka</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tepovka</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

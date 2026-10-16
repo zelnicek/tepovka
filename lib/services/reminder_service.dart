@@ -1,10 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
+import 'package:tepovka/services/app_locale.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:timezone/data/latest_10y.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -131,7 +130,7 @@ class ReminderService {
     final AppSettingsData settings = AppSettings.value;
     if (!settings.reminderEnabled) return;
 
-    final L10n t = lookupL10n(_localeFor(settings));
+    final L10n t = lookupL10n(appLocale(settings));
     final DateTime? last = await _lastMeasurement();
     final List<DateTime> plan = planFor(
       now: DateTime.now(),
@@ -193,18 +192,6 @@ class ReminderService {
             at.month == now.month &&
             at.year == now.year))
         .toList();
-  }
-
-  /// The app's language if one is chosen, otherwise the device's, falling
-  /// back to Czech like the UI does.
-  static Locale _localeFor(AppSettingsData settings) {
-    final Locale? chosen = settings.language.locale;
-    if (chosen != null) return chosen;
-    final String device = PlatformDispatcher.instance.locale.languageCode;
-    return Locale(
-        L10n.supportedLocales.any((locale) => locale.languageCode == device)
-            ? device
-            : 'cs');
   }
 
   /// Written by the measure screen when a measurement finishes.
