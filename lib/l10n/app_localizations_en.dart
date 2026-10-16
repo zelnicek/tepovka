@@ -1183,4 +1183,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsDiagnostics => 'Diagnostics and logs';
+
+  @override
+  String get settingsDiagnosticsHint => 'For troubleshooting the app';
 }

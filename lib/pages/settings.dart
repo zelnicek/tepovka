@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/pages/diagnostics_page.dart';
@@ -26,9 +25,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   static const Color _canvas = Color.fromARGB(255, 242, 242, 242);
-  static const Color _blue = Color(0xFF1A73E8);
-  static const Color _green = Color(0xFF1E8E3E);
-  static const Color _purple = Color(0xFF7B3FE4);
 
   late bool _haptics;
   late bool _seniorMode;
@@ -40,7 +36,6 @@ class _SettingsPageState extends State<SettingsPage> {
   late List<String> _researchFields;
   late bool _reminderEnabled;
   late int _reminderMinutes;
-  int _measurementsCount = 0;
   String? _version;
 
   @override
@@ -57,7 +52,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _researchFields = s.researchFields;
     _reminderEnabled = s.reminderEnabled;
     _reminderMinutes = s.reminderMinutes;
-    _loadLocalStats();
     _loadVersion();
   }
 
@@ -69,17 +63,6 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (e) {
       debugPrint('No package info: $e');
-    }
-  }
-
-  Future<void> _loadLocalStats() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (!mounted) return;
-      setState(
-          () => _measurementsCount = prefs.getInt('measurements_count') ?? 0);
-    } catch (e) {
-      debugPrint('Failed to load local stats: $e');
     }
   }
 
@@ -105,11 +88,13 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickReminderTime() async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
+    final L10n t = L10n.of(context);
+    final TimeOfDay? picked = await showSettingsTimePicker(
+      context,
+      title: t.settingsReminderTime,
+      doneLabel: t.commonDone,
+      initial: TimeOfDay(
           hour: _reminderMinutes ~/ 60, minute: _reminderMinutes % 60),
-      helpText: L10n.of(context).settingsReminderTime,
     );
     if (picked == null || !mounted) return;
     final int minutes = picked.hour * 60 + picked.minute;
@@ -119,27 +104,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickExportFormat() async {
-    final picked = await showDialog<ExportFormat>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: Text(L10n.of(context).settingsExportFormat),
-        children: [
-          RadioGroup<ExportFormat>(
-            groupValue: _exportFormat,
-            onChanged: (v) => Navigator.of(context).pop(v),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final format in ExportFormat.values)
-                  RadioListTile<ExportFormat>(
-                    value: format,
-                    title: Text(_exportFormatLabel(format)),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final ExportFormat? picked = await showSettingsChoice<ExportFormat>(
+      context,
+      title: L10n.of(context).settingsExportFormat,
+      options: [
+        for (final format in ExportFormat.values)
+          (format, _exportFormatLabel(format)),
+      ],
+      selected: _exportFormat,
     );
     if (picked == null) return;
     setState(() => _exportFormat = picked);
@@ -147,36 +119,42 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _editResearchFields() async {
+    final L10n t = L10n.of(context);
     final controller = TextEditingController(text: _researchFields.join('\n'));
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(L10n.of(context).settingsPreMeasurementFields),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final bool? saved = await showSettingsSheet<bool>(
+      context,
+      builder: (context) {
+        final r = Responsive.of(context);
+        return SettingsSheet(
+          title: t.settingsPreMeasurementFields,
           children: [
-            Text(L10n.of(context).settingsPreMeasurementFieldsHint,
-                style: TextStyle(fontSize: 12)),
-            const SizedBox(height: 10),
+            Text(t.settingsPreMeasurementFieldsHint,
+                style: TextStyle(
+                    fontSize: r.fontSmall, color: kInfoSecondaryText)),
+            SizedBox(height: r.spaceMd),
             TextField(
               controller: controller,
+              minLines: 4,
               maxLines: 6,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              style: TextStyle(fontSize: r.fontBodyLg),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFF2F2F2),
+                contentPadding: EdgeInsets.all(r.spaceMd),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            SizedBox(height: r.spaceLg),
+            SettingsPrimaryButton(
+              label: t.commonSave,
+              onPressed: () => Navigator.pop(context, true),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(L10n.of(context).commonCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(L10n.of(context).commonSave),
-          ),
-        ],
-      ),
+        );
+      },
     );
     if (saved != true) return;
     AppSettings.setResearchFields(controller.text.split('\n'));
@@ -202,27 +180,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickLanguage(AppLanguage current) async {
-    final AppLanguage? picked = await showDialog<AppLanguage>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: Text(L10n.of(context).settingsAppLanguage),
-        children: [
-          RadioGroup<AppLanguage>(
-            groupValue: current,
-            onChanged: (value) => Navigator.pop(context, value),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final AppLanguage option in AppLanguage.values)
-                  RadioListTile<AppLanguage>(
-                    value: option,
-                    title: Text(_languageLabel(option)),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final AppLanguage? picked = await showSettingsChoice<AppLanguage>(
+      context,
+      title: L10n.of(context).settingsAppLanguage,
+      options: [
+        for (final AppLanguage option in AppLanguage.values)
+          (option, _languageLabel(option)),
+      ],
+      selected: current,
     );
     if (picked != null && picked != current) {
       AppSettings.setLanguage(picked);
@@ -245,47 +210,26 @@ class _SettingsPageState extends State<SettingsPage> {
   /// no link straight to an app's Health permissions, so it says where.
   void _showHealthInfo() {
     final L10n t = L10n.of(context);
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      showDragHandle: true,
+    showSettingsSheet<void>(
+      context,
       builder: (context) {
         final r = Responsive.of(context);
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(r.spaceXl, 0, r.spaceXl, r.spaceXl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Image.asset('assets/Icon - Apple Health.png',
-                        width: r.iconLg, height: r.iconLg),
-                    SizedBox(width: r.spaceMd),
-                    Expanded(
-                      child: Text(
-                        t.settingsAppleHealth,
-                        style: TextStyle(
-                            fontSize: r.fontTitle, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: r.spaceMd),
-                Text(t.settingsAppleHealthBody,
-                    style: TextStyle(fontSize: r.fontBody, height: 1.4)),
-                SizedBox(height: r.spaceLg),
-                Text(t.settingsManagePermissions,
-                    style: TextStyle(
-                        fontSize: r.fontBody, fontWeight: FontWeight.w600)),
-                SizedBox(height: r.spaceXs),
-                Text(t.settingsManagePermissionsHint,
-                    style: TextStyle(
-                        fontSize: r.fontBody, color: kInfoSecondaryText)),
-              ],
-            ),
-          ),
+        return SettingsSheet(
+          title: t.settingsAppleHealth,
+          leading: const SettingsBadge(image: 'assets/Icon - Apple Health.png'),
+          children: [
+            Text(t.settingsAppleHealthBody,
+                style: TextStyle(fontSize: r.fontBody, height: 1.4)),
+            SizedBox(height: r.spaceLg),
+            Text(t.settingsManagePermissions,
+                style: TextStyle(
+                    fontSize: r.fontBody, fontWeight: FontWeight.w600)),
+            SizedBox(height: r.spaceXs),
+            Text(t.settingsManagePermissionsHint,
+                style:
+                    TextStyle(fontSize: r.fontBody, color: kInfoSecondaryText)),
+            SizedBox(height: r.spaceSm),
+          ],
         );
       },
     );
@@ -312,9 +256,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _open(Widget page) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-    // Login and diagnostics change what the rows show.
+    // Signing in or out on the login page changes what the rows show.
     if (mounted) setState(() {});
-    _loadLocalStats();
   }
 
   @override
@@ -340,10 +283,9 @@ class _SettingsPageState extends State<SettingsPage> {
             r.pagePadding.left, 0, r.pagePadding.right, r.spaceXl),
         children: [
           InfoSectionLabel(t.settingsSectionMeasurement),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.measurement, children: [
             SettingsRow(
               icon: Symbols.notifications,
-              tint: kInfoAccent,
               title: t.settingsReminder,
               subtitle: t.settingsReminderHint,
               trailing: SettingsSwitch(
@@ -353,7 +295,6 @@ class _SettingsPageState extends State<SettingsPage> {
             if (_reminderEnabled)
               SettingsRow(
                 icon: Symbols.schedule,
-                tint: kInfoAccent,
                 title: t.settingsReminderTime,
                 value: TimeOfDay(
                         hour: _reminderMinutes ~/ 60,
@@ -364,10 +305,9 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
           ]),
           InfoSectionLabel(t.settingsSectionDisplay),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.display, children: [
             SettingsRow(
               icon: Symbols.language,
-              tint: _blue,
               title: t.settingsAppLanguage,
               value: _languageLabel(settings.language),
               chevron: true,
@@ -375,7 +315,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             SettingsRow(
               icon: Symbols.person,
-              tint: _blue,
               title: t.settingsDisplayMode,
               subtitle: _userMode == UserMode.patient
                   ? t.settingsPatientModeHint
@@ -394,33 +333,28 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             SettingsRow(
               icon: Symbols.format_size,
-              tint: _blue,
               title: t.settingsTextSize,
               value: '${(_textScale * 100).round()} %',
-              below: SliderTheme(
-                data: SliderThemeData(
-                  activeTrackColor: kInfoAccent,
-                  inactiveTrackColor: kInfoAccentTint,
-                  thumbColor: kInfoAccent,
-                  overlayColor: kInfoAccent.withValues(alpha: 0.12),
-                  valueIndicatorColor: kInfoAccent,
-                ),
-                child: Slider(
-                  min: 1.0,
-                  max: 1.4,
-                  divisions: 4,
-                  label: '${(_textScale * 100).round()} %',
-                  value: _textScale,
-                  onChanged: (v) {
-                    setState(() => _textScale = v);
-                    AppSettings.setTextScale(v);
-                  },
-                ),
+              below: SettingsSlider(
+                min: 1.0,
+                max: 1.4,
+                divisions: 4,
+                label: '${(_textScale * 100).round()} %',
+                value: _textScale,
+                onChanged: (v) {
+                  setState(() => _textScale = v);
+                  AppSettings.setTextScale(v);
+                },
+                start: Text('A',
+                    style: TextStyle(
+                        fontSize: r.fontSmall, color: kInfoSecondaryText)),
+                end: Text('A',
+                    style: TextStyle(
+                        fontSize: r.fontTitleLg, color: kInfoSecondaryText)),
               ),
             ),
             SettingsRow(
               icon: Symbols.settings_accessibility,
-              tint: _blue,
               title: t.settingsSeniorMode,
               subtitle: t.settingsSeniorModeHint,
               trailing: SettingsSwitch(
@@ -437,7 +371,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             SettingsRow(
               icon: Symbols.contrast,
-              tint: _blue,
               title: t.settingsHighContrast,
               subtitle: t.settingsHighContrastHint,
               trailing: SettingsSwitch(
@@ -454,12 +387,14 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ]),
           InfoSectionLabel(t.settingsSectionSound),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.sound, children: [
+            // Plays straight away, so a play button instead of a chevron.
             SettingsRow(
               icon: Symbols.volume_up,
               title: t.settingsVoiceGuidance,
               subtitle: t.settingsVoiceSample,
-              chevron: true,
+              trailing: Icon(Symbols.play_circle,
+                  fill: 1, color: SettingsTint.sound, size: r.iconLg),
               onTap: _playVoiceSample,
             ),
             SettingsRow(
@@ -480,7 +415,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ]),
           InfoSectionLabel(t.settingsSectionData),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.data, children: [
             // Apple Health transparency (Apple Review 2.5.1).
             SettingsRow(
               image: 'assets/Icon - Apple Health.png',
@@ -489,18 +424,19 @@ class _SettingsPageState extends State<SettingsPage> {
               chevron: true,
               onTap: _showHealthInfo,
             ),
+            // A statement, not a control: a check instead of a chevron.
             SettingsRow(
               icon: Symbols.lock,
-              tint: _green,
               title: t.settingsDataLocal,
               subtitle: t.settingsDataLocalHint,
+              trailing: Icon(Symbols.check_circle,
+                  fill: 1, color: SettingsTint.data, size: r.iconMd),
             ),
           ]),
           InfoSectionLabel(t.settingsResearchSection),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.research, children: [
             SettingsRow(
               icon: Symbols.science,
-              tint: _purple,
               title: t.settingsResearchMode,
               subtitle: t.settingsResearchModeHint,
               trailing: SettingsSwitch(
@@ -518,15 +454,13 @@ class _SettingsPageState extends State<SettingsPage> {
             if (_researchMode) ...[
               SettingsRow(
                 icon: Symbols.description,
-                tint: _purple,
                 title: t.settingsExportFormat,
-                subtitle: _exportFormatLabel(_exportFormat),
+                value: _exportFormat.name.toUpperCase(),
                 chevron: true,
                 onTap: _pickExportFormat,
               ),
               SettingsRow(
                 icon: Symbols.list_alt,
-                tint: _purple,
                 title: t.settingsResearchFields,
                 subtitle: _researchFields.join(' · '),
                 chevron: true,
@@ -535,7 +469,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ]),
           InfoSectionLabel(t.settingsSectionProfile),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.profile, children: [
             SettingsRow(
               icon: Symbols.login,
               title: t.settingsLogin,
@@ -543,27 +477,32 @@ class _SettingsPageState extends State<SettingsPage> {
               chevron: true,
               onTap: () => _open(const LoginPage()),
             ),
-            if (LocalProfileService.isLoggedIn)
-              SettingsRow(
-                icon: Symbols.logout,
-                title: t.settingsLogout,
-                subtitle: t.settingsLogoutHint,
-                onTap: _logout,
-              ),
+            // Without a profile there is no code yet; the login page makes
+            // one and shows it.
             SettingsRow(
               icon: Symbols.qr_code,
               title: t.settingsMyQrForDoctor,
               subtitle: t.settingsMyQrForDoctorHint,
               chevron: true,
-              onTap: () => _open(const QrCodePage()),
+              onTap: () => _open(LocalProfileService.isLoggedIn
+                  ? const QrCodePage()
+                  : const LoginPage()),
             ),
+            if (LocalProfileService.isLoggedIn)
+              SettingsRow(
+                icon: Symbols.logout,
+                title: t.settingsLogout,
+                subtitle: t.settingsLogoutHint,
+                destructive: true,
+                onTap: _logout,
+              ),
           ]),
           InfoSectionLabel(t.settingsSectionSupport),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.support, children: [
             SettingsRow(
               icon: Symbols.bug_report,
               title: t.settingsDiagnostics,
-              subtitle: t.recordsMeasurementsCount(_measurementsCount),
+              subtitle: t.settingsDiagnosticsHint,
               chevron: true,
               onTap: () => _open(const DiagnosticsPage()),
             ),

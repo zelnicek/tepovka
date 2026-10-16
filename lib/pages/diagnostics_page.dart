@@ -133,41 +133,36 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
             r.pagePadding.left, 0, r.pagePadding.right, r.spaceXl),
         children: [
           InfoSectionLabel(t.settingsLogSection),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.support, children: [
             SettingsRow(
-              icon: Icons.insights,
-              tint: kInfoSecondaryText,
+              icon: Symbols.insights,
               title: t.settingsLocalCount,
               value: '$_measurementsCount',
             ),
             SettingsRow(
-              icon: Icons.access_time,
-              tint: kInfoSecondaryText,
+              icon: Symbols.schedule,
               title: t.settingsLastMeasurement,
               value: _formatLastMeasurement(context),
             ),
           ]),
           SizedBox(height: r.spaceLg),
-          SettingsCard(children: [
+          SettingsCard(tint: SettingsTint.support, children: [
             SettingsRow(
               icon: Symbols.open_in_new,
-              tint: kInfoSecondaryText,
               title: t.settingsOpenLog,
               chevron: true,
               onTap: _openLog,
             ),
             SettingsRow(
               icon: Symbols.share,
-              tint: kInfoSecondaryText,
               title: t.settingsShareLog,
               chevron: true,
               onTap: _shareLog,
             ),
             SettingsRow(
               icon: Symbols.delete,
-              tint: kInfoAccent,
               title: t.settingsClearLog,
-              titleColor: kInfoAccent,
+              destructive: true,
               onTap: _clearLog,
             ),
           ]),

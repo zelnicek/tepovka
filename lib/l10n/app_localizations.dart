@@ -2190,6 +2190,12 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Diagnostika a logy'**
   String get settingsDiagnostics;
+
+  /// No description provided for @settingsDiagnosticsHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pro řešení potíží s aplikací'**
+  String get settingsDiagnosticsHint;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

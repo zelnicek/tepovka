@@ -358,5 +358,6 @@
   "settingsHealthShortHint": "Saves heart rate only",
   "settingsDataLocal": "Your data stays on this phone",
   "settingsDataLocalHint": "Tepovka sends nothing to a server",
-  "settingsDiagnostics": "Diagnostics and logs"
+  "settingsDiagnostics": "Diagnostics and logs",
+  "settingsDiagnosticsHint": "For troubleshooting the app"
 }

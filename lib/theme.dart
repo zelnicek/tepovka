@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 class AppTheme {
   static ThemeData light = ThemeData(
     colorScheme: const ColorScheme.light(
-      primary: Color(0xFF006C4F),
+      // The app's red (kInfoAccent), so stock dialogs, pickers and text
+      // fields match the custom screens instead of showing Material green.
+      primary: Color(0xFFE53935),
       secondary: Color(0xFF1E88E5),
       surface: Colors.white,
       error: Color(0xFFB00020),

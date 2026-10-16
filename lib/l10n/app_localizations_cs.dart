@@ -1176,4 +1176,7 @@ class L10nCs extends L10n {
 
   @override
   String get settingsDiagnostics => 'Diagnostika a logy';
+
+  @override
+  String get settingsDiagnosticsHint => 'Pro řešení potíží s aplikací';
 }

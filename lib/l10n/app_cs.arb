@@ -573,5 +573,6 @@
   "settingsHealthShortHint": "Ukládá jen tepovou frekvenci",
   "settingsDataLocal": "Data zůstávají v telefonu",
   "settingsDataLocalHint": "Tepovka nic neodesílá na server",
-  "settingsDiagnostics": "Diagnostika a logy"
+  "settingsDiagnostics": "Diagnostika a logy",
+  "settingsDiagnosticsHint": "Pro řešení potíží s aplikací"
 }
