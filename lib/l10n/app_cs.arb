@@ -693,5 +693,152 @@
   "shareCardShare": "Sdílet",
   "shareCardHeartRate": "Tepová frekvence",
   "shareCardFooter": "Změřeno fotoaparátem telefonu",
-  "shareCardFailed": "Kartu se nepodařilo vytvořit"
+  "shareCardFailed": "Kartu se nepodařilo vytvořit",
+  "homeSectionHeart": "Tvoje srdce",
+  "streakDays": "{n, plural, =0{Zatím bez série} =1{1 den v řadě} few{{n} dny v řadě} other{{n} dní v řadě}}",
+  "@streakDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "streakBest": "Nejdelší série: {n, plural, =1{1 den} few{{n} dny} other{{n} dní}}",
+  "@streakBest": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "streakKeep": "Změřte se dnes, ať sérii udržíte",
+  "streakStart": "Změřte se dnes a začněte sérii",
+  "beatsTodayLabel": "Dnes zatím asi",
+  "beatsUnit": "{n, plural, =1{úder} few{údery} other{úderů}}",
+  "@beatsUnit": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "beatsSinceFirst": "Od prvního měření asi {count} úderů",
+  "@beatsSinceFirst": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "beatsEstimate": "Odhad z klidového tepu {bpm} bpm",
+  "@beatsEstimate": {
+    "placeholders": {
+      "bpm": {
+        "type": "int"
+      }
+    }
+  },
+  "daysCount": "{n, plural, =1{1 den} few{{n} dny} other{{n} dní}}",
+  "@daysCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "badgesTitle": "Odznaky",
+  "badgeNew": "Nový odznak!",
+  "badgeAll": "Všechny odznaky",
+  "badgeGreat": "Super",
+  "badgeProgress": "{value} z {goal}",
+  "@badgeProgress": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "goal": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeUnlocked": "Získáno",
+  "badgesTotal": "Měření celkem",
+  "badgesCurrent": "Aktuální série",
+  "badgesBest": "Nejdelší série",
+  "badgeFirstBeat": "První tep",
+  "badgeFirstBeatHint": "Změřte se poprvé",
+  "badgeTen": "Desítka",
+  "badgeThirty": "Třicítka",
+  "badgeHundred": "Stovka",
+  "badgeMeasurementsHint": "{n} měření",
+  "@badgeMeasurementsHint": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeStreak3": "Rozjezd",
+  "badgeStreak7": "Týden v rytmu",
+  "badgeStreak30": "Měsíc v rytmu",
+  "badgeStreakHint": "{n, plural, few{{n} dny v řadě} other{{n} dní v řadě}}",
+  "@badgeStreakHint": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeEarlyBird": "Ranní ptáče",
+  "badgeEarlyBirdHint": "{n} měření se štítkem Ráno po probuzení",
+  "@badgeEarlyBirdHint": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsYearTitle": "Rok měření",
+  "recordsYearCaption": "Každý čtvereček je jeden den, barva ukazuje klidový tep.",
+  "recordsYearLow": "nižší tep",
+  "recordsYearHigh": "vyšší",
+  "recordsYearHint": "Klepněte na den",
+  "recordsYearDay": "{date}: klidový tep {bpm} bpm, {count} měření",
+  "@recordsYearDay": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "bpm": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recordsYearDayNoRest": "{date}: jen měření po námaze, kávě nebo ve stresu",
+  "@recordsYearDayNoRest": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "recordsYearDayEmpty": "{date}: bez měření",
+  "@recordsYearDayEmpty": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderStreakBody": "{n, plural, few{Máte za sebou {n} dny v řadě. Změřte se i dnes a nepřerušte sérii.} other{Máte za sebou {n} dní v řadě. Změřte se i dnes a nepřerušte sérii.}}",
+  "@reminderStreakBody": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

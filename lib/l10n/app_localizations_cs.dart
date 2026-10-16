@@ -1351,4 +1351,195 @@ class L10nCs extends L10n {
 
   @override
   String get shareCardFailed => 'Kartu se nepodařilo vytvořit';
+
+  @override
+  String get homeSectionHeart => 'Tvoje srdce';
+
+  @override
+  String streakDays(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n dní v řadě',
+      few: '$n dny v řadě',
+      one: '1 den v řadě',
+      zero: 'Zatím bez série',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String streakBest(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n dní',
+      few: '$n dny',
+      one: '1 den',
+    );
+    return 'Nejdelší série: $_temp0';
+  }
+
+  @override
+  String get streakKeep => 'Změřte se dnes, ať sérii udržíte';
+
+  @override
+  String get streakStart => 'Změřte se dnes a začněte sérii';
+
+  @override
+  String get beatsTodayLabel => 'Dnes zatím asi';
+
+  @override
+  String beatsUnit(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'úderů',
+      few: 'údery',
+      one: 'úder',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String beatsSinceFirst(String count) {
+    return 'Od prvního měření asi $count úderů';
+  }
+
+  @override
+  String beatsEstimate(int bpm) {
+    return 'Odhad z klidového tepu $bpm bpm';
+  }
+
+  @override
+  String daysCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n dní',
+      few: '$n dny',
+      one: '1 den',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get badgesTitle => 'Odznaky';
+
+  @override
+  String get badgeNew => 'Nový odznak!';
+
+  @override
+  String get badgeAll => 'Všechny odznaky';
+
+  @override
+  String get badgeGreat => 'Super';
+
+  @override
+  String badgeProgress(int value, int goal) {
+    return '$value z $goal';
+  }
+
+  @override
+  String get badgeUnlocked => 'Získáno';
+
+  @override
+  String get badgesTotal => 'Měření celkem';
+
+  @override
+  String get badgesCurrent => 'Aktuální série';
+
+  @override
+  String get badgesBest => 'Nejdelší série';
+
+  @override
+  String get badgeFirstBeat => 'První tep';
+
+  @override
+  String get badgeFirstBeatHint => 'Změřte se poprvé';
+
+  @override
+  String get badgeTen => 'Desítka';
+
+  @override
+  String get badgeThirty => 'Třicítka';
+
+  @override
+  String get badgeHundred => 'Stovka';
+
+  @override
+  String badgeMeasurementsHint(int n) {
+    return '$n měření';
+  }
+
+  @override
+  String get badgeStreak3 => 'Rozjezd';
+
+  @override
+  String get badgeStreak7 => 'Týden v rytmu';
+
+  @override
+  String get badgeStreak30 => 'Měsíc v rytmu';
+
+  @override
+  String badgeStreakHint(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n dní v řadě',
+      few: '$n dny v řadě',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get badgeEarlyBird => 'Ranní ptáče';
+
+  @override
+  String badgeEarlyBirdHint(int n) {
+    return '$n měření se štítkem Ráno po probuzení';
+  }
+
+  @override
+  String get recordsYearTitle => 'Rok měření';
+
+  @override
+  String get recordsYearCaption =>
+      'Každý čtvereček je jeden den, barva ukazuje klidový tep.';
+
+  @override
+  String get recordsYearLow => 'nižší tep';
+
+  @override
+  String get recordsYearHigh => 'vyšší';
+
+  @override
+  String get recordsYearHint => 'Klepněte na den';
+
+  @override
+  String recordsYearDay(String date, int bpm, int count) {
+    return '$date: klidový tep $bpm bpm, $count měření';
+  }
+
+  @override
+  String recordsYearDayNoRest(String date) {
+    return '$date: jen měření po námaze, kávě nebo ve stresu';
+  }
+
+  @override
+  String recordsYearDayEmpty(String date) {
+    return '$date: bez měření';
+  }
+
+  @override
+  String reminderStreakBody(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other:
+          'Máte za sebou $n dní v řadě. Změřte se i dnes a nepřerušte sérii.',
+      few: 'Máte za sebou $n dny v řadě. Změřte se i dnes a nepřerušte sérii.',
+    );
+    return '$_temp0';
+  }
 }

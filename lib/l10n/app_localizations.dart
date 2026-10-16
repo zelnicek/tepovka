@@ -2496,6 +2496,246 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Kartu se nepodařilo vytvořit'**
   String get shareCardFailed;
+
+  /// No description provided for @homeSectionHeart.
+  ///
+  /// In cs, this message translates to:
+  /// **'Tvoje srdce'**
+  String get homeSectionHeart;
+
+  /// No description provided for @streakDays.
+  ///
+  /// In cs, this message translates to:
+  /// **'{n, plural, =0{Zatím bez série} =1{1 den v řadě} few{{n} dny v řadě} other{{n} dní v řadě}}'**
+  String streakDays(int n);
+
+  /// No description provided for @streakBest.
+  ///
+  /// In cs, this message translates to:
+  /// **'Nejdelší série: {n, plural, =1{1 den} few{{n} dny} other{{n} dní}}'**
+  String streakBest(int n);
+
+  /// No description provided for @streakKeep.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změřte se dnes, ať sérii udržíte'**
+  String get streakKeep;
+
+  /// No description provided for @streakStart.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změřte se dnes a začněte sérii'**
+  String get streakStart;
+
+  /// No description provided for @beatsTodayLabel.
+  ///
+  /// In cs, this message translates to:
+  /// **'Dnes zatím asi'**
+  String get beatsTodayLabel;
+
+  /// No description provided for @beatsUnit.
+  ///
+  /// In cs, this message translates to:
+  /// **'{n, plural, =1{úder} few{údery} other{úderů}}'**
+  String beatsUnit(int n);
+
+  /// No description provided for @beatsSinceFirst.
+  ///
+  /// In cs, this message translates to:
+  /// **'Od prvního měření asi {count} úderů'**
+  String beatsSinceFirst(String count);
+
+  /// No description provided for @beatsEstimate.
+  ///
+  /// In cs, this message translates to:
+  /// **'Odhad z klidového tepu {bpm} bpm'**
+  String beatsEstimate(int bpm);
+
+  /// No description provided for @daysCount.
+  ///
+  /// In cs, this message translates to:
+  /// **'{n, plural, =1{1 den} few{{n} dny} other{{n} dní}}'**
+  String daysCount(int n);
+
+  /// No description provided for @badgesTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Odznaky'**
+  String get badgesTitle;
+
+  /// No description provided for @badgeNew.
+  ///
+  /// In cs, this message translates to:
+  /// **'Nový odznak!'**
+  String get badgeNew;
+
+  /// No description provided for @badgeAll.
+  ///
+  /// In cs, this message translates to:
+  /// **'Všechny odznaky'**
+  String get badgeAll;
+
+  /// No description provided for @badgeGreat.
+  ///
+  /// In cs, this message translates to:
+  /// **'Super'**
+  String get badgeGreat;
+
+  /// No description provided for @badgeProgress.
+  ///
+  /// In cs, this message translates to:
+  /// **'{value} z {goal}'**
+  String badgeProgress(int value, int goal);
+
+  /// No description provided for @badgeUnlocked.
+  ///
+  /// In cs, this message translates to:
+  /// **'Získáno'**
+  String get badgeUnlocked;
+
+  /// No description provided for @badgesTotal.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měření celkem'**
+  String get badgesTotal;
+
+  /// No description provided for @badgesCurrent.
+  ///
+  /// In cs, this message translates to:
+  /// **'Aktuální série'**
+  String get badgesCurrent;
+
+  /// No description provided for @badgesBest.
+  ///
+  /// In cs, this message translates to:
+  /// **'Nejdelší série'**
+  String get badgesBest;
+
+  /// No description provided for @badgeFirstBeat.
+  ///
+  /// In cs, this message translates to:
+  /// **'První tep'**
+  String get badgeFirstBeat;
+
+  /// No description provided for @badgeFirstBeatHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změřte se poprvé'**
+  String get badgeFirstBeatHint;
+
+  /// No description provided for @badgeTen.
+  ///
+  /// In cs, this message translates to:
+  /// **'Desítka'**
+  String get badgeTen;
+
+  /// No description provided for @badgeThirty.
+  ///
+  /// In cs, this message translates to:
+  /// **'Třicítka'**
+  String get badgeThirty;
+
+  /// No description provided for @badgeHundred.
+  ///
+  /// In cs, this message translates to:
+  /// **'Stovka'**
+  String get badgeHundred;
+
+  /// No description provided for @badgeMeasurementsHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'{n} měření'**
+  String badgeMeasurementsHint(int n);
+
+  /// No description provided for @badgeStreak3.
+  ///
+  /// In cs, this message translates to:
+  /// **'Rozjezd'**
+  String get badgeStreak3;
+
+  /// No description provided for @badgeStreak7.
+  ///
+  /// In cs, this message translates to:
+  /// **'Týden v rytmu'**
+  String get badgeStreak7;
+
+  /// No description provided for @badgeStreak30.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měsíc v rytmu'**
+  String get badgeStreak30;
+
+  /// No description provided for @badgeStreakHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'{n, plural, few{{n} dny v řadě} other{{n} dní v řadě}}'**
+  String badgeStreakHint(int n);
+
+  /// No description provided for @badgeEarlyBird.
+  ///
+  /// In cs, this message translates to:
+  /// **'Ranní ptáče'**
+  String get badgeEarlyBird;
+
+  /// No description provided for @badgeEarlyBirdHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'{n} měření se štítkem Ráno po probuzení'**
+  String badgeEarlyBirdHint(int n);
+
+  /// No description provided for @recordsYearTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Rok měření'**
+  String get recordsYearTitle;
+
+  /// No description provided for @recordsYearCaption.
+  ///
+  /// In cs, this message translates to:
+  /// **'Každý čtvereček je jeden den, barva ukazuje klidový tep.'**
+  String get recordsYearCaption;
+
+  /// No description provided for @recordsYearLow.
+  ///
+  /// In cs, this message translates to:
+  /// **'nižší tep'**
+  String get recordsYearLow;
+
+  /// No description provided for @recordsYearHigh.
+  ///
+  /// In cs, this message translates to:
+  /// **'vyšší'**
+  String get recordsYearHigh;
+
+  /// No description provided for @recordsYearHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Klepněte na den'**
+  String get recordsYearHint;
+
+  /// No description provided for @recordsYearDay.
+  ///
+  /// In cs, this message translates to:
+  /// **'{date}: klidový tep {bpm} bpm, {count} měření'**
+  String recordsYearDay(String date, int bpm, int count);
+
+  /// No description provided for @recordsYearDayNoRest.
+  ///
+  /// In cs, this message translates to:
+  /// **'{date}: jen měření po námaze, kávě nebo ve stresu'**
+  String recordsYearDayNoRest(String date);
+
+  /// No description provided for @recordsYearDayEmpty.
+  ///
+  /// In cs, this message translates to:
+  /// **'{date}: bez měření'**
+  String recordsYearDayEmpty(String date);
+
+  /// No description provided for @reminderStreakBody.
+  ///
+  /// In cs, this message translates to:
+  /// **'{n, plural, few{Máte za sebou {n} dny v řadě. Změřte se i dnes a nepřerušte sérii.} other{Máte za sebou {n} dní v řadě. Změřte se i dnes a nepřerušte sérii.}}'**
+  String reminderStreakBody(int n);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -1367,4 +1367,184 @@ class L10nEn extends L10n {
 
   @override
   String get shareCardFailed => 'Could not create the card';
+
+  @override
+  String get homeSectionHeart => 'Your heart';
+
+  @override
+  String streakDays(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n days in a row',
+      one: '1 day in a row',
+      zero: 'No streak yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String streakBest(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n days',
+      one: '1 day',
+    );
+    return 'Longest streak: $_temp0';
+  }
+
+  @override
+  String get streakKeep => 'Measure today to keep it going';
+
+  @override
+  String get streakStart => 'Measure today to start a streak';
+
+  @override
+  String get beatsTodayLabel => 'So far today, about';
+
+  @override
+  String beatsUnit(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'beats',
+      one: 'beat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String beatsSinceFirst(String count) {
+    return 'About $count beats since your first measurement';
+  }
+
+  @override
+  String beatsEstimate(int bpm) {
+    return 'Based on a resting rate of $bpm bpm';
+  }
+
+  @override
+  String daysCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get badgesTitle => 'Badges';
+
+  @override
+  String get badgeNew => 'New badge!';
+
+  @override
+  String get badgeAll => 'All badges';
+
+  @override
+  String get badgeGreat => 'Great';
+
+  @override
+  String badgeProgress(int value, int goal) {
+    return '$value of $goal';
+  }
+
+  @override
+  String get badgeUnlocked => 'Unlocked';
+
+  @override
+  String get badgesTotal => 'Measurements';
+
+  @override
+  String get badgesCurrent => 'Current streak';
+
+  @override
+  String get badgesBest => 'Longest streak';
+
+  @override
+  String get badgeFirstBeat => 'First beat';
+
+  @override
+  String get badgeFirstBeatHint => 'Your first measurement';
+
+  @override
+  String get badgeTen => 'Ten';
+
+  @override
+  String get badgeThirty => 'Thirty';
+
+  @override
+  String get badgeHundred => 'Century';
+
+  @override
+  String badgeMeasurementsHint(int n) {
+    return '$n measurements';
+  }
+
+  @override
+  String get badgeStreak3 => 'Warm-up';
+
+  @override
+  String get badgeStreak7 => 'A week in rhythm';
+
+  @override
+  String get badgeStreak30 => 'A month in rhythm';
+
+  @override
+  String badgeStreakHint(int n) {
+    return '$n days in a row';
+  }
+
+  @override
+  String get badgeEarlyBird => 'Early bird';
+
+  @override
+  String badgeEarlyBirdHint(int n) {
+    return '$n measurements tagged After waking up';
+  }
+
+  @override
+  String get recordsYearTitle => 'Your year';
+
+  @override
+  String get recordsYearCaption =>
+      'Each square is a day, coloured by resting heart rate.';
+
+  @override
+  String get recordsYearLow => 'lower';
+
+  @override
+  String get recordsYearHigh => 'higher';
+
+  @override
+  String get recordsYearHint => 'Tap a day';
+
+  @override
+  String recordsYearDay(String date, int bpm, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count measurements',
+      one: '1 measurement',
+    );
+    return '$date: resting $bpm bpm, $_temp0';
+  }
+
+  @override
+  String recordsYearDayNoRest(String date) {
+    return '$date: only readings after exercise, coffee or stress';
+  }
+
+  @override
+  String recordsYearDayEmpty(String date) {
+    return '$date: no measurement';
+  }
+
+  @override
+  String reminderStreakBody(int n) {
+    return 'You are on a $n-day streak. Measure today to keep it going.';
+  }
 }

@@ -38,6 +38,8 @@ import 'package:tepovka/services/measurement_tags.dart';
 import 'package:tepovka/services/weekly_trend.dart';
 import 'package:tepovka/widgets/settings_widgets.dart';
 import 'package:tepovka/widgets/share_card.dart';
+import 'package:tepovka/widgets/year_heatmap.dart';
+import 'package:tepovka/services/achievements.dart';
 
 /// Nominální snímkovací frekvence kamery. Skutečná bývá nižší (~24 fps) —
 /// měření proti Faros 180 EKG a oxymetru v srpnu 2026 dalo poměr 1.232
@@ -1805,6 +1807,19 @@ class _RecordsPageState extends State<RecordsPage> {
     );
   }
 
+  /// The records as the statistics read them, with the quality graded here
+  /// for records that predate stored quality.
+  List<StatReading> _statReadings() => [
+        for (final Record rec in _records)
+          if (rec.averageBPM > 0)
+            StatReading(
+              at: _instantOf(rec),
+              bpm: rec.averageBPM,
+              tags: rec.measurementTags,
+              quality: _signalQualityOf(rec),
+            ),
+      ];
+
   String _weekLabel(DateTime start) {
     try {
       return DateFormat.Md(_locale).format(start);
@@ -3304,6 +3319,11 @@ class _RecordsPageState extends State<RecordsPage> {
                     SizedBox(height: r.spaceMd),
                     trend,
                   ],
+                  SizedBox(height: r.spaceMd),
+                  YearHeatmap(
+                    days: dailyResting(_statReadings()),
+                    now: DateTime.now(),
+                  ),
                   if (_visible.isEmpty)
                     _noMatch(context)
                   else

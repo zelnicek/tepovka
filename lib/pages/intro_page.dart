@@ -16,6 +16,9 @@ import 'package:tepovka/pages/settings.dart';
 import 'package:tepovka/services/reminder_service.dart';
 import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/services/widget_service.dart';
+import 'package:tepovka/services/achievements.dart';
+import 'package:tepovka/pages/achievements_page.dart';
+import 'package:tepovka/widgets/heart_stats_card.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
 
 /// Home screen.
@@ -33,6 +36,13 @@ class IntroPage extends StatefulWidget {
 class _IntroPageState extends State<IntroPage> {
   /// Stored measurements, oldest first. Empty until loaded.
   List<Record> _records = const [];
+
+  /// Streaks and the resting rate for the "your heart" card.
+  HeartStats? _stats;
+
+  /// Badges collected while another screen was on top (a measurement is
+  /// saved from the result screen), shown once this one is back in front.
+  final List<HeartBadge> _pendingBadges = [];
 
   /// Bars shown in the trend strip.
   static const int _trendLength = 7;
@@ -80,8 +90,15 @@ class _IntroPageState extends State<IntroPage> {
           await StorageService().readSummary();
       final List<Record> records = raw.map(Record.fromJson).toList()
         ..sort((a, b) => _instantOf(a).compareTo(_instantOf(b)));
+      final HeartStats stats =
+          HeartStats.of(StatReading.fromStored(raw), now: DateTime.now());
       if (!mounted) return;
-      setState(() => _records = records);
+      setState(() {
+        _records = records;
+        _stats = stats;
+      });
+      _pendingBadges.addAll(await HeartBadge.takeNew(stats));
+      await _showPendingBadges();
     } catch (e) {
       // The home screen still works without the card; history shows the
       // details if storage is readable there.
@@ -102,7 +119,19 @@ class _IntroPageState extends State<IntroPage> {
   /// deletion may have changed what is stored.
   Future<void> _open(Widget page) async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-    if (mounted) _loadRecords();
+    if (!mounted) return;
+    await _showPendingBadges();
+    _loadRecords();
+  }
+
+  Future<void> _showPendingBadges() async {
+    if (!mounted || _pendingBadges.isEmpty) return;
+    // Not over another screen: the result screen pops back to this one, and
+    // would take the celebration with it.
+    if (!(ModalRoute.of(context)?.isCurrent ?? false)) return;
+    final List<HeartBadge> badges = List.of(_pendingBadges);
+    _pendingBadges.clear();
+    await showBadgeCelebration(context, badges);
   }
 
   String _formatWhen(BuildContext context, DateTime when) {
@@ -155,6 +184,13 @@ class _IntroPageState extends State<IntroPage> {
                     _records.isEmpty
                         ? _emptyCard(context)
                         : _lastMeasurementCard(context),
+                    if (_stats != null && _records.isNotEmpty) ...[
+                      InfoSectionLabel(t.homeSectionHeart),
+                      HeartStatsCard(
+                        stats: _stats!,
+                        onTap: () => _open(const AchievementsPage()),
+                      ),
+                    ],
                     InfoSectionLabel(t.homeSectionMore),
                     _menuCard(context),
                   ],

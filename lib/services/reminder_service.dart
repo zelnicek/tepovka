@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
+import 'package:tepovka/services/achievements.dart';
 import 'package:tepovka/services/app_locale.dart';
+import 'package:tepovka/services/storage_service.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:timezone/data/latest_10y.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -51,6 +55,8 @@ class ReminderService {
 
   static Future<void> _initialize() async {
     tz_data.initializeTimeZones();
+    // A saved measurement changes the streak the next reminder talks about.
+    StorageService.revision.addListener(() => unawaited(reschedule()));
     try {
       await _plugin.initialize(
         settings: const InitializationSettings(
@@ -138,6 +144,19 @@ class ReminderService {
       lastMeasurement: last,
     );
 
+    // The next reminder mentions the streak when there is one to keep: today
+    // after a measurement yesterday, or tomorrow after one today.
+    final HeartStats stats = HeartStats.of(
+      StatReading.fromStored(await StorageService().readSummary()),
+      now: DateTime.now(),
+    );
+    final DateTime today = dayOf(DateTime.now());
+    final DateTime streakDay = stats.measuredToday
+        ? DateTime(today.year, today.month, today.day + 1)
+        : today;
+    bool keepsStreak(DateTime at) =>
+        stats.currentStreak >= 2 && dayOf(at) == streakDay;
+
     final NotificationDetails details = NotificationDetails(
       // No banner while the app is open: the user is already in it.
       iOS: const DarwinNotificationDetails(
@@ -156,7 +175,9 @@ class ReminderService {
       await _plugin.zonedSchedule(
         id: _firstId + i,
         title: t.reminderTitle,
-        body: t.reminderBody,
+        body: i == 0 && keepsStreak(plan[i])
+            ? t.reminderStreakBody(stats.currentStreak)
+            : t.reminderBody,
         scheduledDate: tz.TZDateTime(tz.local, plan[i].year, plan[i].month,
             plan[i].day, plan[i].hour, plan[i].minute),
         notificationDetails: details,
