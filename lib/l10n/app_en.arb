@@ -450,5 +450,10 @@
   "recordsYearDay": "{date}: resting {bpm} bpm, {count, plural, =1{1 measurement} other{{count} measurements}}",
   "recordsYearDayNoRest": "{date}: only readings after exercise, coffee or stress",
   "recordsYearDayEmpty": "{date}: no measurement",
-  "reminderStreakBody": "You are on a {n}-day streak. Measure today to keep it going."
+  "reminderStreakBody": "You are on a {n}-day streak. Measure today to keep it going.",
+  "hintKeepStill": "Keep still, movement spoils the reading.",
+  "hintMeasuringLonger": "The signal was unsettled, measuring {seconds} s longer.",
+  "ttsKeepStill": "Keep still.",
+  "ttsMeasuringLonger": "Measuring a little longer, keep your finger still.",
+  "summaryMethodsDisagree": "The two ways of computing the heart rate disagreed on this measurement, so the result may be off. Measure once more to be sure."
 }

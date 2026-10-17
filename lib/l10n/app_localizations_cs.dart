@@ -1546,4 +1546,22 @@ class L10nCs extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get hintKeepStill => 'Nehýbejte se, pohyb ruší měření.';
+
+  @override
+  String hintMeasuringLonger(int seconds) {
+    return 'Signál byl neklidný, měřím o $seconds s déle.';
+  }
+
+  @override
+  String get ttsKeepStill => 'Nehýbejte se.';
+
+  @override
+  String get ttsMeasuringLonger => 'Měřím o chvíli déle, držte prst v klidu.';
+
+  @override
+  String get summaryMethodsDisagree =>
+      'Dva způsoby výpočtu tepu se u tohoto měření neshodly, výsledek proto může být nepřesný. Pro jistotu se změřte ještě jednou.';
 }

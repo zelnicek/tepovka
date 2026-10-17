@@ -13,7 +13,7 @@ import 'package:tepovka/services/measurement_quality.dart';
 ///
 /// [assessRecording] adds one check on top: the heart rate from the feet of
 /// the pulse wave (the one the app shows) has to agree with the spectral one,
-/// see [kMaxMethodGapBpm].
+/// see [methodAgreement].
 ///
 /// It is ported line by line from SciPy (Butterworth band-pass, `filtfilt`,
 /// linear detrend, Hann window, zero-padded periodogram), because the
@@ -26,6 +26,7 @@ class SpectralQuality {
     required this.goodWindowShare,
     required this.level,
     this.footBpm = double.nan,
+    this.methodAgreement = double.nan,
   });
 
   /// Heart rate at the spectral peak.
@@ -34,6 +35,15 @@ class SpectralQuality {
   /// Heart rate from the feet of the pulse wave; NaN when there is none or
   /// it was not checked.
   final double footBpm;
+
+  /// Share of the 10-second windows where the feet and the spectrum agree,
+  /// see [methodAgreement]; NaN when not checked.
+  final double methodAgreement;
+
+  /// The two heart-rate methods disagreed, which alone kept the grade from
+  /// being good.
+  bool get methodsDisagree =>
+      footBpm.isFinite && !(methodAgreement >= kMinMethodAgreement);
 
   /// Spectral peak over the mean power of the heart-rate band, whole record.
   final double snr;
@@ -55,6 +65,7 @@ class SpectralQuality {
         'goodWindowShare': goodWindowShare,
         'heartRateBpm': heartRateBpm,
         if (footBpm.isFinite) 'footBpm': footBpm,
+        if (methodAgreement.isFinite) 'methodAgreement': methodAgreement,
       };
 
   /// Null for anything not written by [toJson].
@@ -65,6 +76,7 @@ class SpectralQuality {
     final Object? share = json['goodWindowShare'];
     final Object? bpm = json['heartRateBpm'];
     final Object? foot = json['footBpm'];
+    final Object? agreement = json['methodAgreement'];
     if (level is! String || snr is! num || share is! num) return null;
     final MeasurementQuality? parsed =
         MeasurementQuality.values.where((q) => q.name == level).firstOrNull;
@@ -75,6 +87,7 @@ class SpectralQuality {
       goodWindowShare: share.toDouble(),
       level: parsed,
       footBpm: foot is num ? foot.toDouble() : double.nan,
+      methodAgreement: agreement is num ? agreement.toDouble() : double.nan,
     );
   }
 }
@@ -91,30 +104,37 @@ const double _hrBandLow = 0.7;
 const double _hrBandHigh = 3.2;
 
 /// Largest gap between the heart rate from the feet and from the spectrum
-/// that still allows a "good" grade. The two methods fail differently, so
-/// when they disagree one of them is wrong. On BUT PPG (3,888 records,
-/// tool/butppg) this raised the share of "good" records that experts also
-/// marked good from 34 to 74 %. In the 2026 study 8 of 61 recordings
-/// disagreed, two of them with a strong signal (SNR 18 and 19) and a heart
-/// rate about 7 bpm off the ECG.
+/// at which the two still agree. They fail differently, so when they
+/// disagree one of them is wrong.
 const double kMaxMethodGapBpm = 5.0;
+
+/// Share of windows that must agree for a "good" grade. A 10-second
+/// spectrum is coarse, so a single window may miss on a sound recording;
+/// half of them may not. On BUT PPG (tool/butppg; 10-second records, one
+/// window each) the check raised the share of "good" records that experts
+/// also marked good from 34 to 74 %. On the 2026 study (tool/study2026) it
+/// changes no grade: all 55 good recordings are within 2.8 bpm of the ECG.
+/// Asking for 80 % would have demoted four of them for nothing.
+const double kMinMethodAgreement = 0.5;
 
 /// Grades a stored recording the way the study did: the start-up transient
 /// of records from app versions before the August 2026 fix is cut off first
 /// (see [warmupSeconds]), then [assessSignalQuality] runs on the rest. On
 /// top of that, a recording the feet give no heart rate for is poor, and one
-/// where the feet and the spectrum disagree by more than [kMaxMethodGapBpm]
-/// is at best medium.
+/// where the feet and the spectrum agree in fewer than
+/// [kMinMethodAgreement] of its windows is at best medium.
 SpectralQuality? assessRecording(List<double> signal, double fs) {
   final int start = (warmupSeconds(signal, fs) * fs).toInt();
   final List<double> settled = signal.sublist(start);
   final SpectralQuality? spectral = assessSignalQuality(settled, fs);
   if (spectral == null) return null;
-  final double? foot = FootBeats.of(settled, fs).bpm;
-  final MeasurementQuality level = foot == null
+  final FootBeats beats = FootBeats.of(settled, fs);
+  final double agreement =
+      beats.bpm == null ? double.nan : methodAgreement(settled, fs, beats.feet);
+  final MeasurementQuality level = beats.bpm == null
       ? MeasurementQuality.poor
       : spectral.level == MeasurementQuality.good &&
-              !((foot - spectral.heartRateBpm).abs() <= kMaxMethodGapBpm)
+              !(agreement >= kMinMethodAgreement)
           ? MeasurementQuality.medium
           : spectral.level;
   return SpectralQuality(
@@ -122,8 +142,42 @@ SpectralQuality? assessRecording(List<double> signal, double fs) {
     snr: spectral.snr,
     goodWindowShare: spectral.goodWindowShare,
     level: level,
-    footBpm: foot ?? double.nan,
+    footBpm: beats.bpm ?? double.nan,
+    methodAgreement: agreement,
   );
+}
+
+/// Share of the 10-second windows (stepped as in [assessSignalQuality])
+/// where the heart rate from [feet] agrees with the spectral one within
+/// [kMaxMethodGapBpm]. Window by window, because over a long recording the
+/// heart rate may change, after exercise say, and then a single spectrum
+/// and a median interval differ without either being wrong. NaN when no
+/// window has enough beats to compare.
+double methodAgreement(List<double> signal, double fs, List<PpgPeak> feet) {
+  final int window = (10 * fs).toInt();
+  final int step = max(1, (5 * fs).toInt());
+  int compared = 0;
+  int agreed = 0;
+  for (int k = 0; k < max(1, signal.length - window + 1); k += step) {
+    final int end = min(signal.length, k + window);
+    final List<double> times = [
+      for (final PpgPeak p in feet)
+        if (p.fractionalIndex >= k && p.fractionalIndex < end) p.timeSec
+    ];
+    // Intervals within 40-200 bpm, as the detector accepts them.
+    final List<double> intervals = [
+      for (int i = 1; i < times.length; i++)
+        if (times[i] - times[i - 1] >= 0.3 && times[i] - times[i - 1] <= 1.5)
+          times[i] - times[i - 1]
+    ];
+    if (intervals.length < FootBeats.minIntervals) continue;
+    final double footBpm = 60 / _median(intervals);
+    final double spectralBpm =
+        spectralHeartRate(signal.sublist(k, end), fs).bpm;
+    compared++;
+    if ((footBpm - spectralBpm).abs() <= kMaxMethodGapBpm) agreed++;
+  }
+  return compared == 0 ? double.nan : agreed / compared;
 }
 
 /// `warmup_seconds()`: length of the start-up transient, in whole seconds.

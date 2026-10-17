@@ -17,6 +17,8 @@ import 'package:tepovka/services/camera_lock.dart';
 import 'package:tepovka/pages/measure_guide.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
 import 'package:tepovka/elements/peak_detector.dart';
+import 'package:tepovka/elements/unified_peak_detector.dart';
+import 'package:tepovka/services/measurement_watch.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
 import 'package:tepovka/elements/responsive.dart';
@@ -170,6 +172,23 @@ class _HomeState extends State<Home>
   /// Whether a frame has been judged since the last reset. The first verdict
   /// is always announced, even when it matches the neutral starting value.
   bool _qualityKnown = false;
+
+  /// The latest [kLiveWindowSeconds] of the filtered signal, for the live
+  /// heart rate.
+  final ListQueue<double> _liveWindow = ListQueue<double>();
+
+  /// When the live window last gave a heart rate.
+  double _lastLiveBpmFound = 0.0;
+
+  /// The phone moving enough to spoil the pulse wave, from the accelerometer.
+  final MotionMonitor _motion = MotionMonitor();
+  final ValueNotifier<bool> _movingNotifier = ValueNotifier<bool>(false);
+
+  /// Seconds of the recording that were unsettled, and the seconds the
+  /// measurement ran on because of them.
+  final SteadinessLog _steadiness = SteadinessLog();
+  int _extensionSeconds = 0;
+  final ValueNotifier<bool> _extendingNotifier = ValueNotifier<bool>(false);
 
   /// Lengths offered as one tap; anything else goes through "Other".
   static const List<int> _durationPresets = [20, 30, 60, 120];
@@ -340,10 +359,21 @@ class _HomeState extends State<Home>
     }
   }
 
+  /// Runs from the countdown on: it feeds the motion canceller while
+  /// recording, and says "keep still" whenever the phone moves.
   void _startAccelerometerStream() {
-    _accelerometerSubscription?.cancel();
+    if (_accelerometerSubscription != null) return;
+    _motion.reset();
     _accelerometerSubscription =
-        userAccelerometerEventStream().listen((UserAccelerometerEvent event) {
+        userAccelerometerEventStream(samplingPeriod: SensorInterval.uiInterval)
+            .listen((UserAccelerometerEvent event) {
+      final bool moving = _motion.add(event.x, event.y, event.z);
+      if (moving != _movingNotifier.value) {
+        _movingNotifier.value = moving;
+        if (moving && mounted) {
+          TtsService.instance.announceGuidance(L10n.of(context).ttsKeepStill);
+        }
+      }
       if (!_isRecording || _ppgAlgorithm == null) return;
       _ppgAlgorithm!.processAccelerometerSample(
         x: event.x,
@@ -394,6 +424,11 @@ class _HomeState extends State<Home>
     if (_isRecording) {
       _fullRecordData.add(FlSpot(_currentTime, _emaState));
     }
+    _liveWindow.addLast(_emaState);
+    final int liveLength = (kLiveWindowSeconds * _effectiveSampleRate).round();
+    while (_liveWindow.length > liveLength) {
+      _liveWindow.removeFirst();
+    }
     _pruneLeading(_smoothedData, minX - _bufferTime);
     _updateYAxisScale();
 
@@ -404,7 +439,7 @@ class _HomeState extends State<Home>
     }
     _pruneLeading(_peakSpots, minX - _bufferTime);
 
-    _updateLiveBpm(algorithm);
+    _updateLiveBpm();
 
     // Posuň časové značky – no shift needed, remove old
     _pruneLeading(_labels, minX, keyOf: (TimeLabel l) => l.x);
@@ -497,31 +532,33 @@ class _HomeState extends State<Home>
     }
   }
 
-  /// Live BPM: prefer the FFT/autocorrelation estimate from PPGAlgorithm once
-  /// it is confident, and fall back to counting displayed peaks. Previously the
-  /// screen only ever showed the peak count, and silently displayed a
-  /// hard-coded 70 whenever that failed.
-  void _updateLiveBpm(PPGAlgorithm algorithm) {
-    final double algoBpm = algorithm.getCurrentHeartRate();
-    if (algoBpm >= 40 &&
-        algoBpm <= 200 &&
-        algorithm.currentBpmConfidence >= 0.3) {
-      _publishBpm(algoBpm);
+  /// Live heart rate, once a second from the last [kLiveWindowSeconds] of
+  /// the filtered signal, by the feet of the pulse wave as on the result
+  /// screen. It used to come from PPGAlgorithm's spectral estimate, with
+  /// peak counting as a fallback; on the BUT PPG records experts marked good
+  /// that agreed with the result within 5 bpm in 75 % of them, this in 91 %
+  /// (tool/butppg). While recording, each second also goes into the
+  /// steadiness log.
+  void _updateLiveBpm() {
+    if (_currentTime >= _lastBpmUpdateTime &&
+        _currentTime - _lastBpmUpdateTime < 1.0) {
       return;
     }
-
-    if (_currentTime - _lastBpmUpdateTime >= 3.0 && _peakSpots.length >= 4) {
-      final List<double> intervals = [
-        for (int i = 1; i < _peakSpots.length; i++)
-          _peakSpots[i].x - _peakSpots[i - 1].x
-      ];
-      final double avgInterval =
-          intervals.reduce((a, b) => a + b) / intervals.length;
-      final double candidate = avgInterval > 0 ? 60.0 / avgInterval : 0.0;
-      // Out-of-range means the peaks were noise; report "no reading" rather
-      // than substituting a plausible-looking number.
-      _lastBpmUpdateTime = _currentTime;
-      _publishBpm((candidate >= 40 && candidate <= 200) ? candidate : 0.0);
+    _lastBpmUpdateTime = _currentTime;
+    final double fs = _effectiveSampleRate;
+    final double? bpm = _liveWindow.length >= (4 * fs).round()
+        ? FootBeats.of(_liveWindow.toList(), fs).bpm
+        : null;
+    if (bpm != null) {
+      _lastLiveBpmFound = _currentTime;
+      _publishBpm(bpm);
+    } else if (_currentTime - _lastLiveBpmFound > 3.0) {
+      // A beat or two lost is not worth blanking the number; longer is.
+      _publishBpm(0.0);
+    }
+    if (_isRecording) {
+      _steadiness.add(
+          movingSecond: _movingNotifier.value, heartRateFound: bpm != null);
     }
   }
 
@@ -559,6 +596,8 @@ class _HomeState extends State<Home>
     });
     _qualityKnown = false;
     _qualityNotifier.value = SignalQuality.noFinger;
+    _movingNotifier.value = false;
+    _resetWatch();
     _resetLiveBuffers();
 
     // Ensure camera stream and torch are stopped when user manually stops measuring
@@ -833,6 +872,8 @@ class _HomeState extends State<Home>
     _samplesSinceLastPeakScan = 0;
     _lastConsumedSampleCount = 0;
     _lastBpmUpdateTime = 0.0;
+    _lastLiveBpmFound = 0.0;
+    _liveWindow.clear();
     _bpmNotifier.value = 0.0;
     _elapsed
       ..reset()
@@ -840,14 +881,18 @@ class _HomeState extends State<Home>
   }
 
   void _initializeTimers() {
-    _navigationTimer = Timer(Duration(seconds: _recordingDuration), () {
-      _navigateToSummaryPage();
-    });
-    // Countdown timer for display. This used to call setState once a second,
-    // rebuilding the whole Scaffold — NumberPicker, nav bar, camera preview and
-    // chart included — which produced a visible 1 Hz hitch during measurement.
-    _remainingTime = _recordingDuration;
-    _remainingTimeNotifier.value = _recordingDuration;
+    _navigationTimer =
+        Timer(Duration(seconds: _recordingDuration), _onPlannedEnd);
+    _startRemainingTicker(_recordingDuration);
+  }
+
+  /// Counts the time left down once a second. This used to call setState,
+  /// rebuilding the whole Scaffold — NumberPicker, nav bar, camera preview and
+  /// chart included — which produced a visible 1 Hz hitch during measurement.
+  void _startRemainingTicker(int seconds) {
+    _countdownTimer?.cancel();
+    _remainingTime = seconds;
+    _remainingTimeNotifier.value = seconds;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingTime > 0) {
         _remainingTime--;
@@ -856,6 +901,35 @@ class _HomeState extends State<Home>
         timer.cancel();
       }
     });
+  }
+
+  /// At the planned end: when too much of the recording was unsettled, it
+  /// runs on for [kExtensionSeconds] once, otherwise it is done.
+  void _onPlannedEnd() {
+    if (!_isRecording || !mounted) return;
+    if (!shouldExtendMeasurement(_steadiness,
+        alreadyExtended: _extensionSeconds > 0)) {
+      _navigateToSummaryPage();
+      return;
+    }
+    _extensionSeconds = kExtensionSeconds;
+    _extendingNotifier.value = true;
+    final int total = _recordingDuration + _extensionSeconds;
+    _progressController.duration = Duration(seconds: total);
+    _progressController.forward(from: _recordingDuration / total);
+    _startRemainingTicker(_extensionSeconds);
+    _navigationTimer =
+        Timer(Duration(seconds: _extensionSeconds), _navigateToSummaryPage);
+    Haptics.light();
+    TtsService.instance
+        .announceGuidance(L10n.of(context).ttsMeasuringLonger, force: true);
+  }
+
+  /// Forgets the steadiness of the previous recording.
+  void _resetWatch() {
+    _steadiness.reset();
+    _extensionSeconds = 0;
+    _extendingNotifier.value = false;
   }
 
   /// Připraví kameru a analýzu ještě před začátkem záznamu.
@@ -947,6 +1021,7 @@ class _HomeState extends State<Home>
     });
     _startRecordBuffer();
     _ppgAlgorithm?.resetRecordingClipping();
+    _resetWatch();
     _initializeTimers();
     _startAccelerometerStream();
     _progressController.forward();
@@ -982,6 +1057,8 @@ class _HomeState extends State<Home>
     });
     // Kamera i analýza se připraví na pozadí, zatímco běží odpočet.
     _preparation = _prepareCapture();
+    // Pohyb se hlídá už od odpočtu, aby pokyn přišel včas.
+    _startAccelerometerStream();
     // Voice announcement for seniors
     TtsService.instance.announceCountdown(L10n.of(context).ttsCountdown);
     int count = 3;
@@ -1100,10 +1177,12 @@ class _HomeState extends State<Home>
           data: _fullRecordData.map((s) => s.y).toList(),
           bpmList: bpmList,
           frames: framesList,
-          recordingDuration:
-              _recordingDuration, // Přidáno: Předání délky měření
+          // Including the seconds it ran on for an unsettled signal.
+          recordingDuration: _recordingDuration + _extensionSeconds,
           startedAt: _measurementStartedAt ??
-              DateTime.now().subtract(Duration(seconds: _recordingDuration)),
+              DateTime.now().subtract(
+                  Duration(seconds: _recordingDuration + _extensionSeconds)),
+          measurementWatch: _steadiness.toJson(_extensionSeconds),
           respiratoryRate: averageRR, // Přidáno: Předání RR
           sdnn: _ppgAlgorithm?.getSdnn() ?? 0.0,
           rmssd: _ppgAlgorithm?.getRmssd() ?? 0.0,
@@ -1172,6 +1251,8 @@ class _HomeState extends State<Home>
     _bpmNotifier.dispose();
     _qualityNotifier.dispose();
     _remainingTimeNotifier.dispose();
+    _movingNotifier.dispose();
+    _extendingNotifier.dispose();
     super.dispose();
   }
 
@@ -1539,28 +1620,42 @@ class _HomeState extends State<Home>
   }
 
   /// Konkrétní pokyn podle kvality signálu: štítek nad ním říká, co je
-  /// špatně, tahle věta co s tím. Výška je pevná na dva řádky, aby graf
-  /// neposkakoval, když se pokyn změní.
+  /// špatně, tahle věta co s tím. Přednost má pohyb telefonu a prodloužení
+  /// měření. Výška je pevná na dva řádky, aby graf neposkakoval, když se
+  /// pokyn změní.
   Widget _hintLine(BuildContext context) {
     final r = Responsive.of(context);
     return SizedBox(
       height: MediaQuery.textScalerOf(context).scale(r.fontSmall) * 1.35 * 2,
       child: Center(
-        child: ValueListenableBuilder<SignalQuality>(
-          valueListenable: _qualityNotifier,
-          builder: (context, quality, _) => Text(
-            measureHint(L10n.of(context), quality),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: r.fontSmall,
-              height: 1.35,
-              color: quality == SignalQuality.good
-                  ? const Color(0xFF1E6B34)
-                  : kInfoSecondaryText,
-            ),
-          ),
+        child: ListenableBuilder(
+          listenable: Listenable.merge(
+              [_qualityNotifier, _movingNotifier, _extendingNotifier]),
+          builder: (context, _) {
+            final L10n t = L10n.of(context);
+            final SignalQuality quality = _qualityNotifier.value;
+            final bool warn = _movingNotifier.value || _extendingNotifier.value;
+            return Text(
+              _movingNotifier.value
+                  ? t.hintKeepStill
+                  : _extendingNotifier.value
+                      ? t.hintMeasuringLonger(kExtensionSeconds)
+                      : measureHint(t, quality),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: r.fontSmall,
+                height: 1.35,
+                fontWeight: warn ? FontWeight.w600 : null,
+                color: warn
+                    ? const Color(0xFF8A5300)
+                    : quality == SignalQuality.good
+                        ? const Color(0xFF1E6B34)
+                        : kInfoSecondaryText,
+              ),
+            );
+          },
         ),
       ),
     );

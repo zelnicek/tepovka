@@ -841,5 +841,17 @@
         "type": "int"
       }
     }
-  }
+  },
+  "hintKeepStill": "Nehýbejte se, pohyb ruší měření.",
+  "hintMeasuringLonger": "Signál byl neklidný, měřím o {seconds} s déle.",
+  "@hintMeasuringLonger": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "ttsKeepStill": "Nehýbejte se.",
+  "ttsMeasuringLonger": "Měřím o chvíli déle, držte prst v klidu.",
+  "summaryMethodsDisagree": "Dva způsoby výpočtu tepu se u tohoto měření neshodly, výsledek proto může být nepřesný. Pro jistotu se změřte ještě jednou."
 }

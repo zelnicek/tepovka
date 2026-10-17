@@ -241,3 +241,8 @@ class FootBeats {
   /// From the median interval; null when the recording cannot tell.
   final double? bpm;
 }
+
+/// Seconds of the most recent signal the live heart rate is read from while
+/// measuring: enough for a few beats even at 40 bpm, short enough to follow
+/// a changing rate. Read the same way as the result, from the feet.
+const double kLiveWindowSeconds = 8.0;

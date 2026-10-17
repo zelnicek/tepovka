@@ -92,6 +92,39 @@ class Record {
 
   List<MeasurementTag> get measurementTags => MeasurementTag.fromNames(tags);
 
+  /// Everything else the record was saved with: beat times, RR intervals,
+  /// the smoothed wave, how steady the measurement was. Kept as it came, so
+  /// that rewriting the history after a delete does not strip it from every
+  /// other record, as it used to.
+  final Map<String, dynamic> extra;
+
+  /// The keys [toJson] writes itself.
+  static const Set<String> _ownKeys = {
+    'date',
+    'time',
+    'startedAt',
+    'endedAt',
+    'savedAt',
+    'averageBPM',
+    'notes',
+    'dataForPlot',
+    'bpmList',
+    'frames',
+    'duration',
+    'sampleRateHz',
+    'frameTimestampsMs',
+    'metadata',
+    'cameraSettings',
+    'hrv',
+    'respiratoryRate',
+    'bpmHistory',
+    'rawRgbSamples',
+    'hrr',
+    'recoveryChart',
+    'signalQuality',
+    'tags',
+  };
+
   Record({
     required this.date,
     required this.time,
@@ -116,6 +149,7 @@ class Record {
     required this.recoveryChart,
     this.signalQuality = const {},
     this.tags = const [],
+    this.extra = const {},
   });
 
   /// Vzorkovací frekvence tohoto záznamu: nejdřív ze skutečných razítek
@@ -144,6 +178,7 @@ class Record {
   // Convert Record to JSON format
   Map<String, dynamic> toJson() {
     return {
+      ...extra,
       'date': date,
       'time': time,
       'startedAt': startedAt,
@@ -224,6 +259,10 @@ class Record {
       tags: json['tags'] is List
           ? [for (final Object? v in json['tags'] as List) '$v']
           : const [],
+      extra: {
+        for (final MapEntry<String, dynamic> e in json.entries)
+          if (!_ownKeys.contains(e.key)) e.key: e.value
+      },
     );
   }
 }
@@ -317,6 +356,7 @@ class _RecordsPageState extends State<RecordsPage> {
             recoveryChart: rec.recoveryChart,
             signalQuality: rec.signalQuality,
             tags: rec.tags,
+            extra: rec.extra,
           ));
         }
 

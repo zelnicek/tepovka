@@ -1551,4 +1551,23 @@ class L10nEn extends L10n {
   String reminderStreakBody(int n) {
     return 'You are on a $n-day streak. Measure today to keep it going.';
   }
+
+  @override
+  String get hintKeepStill => 'Keep still, movement spoils the reading.';
+
+  @override
+  String hintMeasuringLonger(int seconds) {
+    return 'The signal was unsettled, measuring $seconds s longer.';
+  }
+
+  @override
+  String get ttsKeepStill => 'Keep still.';
+
+  @override
+  String get ttsMeasuringLonger =>
+      'Measuring a little longer, keep your finger still.';
+
+  @override
+  String get summaryMethodsDisagree =>
+      'The two ways of computing the heart rate disagreed on this measurement, so the result may be off. Measure once more to be sure.';
 }

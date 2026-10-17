@@ -50,6 +50,10 @@ class Summary extends StatefulWidget {
   /// Nastavení kamery za měření a podíl přepálených pixelů (řádky hlavičky
   /// exportu). Drží se odděleně od [metadata], to jsou údaje o probandovi.
   final Map<String, String> cameraSettings;
+
+  /// How steady the measurement was: seconds moving or without a heart rate,
+  /// and the seconds it ran on because of them (SteadinessLog.toJson).
+  final Map<String, Object> measurementWatch;
   final double sdnn; // HRV: SDNN
   final double rmssd; // HRV: RMSSD
   final double pnn50; // HRV: pNN50
@@ -74,6 +78,7 @@ class Summary extends StatefulWidget {
     this.frameTimestampsMs = const [],
     this.metadata = const {},
     this.cameraSettings = const {},
+    this.measurementWatch = const {},
     required this.sdnn,
     required this.rmssd,
     required this.pnn50,
@@ -641,6 +646,8 @@ class _SummaryState extends State<Summary> {
         'sampleRateHz': _fs,
         'metadata': widget.metadata,
         'cameraSettings': widget.cameraSettings,
+        if (widget.measurementWatch.isNotEmpty)
+          'measurementWatch': widget.measurementWatch,
         'frameTimestampsMs': frameTimestampsMs,
         'waveformSmoothed': smoothedWaveform,
         'peakTimesSec': peakTimesSec,
@@ -978,6 +985,55 @@ class _SummaryState extends State<Summary> {
           if (bpm > 0) ...[
             SizedBox(height: r.spaceLg),
             BpmScale(bpm: _effectiveAverageBpm),
+          ],
+          // A grade held at medium because the two heart-rate methods
+          // disagreed: one sentence on why, and to measure again.
+          if (bpm > 0 &&
+              quality == MeasurementQuality.medium &&
+              _qualityResult?.methodsDisagree == true) ...[
+            SizedBox(height: r.spaceMd),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                  r.spaceMd, r.spaceSm + 2, r.spaceXs, r.spaceXs),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2F6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: r.iconSm, color: const Color(0xFF2E5A88)),
+                      SizedBox(width: r.spaceSm),
+                      Expanded(
+                        child: Text(
+                          t.summaryMethodsDisagree,
+                          style: TextStyle(
+                              fontSize: r.fontSmall,
+                              color: const Color(0xFF1F3864)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF2E5A88)),
+                      onPressed: _busy ? null : _measureAgain,
+                      child: Text(
+                        t.summaryMeasureAgain,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
           if (quality == MeasurementQuality.poor || bpm <= 0) ...[
             SizedBox(height: r.spaceMd),

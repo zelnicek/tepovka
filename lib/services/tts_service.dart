@@ -114,6 +114,23 @@ class TtsService {
     await speak(phrase);
   }
 
+  DateTime? _lastGuidance;
+
+  /// A spoken instruction during measuring, such as "keep still". At most
+  /// one every six seconds, so a restless hand does not get a stream of
+  /// them; [force] skips the wait for one that must be heard.
+  Future<void> announceGuidance(String phrase, {bool force = false}) async {
+    if (!_seniorEnabled) return;
+    final DateTime now = DateTime.now();
+    if (!force &&
+        _lastGuidance != null &&
+        now.difference(_lastGuidance!) < const Duration(seconds: 6)) {
+      return;
+    }
+    _lastGuidance = now;
+    await speak(phrase);
+  }
+
   // Test helper: speak regardless of Senior mode (for diagnostics)
   Future<void> testSpeak(String phrase) async {
     await _ensureInit();

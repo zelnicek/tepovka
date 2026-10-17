@@ -2742,6 +2742,36 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'{n, plural, few{Máte za sebou {n} dny v řadě. Změřte se i dnes a nepřerušte sérii.} other{Máte za sebou {n} dní v řadě. Změřte se i dnes a nepřerušte sérii.}}'**
   String reminderStreakBody(int n);
+
+  /// No description provided for @hintKeepStill.
+  ///
+  /// In cs, this message translates to:
+  /// **'Nehýbejte se, pohyb ruší měření.'**
+  String get hintKeepStill;
+
+  /// No description provided for @hintMeasuringLonger.
+  ///
+  /// In cs, this message translates to:
+  /// **'Signál byl neklidný, měřím o {seconds} s déle.'**
+  String hintMeasuringLonger(int seconds);
+
+  /// No description provided for @ttsKeepStill.
+  ///
+  /// In cs, this message translates to:
+  /// **'Nehýbejte se.'**
+  String get ttsKeepStill;
+
+  /// No description provided for @ttsMeasuringLonger.
+  ///
+  /// In cs, this message translates to:
+  /// **'Měřím o chvíli déle, držte prst v klidu.'**
+  String get ttsMeasuringLonger;
+
+  /// No description provided for @summaryMethodsDisagree.
+  ///
+  /// In cs, this message translates to:
+  /// **'Dva způsoby výpočtu tepu se u tohoto měření neshodly, výsledek proto může být nepřesný. Pro jistotu se změřte ještě jednou.'**
+  String get summaryMethodsDisagree;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
