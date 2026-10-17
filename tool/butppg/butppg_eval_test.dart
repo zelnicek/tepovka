@@ -12,9 +12,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tepovka/elements/peak_detector.dart';
+import 'package:tepovka/elements/ppg_analysis_worker.dart';
 import 'package:tepovka/elements/spectral_quality.dart';
 import 'package:tepovka/elements/unified_peak_detector.dart';
 
@@ -67,6 +69,37 @@ double previousResultScreenBpm(List<double> data, double fs) {
   return raw < 40 || raw > 200 ? 70 : raw;
 }
 
+/// The live heart rate the measure screen showed until October 2026:
+/// PpgAnalyzer on the raw channel mean, a window of up to 8.5 s once a
+/// second from 4 s on, as PPGAlgorithm submits it. Null when the last run
+/// was not confident enough to be shown (below 0.3); the screen then fell
+/// back on counting peaks.
+double? previousLiveBpm(List<double> intensity, double fs) {
+  final PpgAnalyzer analyzer = PpgAnalyzer();
+  final int window = (8.5 * fs).round();
+  final int step = fs.round();
+  double smoothed = 0;
+  double lastPeak = -1;
+  double confidence = 0;
+  for (int n = (4 * fs).round(); n <= intensity.length; n += step) {
+    final int start = max(0, n - window);
+    final PpgAnalysisResult r = analyzer.analyze(PpgAnalysisRequest(
+      window: Float64List.fromList(intensity.sublist(start, n)),
+      frameRate: fs,
+      absBase: start,
+      lastPeakAbsPosition: lastPeak,
+      smoothedHeartRate: smoothed,
+      computeRespiration: false,
+    ));
+    smoothed = r.smoothedHeartRate;
+    lastPeak = r.lastPeakAbsPosition;
+    confidence = r.confidence;
+  }
+  return confidence >= 0.3 && smoothed >= 40 && smoothed <= 200
+      ? smoothed
+      : null;
+}
+
 void main() {
   test('BUT PPG through Tepovka', () async {
     final String? input = Platform.environment['BUTPPG_JSONL'];
@@ -77,7 +110,8 @@ void main() {
     }
     final IOSink sink = File(output).openWrite()
       ..writeln('id,fs,n,app_bpm,previous_bpm,spectral_bpm,'
-          'quality,previous_quality,snr,good_window_share');
+          'quality,agreement,previous_quality,snr,good_window_share,'
+          'live_previous,live_now');
     String f(double? v) => v != null && v.isFinite ? v.toStringAsFixed(3) : '';
     int count = 0;
     for (final String line in File(input).readAsLinesSync()) {
@@ -110,9 +144,17 @@ void main() {
         f(previousResultScreenBpm(data, fs)),
         f(spectral),
         q?.level.name ?? '',
+        q == null ? '' : f(q.methodAgreement),
         q0?.level.name ?? '',
         q == null ? '' : f(q.snr),
         q == null ? '' : f(q.goodWindowShare),
+        // Live readings at the end of the record.
+        f(previousLiveBpm([for (final v in ppg) v.abs()], fs)),
+        f(FootBeats.of(
+                data.sublist(
+                    max(0, data.length - (kLiveWindowSeconds * fs).round())),
+                fs)
+            .bpm),
       ].join(','));
       count++;
     }
