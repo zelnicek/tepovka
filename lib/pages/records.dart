@@ -2200,53 +2200,15 @@ class _RecordsPageState extends State<RecordsPage> {
     return n != null && n.isFinite ? n : value;
   }
 
+  /// Heart rate for a record saved without one, from the feet of its pulse
+  /// wave as on the result screen; zero when it gives none.
   double _calculateAverageBPM(Record record) {
-    // Trim data to exactly recording duration (remove initial if extra)
     final double fs = record.effectiveSampleRate;
-    int expectedLength = (record.duration * fs).toInt();
-    List<double> trimmedData = record.dataForPlot;
-    if (trimmedData.length > expectedLength) {
-      trimmedData = trimmedData.sublist(trimmedData.length - expectedLength);
-    }
-    // Create spots with time x in the stored signal polarity.
-    List<FlSpot> spots = [];
-    for (int i = 0; i < trimmedData.length; i++) {
-      spots.add(FlSpot(i / fs, trimmedData[i]));
-    }
-    // Moving average smoothing
-    int windowSize = 7;
-    List<FlSpot> smoothedData = [];
-    for (int i = 0; i < spots.length; i++) {
-      double sum = 0.0;
-      int count = 0;
-      for (int j = i - windowSize + 1; j <= i; j++) {
-        if (j >= 0) {
-          sum += spots[j].y;
-          count++;
-        }
-      }
-      double avg = count > 0 ? sum / count : spots[i].y;
-      smoothedData.add(FlSpot(spots[i].x, avg));
-    }
-    // Tep se pocita z pat pulzu (presnejsi casovani), ne z vrcholu - stejne
-    // jako v exportu, aby list, detail i soubor hlasily shodne BPM.
-    final feet = UnifiedPpgPeakDetector(fs: fs)
-        .detect(smoothedData.map((s) => -s.y).toList(), zeroPhase: true);
-    List<FlSpot> peakSpots = feet
-        .map((foot) => smoothedData[
-            (foot.timeSec * fs).round().clamp(0, smoothedData.length - 1)])
-        .toList();
-    // Calculate average BPM from peaks
-    double calculatedAverageBPM = 0.0;
-    if (peakSpots.length > 1) {
-      double sumIntervals = 0.0;
-      for (int i = 1; i < peakSpots.length; i++) {
-        sumIntervals += peakSpots[i].x - peakSpots[i - 1].x;
-      }
-      double averageInterval = sumIntervals / (peakSpots.length - 1);
-      calculatedAverageBPM = 60.0 / averageInterval;
-    }
-    return calculatedAverageBPM;
+    final int expectedLength = (record.duration * fs).toInt();
+    final List<double> data = record.dataForPlot.length > expectedLength
+        ? record.dataForPlot.sublist(record.dataForPlot.length - expectedLength)
+        : record.dataForPlot;
+    return FootBeats.of(data, fs).bpm ?? 0.0;
   }
 
   /// Pomocná funkce na výpočet percentilu – pro robustní škálování bez vlivů outlierů

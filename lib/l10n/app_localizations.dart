@@ -2017,6 +2017,12 @@ abstract class L10n {
   /// **'Signál byl slabý, výsledek nemusí být přesný.'**
   String get summaryWeakSignal;
 
+  /// No description provided for @summaryNoHeartRate.
+  ///
+  /// In cs, this message translates to:
+  /// **'Z tohoto záznamu se tep určit nepodařilo. Přiložte prst celou plochou na fotoaparát i blesk, nehýbejte se a změřte to znovu.'**
+  String get summaryNoHeartRate;
+
   /// No description provided for @summaryMeasureAgain.
   ///
   /// In cs, this message translates to:

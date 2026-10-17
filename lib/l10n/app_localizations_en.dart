@@ -1094,6 +1094,10 @@ class L10nEn extends L10n {
       'The signal was weak, so the result may be off.';
 
   @override
+  String get summaryNoHeartRate =>
+      'No heart rate could be found in this recording. Cover the camera and the flash with your whole fingertip, keep still and measure again.';
+
+  @override
   String get summaryMeasureAgain => 'Measure again';
 
   @override

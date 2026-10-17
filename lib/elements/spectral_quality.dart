@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:fftea/fftea.dart';
+import 'package:tepovka/elements/unified_peak_detector.dart';
 import 'package:tepovka/services/measurement_quality.dart';
 
 /// Signal quality of a finished PPG recording, the indicator validated in the
@@ -9,6 +10,10 @@ import 'package:tepovka/services/measurement_quality.dart';
 /// Tepovka_mereni_2026). On 57 recordings with an ECG reference, "good" ones
 /// were within 5 bpm of the ECG in 92 % of cases with a median error of
 /// 0.9 bpm; the error grew steadily below an SNR of 8.
+///
+/// [assessRecording] adds one check on top: the heart rate from the feet of
+/// the pulse wave (the one the app shows) has to agree with the spectral one,
+/// see [kMaxMethodGapBpm].
 ///
 /// It is ported line by line from SciPy (Butterworth band-pass, `filtfilt`,
 /// linear detrend, Hann window, zero-padded periodogram), because the
@@ -20,10 +25,15 @@ class SpectralQuality {
     required this.snr,
     required this.goodWindowShare,
     required this.level,
+    this.footBpm = double.nan,
   });
 
   /// Heart rate at the spectral peak.
   final double heartRateBpm;
+
+  /// Heart rate from the feet of the pulse wave; NaN when there is none or
+  /// it was not checked.
+  final double footBpm;
 
   /// Spectral peak over the mean power of the heart-rate band, whole record.
   final double snr;
@@ -33,8 +43,10 @@ class SpectralQuality {
 
   final MeasurementQuality level;
 
-  /// Identifies the method in stored records, should it ever change.
-  static const String method = 'spectral-snr-2026';
+  /// Identifies the method in stored records. Grades stored by the
+  /// spectrum alone ('spectral-snr-2026') are not read back, so the history
+  /// grades those records again with the agreement check.
+  static const String method = 'spectral-snr-feet-2026';
 
   Map<String, Object> toJson() => {
         'method': method,
@@ -42,6 +54,7 @@ class SpectralQuality {
         'snr': snr,
         'goodWindowShare': goodWindowShare,
         'heartRateBpm': heartRateBpm,
+        if (footBpm.isFinite) 'footBpm': footBpm,
       };
 
   /// Null for anything not written by [toJson].
@@ -51,6 +64,7 @@ class SpectralQuality {
     final Object? snr = json['snr'];
     final Object? share = json['goodWindowShare'];
     final Object? bpm = json['heartRateBpm'];
+    final Object? foot = json['footBpm'];
     if (level is! String || snr is! num || share is! num) return null;
     final MeasurementQuality? parsed =
         MeasurementQuality.values.where((q) => q.name == level).firstOrNull;
@@ -60,6 +74,7 @@ class SpectralQuality {
       snr: snr.toDouble(),
       goodWindowShare: share.toDouble(),
       level: parsed,
+      footBpm: foot is num ? foot.toDouble() : double.nan,
     );
   }
 }
@@ -75,12 +90,40 @@ const double kGoodWindowShare = 0.8;
 const double _hrBandLow = 0.7;
 const double _hrBandHigh = 3.2;
 
+/// Largest gap between the heart rate from the feet and from the spectrum
+/// that still allows a "good" grade. The two methods fail differently, so
+/// when they disagree one of them is wrong. On BUT PPG (3,888 records,
+/// tool/butppg) this raised the share of "good" records that experts also
+/// marked good from 34 to 74 %. In the 2026 study 8 of 61 recordings
+/// disagreed, two of them with a strong signal (SNR 18 and 19) and a heart
+/// rate about 7 bpm off the ECG.
+const double kMaxMethodGapBpm = 5.0;
+
 /// Grades a stored recording the way the study did: the start-up transient
 /// of records from app versions before the August 2026 fix is cut off first
-/// (see [warmupSeconds]), then [assessSignalQuality] runs on the rest.
+/// (see [warmupSeconds]), then [assessSignalQuality] runs on the rest. On
+/// top of that, a recording the feet give no heart rate for is poor, and one
+/// where the feet and the spectrum disagree by more than [kMaxMethodGapBpm]
+/// is at best medium.
 SpectralQuality? assessRecording(List<double> signal, double fs) {
   final int start = (warmupSeconds(signal, fs) * fs).toInt();
-  return assessSignalQuality(signal.sublist(start), fs);
+  final List<double> settled = signal.sublist(start);
+  final SpectralQuality? spectral = assessSignalQuality(settled, fs);
+  if (spectral == null) return null;
+  final double? foot = FootBeats.of(settled, fs).bpm;
+  final MeasurementQuality level = foot == null
+      ? MeasurementQuality.poor
+      : spectral.level == MeasurementQuality.good &&
+              !((foot - spectral.heartRateBpm).abs() <= kMaxMethodGapBpm)
+          ? MeasurementQuality.medium
+          : spectral.level;
+  return SpectralQuality(
+    heartRateBpm: spectral.heartRateBpm,
+    snr: spectral.snr,
+    goodWindowShare: spectral.goodWindowShare,
+    level: level,
+    footBpm: foot ?? double.nan,
+  );
 }
 
 /// `warmup_seconds()`: length of the start-up transient, in whole seconds.

@@ -1086,6 +1086,10 @@ class L10nCs extends L10n {
       'Signál byl slabý, výsledek nemusí být přesný.';
 
   @override
+  String get summaryNoHeartRate =>
+      'Z tohoto záznamu se tep určit nepodařilo. Přiložte prst celou plochou na fotoaparát i blesk, nehýbejte se a změřte to znovu.';
+
+  @override
   String get summaryMeasureAgain => 'Změřit znovu';
 
   @override

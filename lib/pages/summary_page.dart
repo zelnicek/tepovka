@@ -8,7 +8,7 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:health/health.dart';
 import 'package:tepovka/services/app_settings.dart';
-import 'package:tepovka/elements/peak_detector.dart';
+import 'package:tepovka/elements/unified_peak_detector.dart';
 import 'package:tepovka/elements/hrv_calculator.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/services/measurement_quality.dart';
@@ -100,6 +100,10 @@ class _SummaryState extends State<Summary> {
   final Set<MeasurementTag> _tags = {};
   List<FlSpot> _smoothedData = [];
   List<FlSpot> _peakSpots = [];
+
+  /// Beats timed by the feet of the pulse wave: the heart rate and the HRV
+  /// come from these, as in the history and the export.
+  FootBeats? _beats;
   final List<TimeLabel> _labels = [];
   final ScrollController _signalScrollController = ScrollController();
   double _calculatedAverageBPM = 0.0;
@@ -161,8 +165,9 @@ class _SummaryState extends State<Summary> {
   double _bpmMean = 0.0;
   double _bpmStdDev = 0.0;
 
-  double get _effectiveAverageBpm =>
-      _calculatedAverageBPM > 0 ? _calculatedAverageBPM : widget.averageBPM;
+  /// Zero when the recording gives no heart rate. The screen says so then;
+  /// it used to fall back on the live estimate or on 70 bpm without a word.
+  double get _effectiveAverageBpm => _calculatedAverageBPM;
 
   int _responsiveGridColumns(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -450,26 +455,19 @@ class _SummaryState extends State<Summary> {
       smoothed.add(FlSpot(spots[i].x, avg));
     }
     _smoothedData = smoothed;
-    // Detect peaks on smoothed
-    List<double> yValues = _smoothedData.map((s) => s.y).toList();
-    List<int> peaks = PeakDetector.findPeaks(yValues, sampleRate: _fs);
-    _peakSpots = peaks.map((i) => _smoothedData[i]).toList();
-
-    // Calculate average BPM from peaks
-    if (_peakSpots.length > 1) {
-      double sumIntervals = 0.0;
-      for (int i = 1; i < _peakSpots.length; i++) {
-        sumIntervals += _peakSpots[i].x - _peakSpots[i - 1].x;
-      }
-      double averageInterval = sumIntervals / (_peakSpots.length - 1);
-      _calculatedAverageBPM = 60.0 / averageInterval;
-      // Clamp to reasonable range to match home page behavior
-      if (_calculatedAverageBPM < 40 || _calculatedAverageBPM > 200) {
-        _calculatedAverageBPM = 70.0;
-      }
-    } else {
-      _calculatedAverageBPM = 0.0;
-    }
+    // The tops of the pulses are marked on the chart, as in the history
+    // detail.
+    final List<PpgPeak> tops = UnifiedPpgPeakDetector(fs: _fs)
+        .detect([for (final s in _smoothedData) s.y], zeroPhase: true);
+    _peakSpots = [
+      for (final PpgPeak p in tops)
+        _smoothedData[(p.timeSec * _fs).round().clamp(0, smoothed.length - 1)]
+    ];
+    // The heart rate is timed by the feet. Counting the tops missed a third
+    // of the beats on BUT PPG (tool/butppg), and a rate outside 40-200 bpm
+    // was then shown and saved as 70.
+    _beats = FootBeats.of(trimmedData, _fs);
+    _calculatedAverageBPM = _beats!.bpm ?? 0.0;
     // Generate time labels every second
     double totalTime = trimmedData.length / _fs;
     for (int i = 0; i <= totalTime.floor(); i++) {
@@ -481,13 +479,8 @@ class _SummaryState extends State<Summary> {
   }
 
   void _computeHRV() {
-    if (_peakSpots.length < 2) return;
-    List<double> rrIntervals = [];
-    for (int i = 1; i < _peakSpots.length; i++) {
-      double interval = (_peakSpots[i].x - _peakSpots[i - 1].x) * 1000; // in ms
-      rrIntervals.add(interval);
-    }
-    if (rrIntervals.isEmpty) return;
+    if (_beats?.bpm == null) return;
+    final List<double> rrIntervals = _beats!.ibisMs;
     final hrv = HrvCalculator.compute(rrIntervals);
 
     _meanRR = hrv.meanRrMs;
@@ -618,15 +611,14 @@ class _SummaryState extends State<Summary> {
               })
           .toList();
       final peakTimesSec = _peakSpots.map((s) => s.x).toList();
+      final footTimesSec = [for (final f in _beats?.feet ?? []) f.timeSec];
       // Razítka zarovnaná na uložený signál (data se ořezávají odzadu).
       final allStamps = widget.frameTimestampsMs;
       final frameTimestampsMs = allStamps.length >= dataForPlot.length
           ? allStamps.sublist(allStamps.length - dataForPlot.length)
           : allStamps;
-      final rrIntervalsMs = <double>[];
-      for (int i = 1; i < _peakSpots.length; i++) {
-        rrIntervalsMs.add((_peakSpots[i].x - _peakSpots[i - 1].x) * 1000.0);
-      }
+      // Between feet, the beats the heart rate and the HRV come from.
+      final rrIntervalsMs = _beats?.ibisMs ?? const <double>[];
       final SpectralQuality? quality = await _quality;
       final record = {
         'date': formattedDate,
@@ -652,6 +644,7 @@ class _SummaryState extends State<Summary> {
         'frameTimestampsMs': frameTimestampsMs,
         'waveformSmoothed': smoothedWaveform,
         'peakTimesSec': peakTimesSec,
+        'footTimesSec': footTimesSec,
         'rrIntervalsMs': rrIntervalsMs,
         'duration': widget.recordingDuration,
         'respiratoryRate': _respiratoryRate, // Přidáno: RR
@@ -907,8 +900,12 @@ class _SummaryState extends State<Summary> {
                 // Tags and the note in both modes: they matter as much to a
                 // patient keeping a diary as to a doctor.
                 if (patient) ...[
-                  _patientCard(context),
-                  SizedBox(height: r.spaceMd),
+                  // No verdict without a heart rate; the result card says
+                  // why.
+                  if (_effectiveAverageBpm > 0) ...[
+                    _patientCard(context),
+                    SizedBox(height: r.spaceMd),
+                  ],
                   _contextCard(context),
                 ] else ...[
                   _contextCard(context),
@@ -978,14 +975,19 @@ class _SummaryState extends State<Summary> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText),
           ),
-          SizedBox(height: r.spaceLg),
-          BpmScale(bpm: _effectiveAverageBpm),
-          if (quality == MeasurementQuality.poor) ...[
+          if (bpm > 0) ...[
+            SizedBox(height: r.spaceLg),
+            BpmScale(bpm: _effectiveAverageBpm),
+          ],
+          if (quality == MeasurementQuality.poor || bpm <= 0) ...[
             SizedBox(height: r.spaceMd),
             Container(
               width: double.infinity,
-              padding: EdgeInsets.fromLTRB(
-                  r.spaceMd, r.spaceSm + 2, r.spaceXs, r.spaceXs),
+              // Tight on the right and below only for the button there.
+              padding: bpm > 0
+                  ? EdgeInsets.fromLTRB(
+                      r.spaceMd, r.spaceSm + 2, r.spaceXs, r.spaceXs)
+                  : EdgeInsets.all(r.spaceMd),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF4E0),
                 borderRadius: BorderRadius.circular(12),
@@ -1001,7 +1003,7 @@ class _SummaryState extends State<Summary> {
                       SizedBox(width: r.spaceSm),
                       Expanded(
                         child: Text(
-                          t.summaryWeakSignal,
+                          bpm > 0 ? t.summaryWeakSignal : t.summaryNoHeartRate,
                           style: TextStyle(
                               fontSize: r.fontSmall,
                               color: const Color(0xFF8A5300)),
@@ -1009,18 +1011,20 @@ class _SummaryState extends State<Summary> {
                       ),
                     ],
                   ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF8A5300)),
-                      onPressed: _busy ? null : _measureAgain,
-                      child: Text(
-                        t.summaryMeasureAgain,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                  // Without a heart rate the main button measures again.
+                  if (bpm > 0)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF8A5300)),
+                        onPressed: _busy ? null : _measureAgain,
+                        child: Text(
+                          t.summaryMeasureAgain,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -1229,7 +1233,13 @@ class _SummaryState extends State<Summary> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: _busy ? null : _saveAndLeave,
+                  // Without a heart rate there is nothing to save, so measuring
+                  // again takes the button.
+                  onPressed: _busy
+                      ? null
+                      : _effectiveAverageBpm > 0
+                          ? _saveAndLeave
+                          : _measureAgain,
                   child: _busy
                       ? const SizedBox(
                           width: 22,
@@ -1237,28 +1247,36 @@ class _SummaryState extends State<Summary> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2.5, color: Colors.white),
                         )
-                      // Apple Health transparency (Guideline 2.5.1): saving
-                      // also writes the heart rate to Health, so its icon
-                      // sits on the button.
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              t.commonSave,
+                      : _effectiveAverageBpm <= 0
+                          ? Text(
+                              t.summaryMeasureAgain,
                               style: TextStyle(
                                   fontSize: r.fontBodyLg,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white),
+                            )
+                          // Apple Health transparency (Guideline 2.5.1): saving
+                          // also writes the heart rate to Health, so its icon
+                          // sits on the button.
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  t.commonSave,
+                                  style: TextStyle(
+                                      fontSize: r.fontBodyLg,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
+                                ),
+                                SizedBox(width: r.spaceSm),
+                                Image.asset(
+                                  'assets/Icon - Apple Health.png',
+                                  width: 22,
+                                  height: 22,
+                                  semanticLabel: 'Apple Health',
+                                ),
+                              ],
                             ),
-                            SizedBox(width: r.spaceSm),
-                            Image.asset(
-                              'assets/Icon - Apple Health.png',
-                              width: 22,
-                              height: 22,
-                              semanticLabel: 'Apple Health',
-                            ),
-                          ],
-                        ),
                 ),
               ),
             ),

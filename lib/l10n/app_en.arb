@@ -330,6 +330,7 @@
   "summaryDiscard": "Discard",
   "summaryKeep": "Keep",
   "summaryWeakSignal": "The signal was weak, so the result may be off.",
+  "summaryNoHeartRate": "No heart rate could be found in this recording. Cover the camera and the flash with your whole fingertip, keep still and measure again.",
   "summaryMeasureAgain": "Measure again",
   "settingsSectionMeasurement": "Measurement",
   "settingsSectionDisplay": "Display",
