@@ -362,7 +362,11 @@ class _IntroPageState extends State<IntroPage> {
   Widget _lastMeasurementCard(BuildContext context) {
     final r = Responsive.of(context);
     final L10n t = L10n.of(context);
-    final Record last = _records.last;
+    // Records saved without a heart rate, before the result screen stopped
+    // allowing it, are passed over, as on the home-screen widget.
+    final Record last = _records.lastWhere((rec) => rec.averageBPM > 0,
+        orElse: () => _records.last);
+    final bool hasRate = last.averageBPM > 0;
     final List<Record> recent = _records
         .sublist(max(0, _records.length - _trendLength))
         .where((rec) => rec.averageBPM > 0)
@@ -375,7 +379,7 @@ class _IntroPageState extends State<IntroPage> {
         children: [
           Semantics(
             label:
-                '${t.a11yHeartRateValue('${last.averageBPM}')}, ${_formatWhen(context, _instantOf(last))}',
+                '${hasRate ? t.a11yHeartRateValue('${last.averageBPM}') : t.a11yHeartRateUnknown}, ${_formatWhen(context, _instantOf(last))}',
             excludeSemantics: true,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,7 +389,7 @@ class _IntroPageState extends State<IntroPage> {
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
-                      '${last.averageBPM}',
+                      hasRate ? '${last.averageBPM}' : t.homeNoReading,
                       style: TextStyle(
                           fontSize: r.fontDisplayXl,
                           fontWeight: FontWeight.bold,
