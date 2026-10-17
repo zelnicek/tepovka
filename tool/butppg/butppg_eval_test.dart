@@ -77,7 +77,7 @@ void main() {
     }
     final IOSink sink = File(output).openWrite()
       ..writeln('id,fs,n,app_bpm,previous_bpm,spectral_bpm,'
-          'quality,snr,good_window_share');
+          'quality,previous_quality,snr,good_window_share');
     String f(double? v) => v != null && v.isFinite ? v.toStringAsFixed(3) : '';
     int count = 0;
     for (final String line in File(input).readAsLinesSync()) {
@@ -99,6 +99,9 @@ void main() {
       final double spectral =
           data.length >= 32 ? spectralHeartRate(data, fs).bpm : double.nan;
       final SpectralQuality? q = assessRecording(data, fs);
+      // The grade before the feet had to agree with the spectrum.
+      final SpectralQuality? q0 = assessSignalQuality(
+          data.sublist((warmupSeconds(data, fs) * fs).toInt()), fs);
       sink.writeln([
         rec['id'],
         f(fs),
@@ -107,6 +110,7 @@ void main() {
         f(previousResultScreenBpm(data, fs)),
         f(spectral),
         q?.level.name ?? '',
+        q0?.level.name ?? '',
         q == null ? '' : f(q.snr),
         q == null ? '' : f(q.goodWindowShare),
       ].join(','));
