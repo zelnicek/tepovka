@@ -16,8 +16,9 @@ import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/services/camera_lock.dart';
 import 'package:tepovka/pages/measure_guide.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart'; // Import samostatné třídy pro kvalitu
-import 'package:tepovka/elements/peak_detector.dart';
+import 'package:tepovka/elements/live_tops.dart';
 import 'package:tepovka/elements/unified_peak_detector.dart';
+import 'package:tepovka/services/heart_rate_recovery.dart';
 import 'package:tepovka/services/measurement_watch.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
@@ -36,7 +37,11 @@ class TimeLabel {
 }
 
 class Home extends StatefulWidget {
-  const Home({super.key});
+  const Home({super.key, this.recoveryTest = false});
+
+  /// Measuring the recovery test: two minutes straight after exercise, with
+  /// the length fixed (see RecoveryTestPage).
+  final bool recoveryTest;
   @override
   State<Home> createState() => _HomeState();
 }
@@ -174,8 +179,9 @@ class _HomeState extends State<Home>
   bool _qualityKnown = false;
 
   /// The latest [kLiveWindowSeconds] of the filtered signal, for the live
-  /// heart rate.
+  /// heart rate and the dots on the chart, with the time of each sample.
   final ListQueue<double> _liveWindow = ListQueue<double>();
+  final ListQueue<double> _liveTimes = ListQueue<double>();
 
   /// When the live window last gave a heart rate.
   double _lastLiveBpmFound = 0.0;
@@ -241,6 +247,11 @@ class _HomeState extends State<Home>
   @override
   void initState() {
     super.initState();
+    if (widget.recoveryTest) {
+      _recordingDuration = kRecoveryTestSeconds;
+      _remainingTime = kRecoveryTestSeconds;
+      _remainingTimeNotifier.value = kRecoveryTestSeconds;
+    }
     WidgetsBinding.instance.addObserver(this);
     // Kdo sem přichází poprvé, uvidí nejdřív návod, jak měřit.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowGuide());
@@ -425,17 +436,21 @@ class _HomeState extends State<Home>
       _fullRecordData.add(FlSpot(_currentTime, _emaState));
     }
     _liveWindow.addLast(_emaState);
+    _liveTimes.addLast(_currentTime);
     final int liveLength = (kLiveWindowSeconds * _effectiveSampleRate).round();
     while (_liveWindow.length > liveLength) {
       _liveWindow.removeFirst();
+      _liveTimes.removeFirst();
     }
     _pruneLeading(_smoothedData, minX - _bufferTime);
     _updateYAxisScale();
 
+    // About four times a second.
     _samplesSinceLastPeakScan++;
-    if (_samplesSinceLastPeakScan >= 3) {
+    if (_samplesSinceLastPeakScan >=
+        max(3, (_effectiveSampleRate / 4).round())) {
       _samplesSinceLastPeakScan = 0;
-      _detectDisplayPeaks(minX);
+      _markLivePeaks();
     }
     _pruneLeading(_peakSpots, minX - _bufferTime);
 
@@ -491,44 +506,13 @@ class _HomeState extends State<Home>
     if (drop > 0) items.removeRange(0, drop);
   }
 
-  void _detectDisplayPeaks(double minX) {
-    if (_smoothedData.length < 3) return;
-    final List<double> smoothedYValues = [
-      for (final FlSpot spot in _smoothedData) spot.y
-    ];
-    final List<int> allPeaks = PeakDetector.findPeaks(smoothedYValues,
-        sampleRate: _effectiveSampleRate);
-    if (allPeaks.isEmpty) return;
-
-    final double rightThresh = minX + (_currentTime - minX) * 0.7;
-    const double minDistTime = 60.0 / 150.0; // 0.4 s min spacing for max HR 150
-
-    double sum = 0.0;
-    for (final double v in smoothedYValues) {
-      sum += v;
-    }
-    final double mean = sum / smoothedYValues.length;
-    double sumSq = 0.0;
-    for (final double v in smoothedYValues) {
-      sumSq += (v - mean) * (v - mean);
-    }
-    final double std = sqrt(sumSq / smoothedYValues.length);
-    final double prominenceThreshold = 0.5 * std;
-
-    for (final int idx in allPeaks) {
-      final FlSpot newPeak = _smoothedData[idx];
-      if (newPeak.x <= rightThresh) continue;
-      if (smoothedYValues[idx] - mean <= prominenceThreshold) continue;
-      if (_peakSpots.isNotEmpty) {
-        // A peak can surface late: PeakDetector's local threshold needs about a
-        // second of following data to settle, so a candidate older than the
-        // last accepted one may only now qualify. Appending it would leave
-        // _peakSpots out of chronological order, and the fallback BPM would
-        // then compute negative inter-beat intervals.
-        if (newPeak.x <= _peakSpots.last.x) continue;
-        if (newPeak.x - _peakSpots.last.x < minDistTime) continue;
-      }
-      _peakSpots.add(newPeak);
+  /// Puts dots on the tops of the pulses, see [newLiveTops].
+  void _markLivePeaks() {
+    for (final (double t, double y) in newLiveTops(
+        _liveWindow.toList(), _liveTimes.toList(), _effectiveSampleRate,
+        now: _currentTime,
+        lastPlaced: _peakSpots.isEmpty ? null : _peakSpots.last.x)) {
+      _peakSpots.add(FlSpot(t, y));
     }
   }
 
@@ -558,7 +542,10 @@ class _HomeState extends State<Home>
     }
     if (_isRecording) {
       _steadiness.add(
-          movingSecond: _movingNotifier.value, heartRateFound: bpm != null);
+        movingSecond: _movingNotifier.value,
+        heartRateFound: bpm != null,
+        motionRms: AppSettings.value.researchMode ? _motion.rms : null,
+      );
     }
   }
 
@@ -874,6 +861,7 @@ class _HomeState extends State<Home>
     _lastBpmUpdateTime = 0.0;
     _lastLiveBpmFound = 0.0;
     _liveWindow.clear();
+    _liveTimes.clear();
     _bpmNotifier.value = 0.0;
     _elapsed
       ..reset()
@@ -1182,7 +1170,9 @@ class _HomeState extends State<Home>
           startedAt: _measurementStartedAt ??
               DateTime.now().subtract(
                   Duration(seconds: _recordingDuration + _extensionSeconds)),
-          measurementWatch: _steadiness.toJson(_extensionSeconds),
+          measurementWatch:
+              _steadiness.toJson(_extensionSeconds, monitor: _motion),
+          recoveryTest: widget.recoveryTest,
           respiratoryRate: averageRR, // Přidáno: Předání RR
           sdnn: _ppgAlgorithm?.getSdnn() ?? 0.0,
           rmssd: _ppgAlgorithm?.getRmssd() ?? 0.0,
@@ -1328,7 +1318,7 @@ class _HomeState extends State<Home>
           surfaceTintColor: Colors.transparent,
           centerTitle: true,
           title: Text(
-            t.measureTitle,
+            widget.recoveryTest ? t.recoveryTestTitle : t.measureTitle,
             style:
                 TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
           ),
@@ -1358,7 +1348,9 @@ class _HomeState extends State<Home>
               SizedBox(height: r.spaceMd),
               _chartCard(context, graphHeight),
               SizedBox(height: r.spaceLg),
-              _durationSelector(context, enabled: !busy),
+              // The recovery test always measures two minutes.
+              _durationSelector(context,
+                  enabled: !busy && !widget.recoveryTest),
               SizedBox(height: r.spaceLg),
               _controlsRow(context),
             ],

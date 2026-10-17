@@ -98,6 +98,12 @@ class Record {
   /// other record, as it used to.
   final Map<String, dynamic> extra;
 
+  /// How steady the measurement was (SteadinessLog.toJson); empty on
+  /// records saved before it was kept.
+  Map<String, dynamic> get measurementWatch => extra['measurementWatch'] is Map
+      ? Map<String, dynamic>.from(extra['measurementWatch'] as Map)
+      : const {};
+
   /// The keys [toJson] writes itself.
   static const Set<String> _ownKeys = {
     'date',
@@ -2089,6 +2095,8 @@ class _RecordsPageState extends State<RecordsPage> {
       meta('notes', record.notesContent.replaceAll(',', ' '));
       record.metadata.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
       record.cameraSettings.forEach((k, v) => meta(k, v.replaceAll(',', ' ')));
+      record.measurementWatch
+          .forEach((k, v) => meta(k, v is List ? v.join(';') : v));
 
       sb.writeln(b.raws.isEmpty
           ? 'time_s,timestamp,signal,peak,foot'
@@ -2144,6 +2152,8 @@ class _RecordsPageState extends State<RecordsPage> {
         },
         'hrv': record.hrv,
         'respiratoryRate': record.respiratoryRate,
+        if (record.measurementWatch.isNotEmpty)
+          'measurementWatch': record.measurementWatch,
         'timeS': b.times,
         'signal': b.data,
         'peakIndices': b.peakIndices,
@@ -2202,6 +2212,8 @@ class _RecordsPageState extends State<RecordsPage> {
           'median(5) -> baseline removal -> EMA(alpha=0.4), inverted');
       sb.writeln('Timing landmark: pulse foot');
       record.cameraSettings.forEach((key, value) => sb.writeln('$key: $value'));
+      record.measurementWatch.forEach((key, value) =>
+          sb.writeln('$key: ${value is List ? value.join(';') : value}'));
       sb.writeln('');
       sb.writeln(b.hasRaw
           ? 'Time (s),Timestamp,Signal Value,Raw Green,Raw Red,Raw Blue'

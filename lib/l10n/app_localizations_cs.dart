@@ -1564,4 +1564,55 @@ class L10nCs extends L10n {
   @override
   String get summaryMethodsDisagree =>
       'Dva způsoby výpočtu tepu se u tohoto měření neshodly, výsledek proto může být nepřesný. Pro jistotu se změřte ještě jednou.';
+
+  @override
+  String get recoveryTestTitle => 'Test zotavení';
+
+  @override
+  String get recoveryTestHint => 'Jak rychle se tep vrací po zátěži';
+
+  @override
+  String get recoveryIntro =>
+      'Jak rychle tep po námaze klesá, vypovídá o kondici: čím rychleji, tím lépe. Nejvíc řekne srovnání vašich vlastních testů v čase.';
+
+  @override
+  String get recoveryStep1 =>
+      'Zacvičte si 1–2 minuty, až se zadýcháte: třeba dřepy, poskoky nebo rychlá chůze do schodů. Ať se testy dají srovnat, volte pokaždé stejnou zátěž.';
+
+  @override
+  String get recoveryStep2 =>
+      'Hned potom se posaďte, přiložte prst na fotoaparát i blesk a spusťte měření. Měří se 2 minuty.';
+
+  @override
+  String get recoveryStep3 => 'Během měření se nehýbejte a dýchejte volně.';
+
+  @override
+  String get recoverySafety =>
+      'Cvičte jen tak, jak vám to zdraví dovolí. Při bolesti na hrudi, závrati nebo nezvyklé dušnosti přestaňte a test nedělejte.';
+
+  @override
+  String get recoveryStart => 'Jsem po cvičení, měřit';
+
+  @override
+  String get recoveryMyTests => 'Vaše testy';
+
+  @override
+  String get recoveryNoTests =>
+      'Zatím žádný test. Po prvním tu uvidíte, o kolik tep klesl, a časem i to, jak se zotavení mění.';
+
+  @override
+  String get recoveryResultTitle => 'Zotavení po zátěži';
+
+  @override
+  String get recoveryAfter1Min => 'za 1 minutu';
+
+  @override
+  String get recoveryAfter2Min => 'za 2 minuty';
+
+  @override
+  String get recoveryHowToRead =>
+      'O kolik tepů za minutu tep klesl od začátku měření. Čím víc, tím rychleji se tělo zotavuje. Porovnávejte hlavně své vlastní testy po stejné zátěži.';
+
+  @override
+  String get recoveryTrendTitle => 'Pokles tepu za 1 minutu';
 }

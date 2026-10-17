@@ -20,6 +20,7 @@ import 'package:tepovka/services/achievements.dart';
 import 'package:tepovka/pages/achievements_page.dart';
 import 'package:tepovka/widgets/heart_stats_card.dart';
 import 'package:tepovka/widgets/info_widgets.dart';
+import 'package:tepovka/pages/recovery_test_page.dart';
 
 /// Home screen.
 ///
@@ -502,6 +503,8 @@ class _IntroPageState extends State<IntroPage> {
     final r = Responsive.of(context);
     final L10n t = L10n.of(context);
     final rows = <Widget>[
+      _menuRow(context, Icons.directions_run, const Color(0xFFE8710A),
+          t.recoveryTestTitle, t.recoveryTestHint, const RecoveryTestPage()),
       _menuRow(context, Icons.history, const Color(0xFF1A73E8),
           t.homeTileHistory, t.homeTileHistoryHint, const RecordsPage()),
       _menuRow(context, Icons.help_outline, const Color(0xFF1E8E3E),

@@ -76,6 +76,25 @@ void main() {
     });
   });
 
+  test('research mode keeps the motion of each second', () {
+    final m = MotionMonitor();
+    final l = SteadinessLog();
+    for (int s = 0; s < 3; s++) {
+      for (int i = 0; i < 15; i++) {
+        m.add(s == 1 ? 1.0 : 0.02, 0, 0);
+      }
+      l.add(movingSecond: m.moving, heartRateFound: true, motionRms: m.rms);
+    }
+    final Map<String, Object> json = l.toJson(0, monitor: m);
+    expect(json['motionRmsPerSecond'], [0.02, 1.0, 0.02]);
+    expect(json['motionThresholds'], [0.5, 0.3]);
+    expect(json['movingSeconds'], 1);
+    // Outside research mode no trace is kept.
+    expect(
+        SteadinessLog().toJson(0, monitor: m).containsKey('motionRmsPerSecond'),
+        isFalse);
+  });
+
   test('rewriting the history keeps fields the list does not know', () {
     final Map<String, dynamic> saved = {
       'date': '2026-10-17',

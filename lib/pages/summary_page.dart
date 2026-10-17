@@ -9,6 +9,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:health/health.dart';
 import 'package:tepovka/services/app_settings.dart';
 import 'package:tepovka/elements/unified_peak_detector.dart';
+import 'package:tepovka/services/heart_rate_recovery.dart';
 import 'package:tepovka/elements/hrv_calculator.dart';
 import 'package:tepovka/elements/responsive.dart';
 import 'package:tepovka/services/measurement_quality.dart';
@@ -54,6 +55,10 @@ class Summary extends StatefulWidget {
   /// How steady the measurement was: seconds moving or without a heart rate,
   /// and the seconds it ran on because of them (SteadinessLog.toJson).
   final Map<String, Object> measurementWatch;
+
+  /// A recovery test (see RecoveryTestPage): saved as such, tagged as after
+  /// exercise, and shown with its recovery first.
+  final bool recoveryTest;
   final double sdnn; // HRV: SDNN
   final double rmssd; // HRV: RMSSD
   final double pnn50; // HRV: pNN50
@@ -79,6 +84,7 @@ class Summary extends StatefulWidget {
     this.metadata = const {},
     this.cameraSettings = const {},
     this.measurementWatch = const {},
+    this.recoveryTest = false,
     required this.sdnn,
     required this.rmssd,
     required this.pnn50,
@@ -160,6 +166,7 @@ class _SummaryState extends State<Summary> {
   double _slope60BpmPerMin = 0.0;
   double _tauSec = 0.0;
   final List<FlSpot> _recoverySpots = [];
+  HeartRateRecovery? _recovery;
   double _spo2 = 0.0;
   double _bpmConfidence = 0.0;
   double _bpmSnrScore = 0.0;
@@ -210,6 +217,11 @@ class _SummaryState extends State<Summary> {
     _computeHRRecovery();
     _buildRecoverySpots();
     _quality = _gradeSignal();
+    if (widget.recoveryTest) {
+      // Not a resting reading; the recovery is what this measurement is for.
+      _tags.add(MeasurementTag.exercise);
+      _summarySectionIndex = 2;
+    }
   }
 
   /// Signal quality of this recording, graded off the UI thread; a long
@@ -251,90 +263,30 @@ class _SummaryState extends State<Summary> {
     _bpmCiUpper = _bpmMean + margin;
   }
 
+  /// Heart-rate recovery from the beats the heart rate is timed by, see
+  /// [HeartRateRecovery].
   void _computeHRRecovery() {
-    final hist = widget.bpmHistory.where((v) => v > 0).toList();
-    final dur = widget.recordingDuration.toDouble();
-    if (hist.length < 5 || dur <= 0) return;
-
-    final n = hist.length;
-    final secPerSample = dur / n;
-
-    double avgIn(double tStart, double tEnd) {
-      final startIdx = (tStart / secPerSample).floor().clamp(0, n - 1);
-      final endIdx = (tEnd / secPerSample).ceil().clamp(0, n - 1);
-      if (endIdx <= startIdx) return hist[startIdx].toDouble();
-      final slice = hist.sublist(startIdx, endIdx + 1);
-      final valid = slice.where((v) => v > 0).toList();
-      if (valid.isEmpty) return 0.0;
-      return valid.reduce((a, b) => a + b) / valid.length;
-    }
-
-    _hr0 = avgIn(0, 10);
-    if (dur >= 60) {
-      _hr60 = avgIn(50, 60);
-      _hrr60 = (_hr0 - _hr60).clamp(0.0, 300.0);
-      // Slope over first 60s
-      final endT = 60.0;
-      final endIdx = (endT / secPerSample).floor().clamp(1, n - 1);
-      final xs = List<double>.generate(endIdx + 1, (i) => i * secPerSample);
-      final ys = hist.sublist(0, endIdx + 1).map((v) => v.toDouble()).toList();
-      final m = _linRegSlope(xs, ys); // bpm per second
-      _slope60BpmPerMin = m * 60.0;
-    }
-    if (dur >= 120) {
-      _hr120 = avgIn(110, 120);
-      _hrr120 = (_hr0 - _hr120).clamp(0.0, 300.0);
-      // Tau estimate using log-linear with y_inf as mean of last 20s
-      final yInf = avgIn((dur - 20).clamp(0, dur - 1), dur);
-      if (yInf > 0 && _hr0 > yInf) {
-        final xs = <double>[];
-        final ys = <double>[];
-        final maxT = 120.0;
-        final maxIdx = (maxT / secPerSample).floor().clamp(1, n - 1);
-        for (int i = 0; i <= maxIdx; i++) {
-          final t = i * secPerSample;
-          final y = hist[i].toDouble();
-          final z = y - yInf;
-          if (z > 1e-3) {
-            xs.add(t);
-            ys.add(log(z));
-          }
-        }
-        if (xs.length >= 3) {
-          final slope = _linRegSlope(xs, ys); // slope of ln(z) vs t
-          if (slope < 0) {
-            _tauSec = (-1.0 / slope);
-          }
-        }
-      }
-    }
-  }
-
-  double _linRegSlope(List<double> x, List<double> y) {
-    final n = x.length;
-    if (n == 0 || y.length != n) return 0.0;
-    final meanX = x.reduce((a, b) => a + b) / n;
-    final meanY = y.reduce((a, b) => a + b) / n;
-    double num = 0.0, den = 0.0;
-    for (int i = 0; i < n; i++) {
-      final dx = x[i] - meanX;
-      num += dx * (y[i] - meanY);
-      den += dx * dx;
-    }
-    if (den == 0.0) return 0.0;
-    return num / den;
+    final HeartRateRecovery hrr = HeartRateRecovery.fromBeats(
+        [for (final f in _beats?.feet ?? const <PpgPeak>[]) f.timeSec],
+        widget.recordingDuration.toDouble());
+    _recovery = hrr;
+    _hr0 = hrr.hr0;
+    _hr60 = hrr.hr60;
+    _hr120 = hrr.hr120;
+    _hrr60 = hrr.hrr60;
+    _hrr120 = hrr.hrr120;
+    _slope60BpmPerMin = hrr.slope60;
+    _tauSec = hrr.tauSec;
   }
 
   void _buildRecoverySpots() {
-    final hist = widget.bpmHistory.where((v) => v > 0).toList();
-    final dur = widget.recordingDuration.toDouble();
-    _recoverySpots.clear();
-    if (hist.length < 2 || dur <= 0) return;
-    final n = hist.length;
-    final secPerSample = dur / n;
-    for (int i = 0; i < n; i++) {
-      _recoverySpots.add(FlSpot(i * secPerSample, hist[i].toDouble()));
-    }
+    _recoverySpots
+      ..clear()
+      ..addAll([
+        for (final (double t, double bpm)
+            in _recovery?.curve ?? const <(double, double)>[])
+          FlSpot(t, bpm)
+      ]);
   }
 
   Widget _buildHrrChart() {
@@ -646,6 +598,7 @@ class _SummaryState extends State<Summary> {
         'sampleRateHz': _fs,
         'metadata': widget.metadata,
         'cameraSettings': widget.cameraSettings,
+        if (widget.recoveryTest) 'protocol': kRecoveryProtocol,
         if (widget.measurementWatch.isNotEmpty)
           'measurementWatch': widget.measurementWatch,
         'frameTimestampsMs': frameTimestampsMs,
@@ -903,6 +856,10 @@ class _SummaryState extends State<Summary> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _resultCard(context),
+                if (widget.recoveryTest && _effectiveAverageBpm > 0) ...[
+                  SizedBox(height: r.spaceMd),
+                  _recoveryCard(context),
+                ],
                 SizedBox(height: r.spaceMd),
                 // Tags and the note in both modes: they matter as much to a
                 // patient keeping a diary as to a doctor.
@@ -1085,6 +1042,57 @@ class _SummaryState extends State<Summary> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// The recovery test's result in plain words, in both modes: how far the
+  /// heart rate fell in one and in two minutes.
+  Widget _recoveryCard(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    Widget drop(double value, String after) => Expanded(
+          child: Column(
+            children: [
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(
+                    text: value > 0 ? '−${value.round()}' : t.homeNoReading,
+                    style: TextStyle(
+                        fontSize: r.fontDisplayXl * 0.7,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(
+                    text: ' ${t.homeBpmUnit}',
+                    style: TextStyle(
+                        fontSize: r.fontBody, color: kInfoSecondaryText),
+                  ),
+                ]),
+              ),
+              Text(after,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: r.fontSmall, color: kInfoSecondaryText)),
+            ],
+          ),
+        );
+    return InfoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(t.recoveryResultTitle,
+              style: TextStyle(
+                  fontSize: r.fontBodyLg, fontWeight: FontWeight.w600)),
+          SizedBox(height: r.spaceMd),
+          Row(children: [
+            drop(_hrr60, t.recoveryAfter1Min),
+            drop(_hrr120, t.recoveryAfter2Min),
+          ]),
+          SizedBox(height: r.spaceMd),
+          Text(t.recoveryHowToRead,
+              style:
+                  TextStyle(fontSize: r.fontSmall, color: kInfoSecondaryText)),
         ],
       ),
     );
@@ -1397,8 +1405,8 @@ class _SummaryState extends State<Summary> {
 
   /// Replaces this summary with a fresh measurement; nothing is saved.
   void _measureAgain() {
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => const Home()));
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (_) => Home(recoveryTest: widget.recoveryTest)));
   }
 
   PatientStatus _patientStatus() {

@@ -1570,4 +1570,57 @@ class L10nEn extends L10n {
   @override
   String get summaryMethodsDisagree =>
       'The two ways of computing the heart rate disagreed on this measurement, so the result may be off. Measure once more to be sure.';
+
+  @override
+  String get recoveryTestTitle => 'Recovery test';
+
+  @override
+  String get recoveryTestHint =>
+      'How fast your heart rate settles after exercise';
+
+  @override
+  String get recoveryIntro =>
+      'How fast the heart rate falls after exertion says something about fitness: the faster, the better. Comparing your own tests over time tells the most.';
+
+  @override
+  String get recoveryStep1 =>
+      'Exercise for 1–2 minutes until you are out of breath: squats, jumping jacks or brisk stair climbing. Do the same each time so the tests compare.';
+
+  @override
+  String get recoveryStep2 =>
+      'Straight after, sit down, cover the camera and the flash with your fingertip and start measuring. It takes 2 minutes.';
+
+  @override
+  String get recoveryStep3 =>
+      'Keep still and breathe freely while it measures.';
+
+  @override
+  String get recoverySafety =>
+      'Exercise only as far as your health allows. Stop, and skip the test, if you feel chest pain, dizziness or unusual breathlessness.';
+
+  @override
+  String get recoveryStart => 'Done exercising, measure';
+
+  @override
+  String get recoveryMyTests => 'Your tests';
+
+  @override
+  String get recoveryNoTests =>
+      'No tests yet. After the first you will see how far your heart rate fell, and in time how your recovery changes.';
+
+  @override
+  String get recoveryResultTitle => 'Recovery after exercise';
+
+  @override
+  String get recoveryAfter1Min => 'after 1 minute';
+
+  @override
+  String get recoveryAfter2Min => 'after 2 minutes';
+
+  @override
+  String get recoveryHowToRead =>
+      'How many beats per minute your heart rate fell from the start of the measurement. The more, the faster you recover. Compare mainly your own tests after the same exercise.';
+
+  @override
+  String get recoveryTrendTitle => 'Heart rate drop after 1 minute';
 }

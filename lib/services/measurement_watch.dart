@@ -31,8 +31,12 @@ class MotionMonitor {
   final List<double> _squares = [];
   double _sum = 0;
   bool _moving = false;
+  double _rms = 0;
 
   bool get moving => _moving;
+
+  /// RMS acceleration over the latest [samples] readings, m/s².
+  double get rms => _rms;
 
   /// Adds one reading in m/s² and returns whether the phone is moving.
   bool add(double x, double y, double z) {
@@ -40,8 +44,8 @@ class MotionMonitor {
     _squares.add(square);
     _sum += square;
     if (_squares.length > samples) _sum -= _squares.removeAt(0);
-    final double rms = sqrt(max(0.0, _sum) / _squares.length);
-    _moving = _moving ? rms > stopRms : rms > startRms;
+    _rms = sqrt(max(0.0, _sum) / _squares.length);
+    _moving = _moving ? _rms > stopRms : _rms > startRms;
     return _moving;
   }
 
@@ -49,6 +53,7 @@ class MotionMonitor {
     _squares.clear();
     _sum = 0;
     _moving = false;
+    _rms = 0;
   }
 }
 
@@ -59,10 +64,19 @@ class SteadinessLog {
   int unsettled = 0;
   int moving = 0;
 
-  void add({required bool movingSecond, required bool heartRateFound}) {
+  /// [MotionMonitor.rms] each second, kept in research mode to tune the
+  /// motion thresholds on measurements with deliberate movement.
+  final List<double> motionRms = [];
+
+  void add({
+    required bool movingSecond,
+    required bool heartRateFound,
+    double? motionRms,
+  }) {
     seconds++;
     if (movingSecond) moving++;
     if (movingSecond || !heartRateFound) unsettled++;
+    if (motionRms != null) this.motionRms.add(motionRms);
   }
 
   double get unsettledShare => seconds == 0 ? 0 : unsettled / seconds;
@@ -71,13 +85,21 @@ class SteadinessLog {
     seconds = 0;
     unsettled = 0;
     moving = 0;
+    motionRms.clear();
   }
 
-  Map<String, Object> toJson(int extendedSeconds) => {
+  Map<String, Object> toJson(int extendedSeconds, {MotionMonitor? monitor}) => {
         'seconds': seconds,
         'unsettledSeconds': unsettled,
         'movingSeconds': moving,
         'extendedSeconds': extendedSeconds,
+        if (motionRms.isNotEmpty) ...{
+          'motionRmsPerSecond': [
+            for (final double v in motionRms) (v * 1000).round() / 1000
+          ],
+          if (monitor != null)
+            'motionThresholds': [monitor.startRms, monitor.stopRms],
+        },
       };
 }
 

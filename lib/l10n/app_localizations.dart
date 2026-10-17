@@ -2772,6 +2772,96 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Dva způsoby výpočtu tepu se u tohoto měření neshodly, výsledek proto může být nepřesný. Pro jistotu se změřte ještě jednou.'**
   String get summaryMethodsDisagree;
+
+  /// No description provided for @recoveryTestTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Test zotavení'**
+  String get recoveryTestTitle;
+
+  /// No description provided for @recoveryTestHint.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jak rychle se tep vrací po zátěži'**
+  String get recoveryTestHint;
+
+  /// No description provided for @recoveryIntro.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jak rychle tep po námaze klesá, vypovídá o kondici: čím rychleji, tím lépe. Nejvíc řekne srovnání vašich vlastních testů v čase.'**
+  String get recoveryIntro;
+
+  /// No description provided for @recoveryStep1.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zacvičte si 1–2 minuty, až se zadýcháte: třeba dřepy, poskoky nebo rychlá chůze do schodů. Ať se testy dají srovnat, volte pokaždé stejnou zátěž.'**
+  String get recoveryStep1;
+
+  /// No description provided for @recoveryStep2.
+  ///
+  /// In cs, this message translates to:
+  /// **'Hned potom se posaďte, přiložte prst na fotoaparát i blesk a spusťte měření. Měří se 2 minuty.'**
+  String get recoveryStep2;
+
+  /// No description provided for @recoveryStep3.
+  ///
+  /// In cs, this message translates to:
+  /// **'Během měření se nehýbejte a dýchejte volně.'**
+  String get recoveryStep3;
+
+  /// No description provided for @recoverySafety.
+  ///
+  /// In cs, this message translates to:
+  /// **'Cvičte jen tak, jak vám to zdraví dovolí. Při bolesti na hrudi, závrati nebo nezvyklé dušnosti přestaňte a test nedělejte.'**
+  String get recoverySafety;
+
+  /// No description provided for @recoveryStart.
+  ///
+  /// In cs, this message translates to:
+  /// **'Jsem po cvičení, měřit'**
+  String get recoveryStart;
+
+  /// No description provided for @recoveryMyTests.
+  ///
+  /// In cs, this message translates to:
+  /// **'Vaše testy'**
+  String get recoveryMyTests;
+
+  /// No description provided for @recoveryNoTests.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zatím žádný test. Po prvním tu uvidíte, o kolik tep klesl, a časem i to, jak se zotavení mění.'**
+  String get recoveryNoTests;
+
+  /// No description provided for @recoveryResultTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Zotavení po zátěži'**
+  String get recoveryResultTitle;
+
+  /// No description provided for @recoveryAfter1Min.
+  ///
+  /// In cs, this message translates to:
+  /// **'za 1 minutu'**
+  String get recoveryAfter1Min;
+
+  /// No description provided for @recoveryAfter2Min.
+  ///
+  /// In cs, this message translates to:
+  /// **'za 2 minuty'**
+  String get recoveryAfter2Min;
+
+  /// No description provided for @recoveryHowToRead.
+  ///
+  /// In cs, this message translates to:
+  /// **'O kolik tepů za minutu tep klesl od začátku měření. Čím víc, tím rychleji se tělo zotavuje. Porovnávejte hlavně své vlastní testy po stejné zátěži.'**
+  String get recoveryHowToRead;
+
+  /// No description provided for @recoveryTrendTitle.
+  ///
+  /// In cs, this message translates to:
+  /// **'Pokles tepu za 1 minutu'**
+  String get recoveryTrendTitle;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
