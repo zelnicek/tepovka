@@ -653,6 +653,14 @@ class _RecordsPageState extends State<RecordsPage> {
     }
   }
 
+  String _formatDayMonth(DateTime when) {
+    try {
+      return DateFormat.MMMd(_locale).format(when);
+    } catch (_) {
+      return '${when.day}. ${when.month}.';
+    }
+  }
+
   String _formatShortDate(DateTime when) {
     try {
       return DateFormat.yMMMd(_locale).format(when);
@@ -2573,10 +2581,16 @@ class _RecordsPageState extends State<RecordsPage> {
           scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
           centerTitle: true,
-          title: Text(
-            '${_formatShortDate(when)} · ${_formatTime(when)}',
-            style:
-                TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+          // Without the year for this year's records: with three actions
+          // beside it, the full date and an English "AM" did not fit.
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '${when.year == DateTime.now().year ? _formatDayMonth(when) : _formatShortDate(when)}'
+              ' · ${_formatTime(when)}',
+              style:
+                  TextStyle(fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+            ),
           ),
           actions: [
             if (calculatedAverageBPM > 0)

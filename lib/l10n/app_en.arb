@@ -82,7 +82,7 @@
   "tipHr120": "Heart rate around the 120th second. Suitable for longer recovery protocols and HRR120.",
   "tipHrr120": "Heart Rate Recovery over 120 s: the difference between 0–10 s and 110–120 s. Higher = better fitness.",
   "tipHrTau": "Estimated time constant of the exponential heart rate decay toward baseline (lower means faster recovery).",
-  "recordsTitle": "Measurement history",
+  "recordsTitle": "History",
   "recordsSearchHint": "Search notes, date, time, BPM",
   "recordsFilterAll": "All",
   "recordsSelectMultiple": "Select multiple",

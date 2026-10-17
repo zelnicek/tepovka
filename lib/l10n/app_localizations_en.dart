@@ -286,7 +286,7 @@ class L10nEn extends L10n {
       'Estimated time constant of the exponential heart rate decay toward baseline (lower means faster recovery).';
 
   @override
-  String get recordsTitle => 'Measurement history';
+  String get recordsTitle => 'History';
 
   @override
   String get recordsSearchHint => 'Search notes, date, time, BPM';

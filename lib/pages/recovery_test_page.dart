@@ -223,6 +223,10 @@ class _RecoveryTestPageState extends State<RecoveryTestPage> {
         if (test.drop60 > 0) FlSpot(i.toDouble(), test.drop60)
     ];
     if (spots.length < 2) return const SizedBox.shrink();
+    // A round top, so the labels fall on tens and do not crowd.
+    final double top =
+        (spots.map((s) => s.y).reduce((a, b) => a > b ? a : b) / 10).ceil() *
+            10.0;
     return InfoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,6 +241,7 @@ class _RecoveryTestPageState extends State<RecoveryTestPage> {
               minX: 0,
               maxX: (oldestFirst.length - 1).toDouble(),
               minY: 0,
+              maxY: top,
               gridData: const FlGridData(show: false),
               borderData: FlBorderData(show: false),
               titlesData: FlTitlesData(
@@ -250,6 +255,7 @@ class _RecoveryTestPageState extends State<RecoveryTestPage> {
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 32,
+                    interval: 10,
                     getTitlesWidget: (v, meta) => Text('${v.round()}',
                         style: TextStyle(
                             fontSize: r.fontCaption,
