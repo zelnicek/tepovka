@@ -247,10 +247,15 @@ struct EntryView: View {
         systemImage: "heart.fill"
       )
       .widgetURL(measureURL)
+    // The home screen widgets are white in dark mode too, so their text must
+    // stay dark: with the system's colours the heart rate came out white on
+    // white.
     case .systemMedium:
-      MediumView(s: s).widgetURL(measureURL).widgetBackground(.white)
+      MediumView(s: s).environment(\.colorScheme, .light)
+        .widgetURL(measureURL).widgetBackground(.white)
     default:
-      SmallView(s: s).widgetURL(measureURL).widgetBackground(.white)
+      SmallView(s: s).environment(\.colorScheme, .light)
+        .widgetURL(measureURL).widgetBackground(.white)
     }
   }
 }
