@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:camera/camera.dart';
+import 'package:tepovka/web_video_stream.dart';
 import 'package:tepovka/services/haptics.dart';
 import 'package:tepovka/elements/camera_body.dart';
 import 'package:tepovka/ppg_algo.dart';
@@ -49,6 +51,11 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late CameraController _cameraController; // Definice proměnné pro kameru
+
+  /// Ve webové ukázce nahrazuje kameru přehrávané video: prohlížeč k ní
+  /// nemá přístup jako telefon a ukázka má předvést průběh měření, ne prázdný
+  /// náhled. Signál z něj jde stejnou cestou jako z kamery.
+  WebVideoStream? _webVideoStream;
   PPGAlgorithm? _ppgAlgorithm;
   Timer? _navigationTimer;
   Timer? _countdownTimer; // Timer for countdown display
@@ -257,8 +264,12 @@ class _HomeState extends State<Home>
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowGuide());
     // Inicializace samostatné třídy pro kvalitu
     _signalQualityChecker = SignalQualityChecker();
-    // Initialize back cameras list
-    _initializeBackCameras();
+    if (kIsWeb) {
+      _startWebVideoStream();
+    } else {
+      // Initialize back cameras list
+      _initializeBackCameras();
+    }
     // Initialize camera and algorithm
     _ppgAlgorithm = PPGAlgorithm();
     // Spawn the analysis isolate now, not on the first analysis run mid-measurement.
@@ -370,10 +381,36 @@ class _HomeState extends State<Home>
     }
   }
 
+  /// Feeds the video of a recorded finger to the same pipeline as the camera
+  /// frames, for the web demo.
+  Future<void> _startWebVideoStream() async {
+    final WebVideoStream stream = _webVideoStream ??= WebVideoStream('ppg.mp4');
+    if (stream.isRunning) return;
+    try {
+      await stream.start((rgb) {
+        final PPGAlgorithm? algorithm = _ppgAlgorithm;
+        if (algorithm == null || !mounted) return;
+        algorithm.processRgbSample(
+          red: rgb.red,
+          green: rgb.green,
+          blue: rgb.blue,
+        );
+        if (algorithm.sampleCount != _lastConsumedSampleCount) {
+          _lastConsumedSampleCount = algorithm.sampleCount;
+          _appendSample(algorithm);
+        }
+      });
+      if (mounted) _startGraphUpdates();
+    } catch (e) {
+      debugPrint('Web video stream failed: $e');
+    }
+  }
+
   /// Runs from the countdown on: it feeds the motion canceller while
   /// recording, and says "keep still" whenever the phone moves.
   void _startAccelerometerStream() {
-    if (_accelerometerSubscription != null) return;
+    // A browser has no phone to hold still.
+    if (kIsWeb || _accelerometerSubscription != null) return;
     _motion.reset();
     _accelerometerSubscription =
         userAccelerometerEventStream(samplingPeriod: SensorInterval.uiInterval)
@@ -660,6 +697,7 @@ class _HomeState extends State<Home>
       if (disposeCamera && _hasInitializedCameraController) {
         await _cameraController.dispose();
       }
+      if (disposeCamera) await _webVideoStream?.stop();
       _isRecording = false;
     } catch (e) {
       debugPrint('StopAllActivity error: $e');
@@ -1231,6 +1269,7 @@ class _HomeState extends State<Home>
     if (_hasInitializedCameraController) {
       _cameraController.dispose();
     }
+    _webVideoStream?.stop();
     _elapsed.stop();
     _navigationTimer?.cancel();
     _countdownTimer?.cancel();
@@ -1458,40 +1497,52 @@ class _HomeState extends State<Home>
             height: cameraSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: camera != null ? Colors.black : Colors.grey.shade400,
+              color: (kIsWeb || camera != null)
+                  ? Colors.black
+                  : Colors.grey.shade400,
             ),
-            child: camera != null
+            child: kIsWeb
+                // In the web demo the video of a recorded finger stands in
+                // for the camera preview.
                 ? ClipOval(
                     child: SizedBox(
                       width: cameraSize,
                       height: cameraSize,
-                      child: CameraBody(
-                        key: ValueKey(
-                            _currentBackCameraIndex), // Force rebuild on switch
-                        cameraDescription: camera,
-                        onCameraReady: (controller) {
-                          setState(() {
-                            _cameraController = controller;
-                          });
-                          // Zámek vyvážení bílé drží na zařízení i po zavření
-                          // kamery; nová obrazovka musí začínat v automatice.
-                          unawaited(
-                              CameraLock.unlock(controller.description.name));
-                          _startImageStream();
-                          _startGraphUpdates();
-                          // Bez svetla se merit neda, takze se rozsviti hned
-                          // po prichodu na obrazovku mereni. Automatika kamery
-                          // se tim stihne ustalit jeste pred odpoctem.
-                          _setTorch(true);
-                        },
-                        onImageAvailable: (image) {
-                          // Nepoužíváme, protože stream je v _startImageStream
-                        },
-                      ),
+                      child: const HtmlElementView(viewType: 'ppg-video'),
                     ),
                   )
-                : const Center(
-                    child: CircularProgressIndicator(color: Colors.white)),
+                : camera != null
+                    ? ClipOval(
+                        child: SizedBox(
+                          width: cameraSize,
+                          height: cameraSize,
+                          child: CameraBody(
+                            key: ValueKey(
+                                _currentBackCameraIndex), // Force rebuild on switch
+                            cameraDescription: camera,
+                            onCameraReady: (controller) {
+                              setState(() {
+                                _cameraController = controller;
+                              });
+                              // Zámek vyvážení bílé drží na zařízení i po zavření
+                              // kamery; nová obrazovka musí začínat v automatice.
+                              unawaited(CameraLock.unlock(
+                                  controller.description.name));
+                              _startImageStream();
+                              _startGraphUpdates();
+                              // Bez svetla se merit neda, takze se rozsviti hned
+                              // po prichodu na obrazovku mereni. Automatika kamery
+                              // se tim stihne ustalit jeste pred odpoctem.
+                              _setTorch(true);
+                            },
+                            onImageAvailable: (image) {
+                              // Nepoužíváme, protože stream je v _startImageStream
+                            },
+                          ),
+                        ),
+                      )
+                    : const Center(
+                        child: CircularProgressIndicator(color: Colors.white)),
           ),
         ],
       ),

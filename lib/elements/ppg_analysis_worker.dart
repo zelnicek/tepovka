@@ -3,7 +3,7 @@ import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:fftea/fftea.dart';
 
 /// Off-thread PPG analysis.
@@ -653,7 +653,6 @@ class PpgAnalyzer {
     final envSmooth =
         _movingAverage(envelope, (fs * 1.0).round().clamp(5, 120));
 
-
     // 3) Respiratory modulation band (0.05-0.5 Hz = 3-30 breaths/min)
     final resp = _applyButterworthBandpass(envSmooth, 0.05, 0.5, fs);
     if (resp.length < 8) {
@@ -854,12 +853,16 @@ class PpgAnalysisWorker {
   /// Invoked on the owning isolate when a result arrives.
   void Function(PpgAnalysisResult result)? onResult;
 
+  /// A browser has no isolates; in the web demo the analysis runs on the main
+  /// thread instead, one request at a time as in the isolate.
+  PpgAnalyzer? _inline;
+
   bool get isBusy => _busy;
 
   /// Starts the isolate before the first request, so its spawn cost does not
   /// land inside a measurement.
   void warmUp() {
-    if (_disposed) return;
+    if (_disposed || kIsWeb) return;
     unawaited(_ensureStarted());
   }
 
@@ -897,6 +900,17 @@ class PpgAnalysisWorker {
   bool submit(PpgAnalysisRequest request) {
     if (_disposed) return false;
     if (_busy) return false;
+    if (kIsWeb) {
+      _busy = true;
+      Timer.run(() {
+        if (_disposed) return;
+        final PpgAnalysisResult result =
+            (_inline ??= PpgAnalyzer()).analyze(request);
+        _busy = false;
+        onResult?.call(result);
+      });
+      return true;
+    }
     _pending
       ..clear()
       ..add(request);

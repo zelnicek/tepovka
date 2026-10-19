@@ -20,6 +20,8 @@ class LocalLogger {
 
   static Future<void> log(String level, String message,
       [Map<String, dynamic>? data]) async {
+    // A browser has no file to append to; errors go to its console.
+    if (kIsWeb) return;
     try {
       if (_logFile == null) await init();
       final entry = {

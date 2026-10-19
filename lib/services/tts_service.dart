@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:tepovka/elements/signal_quality_checker.dart';
 import 'package:tepovka/services/app_settings.dart';
@@ -36,7 +37,7 @@ class TtsService {
     await _tts.awaitSpeakCompletion(true);
 
     // Prefer speaker and playback category on iOS (works in silent mode)
-    if (Platform.isIOS) {
+    if (!kIsWeb && Platform.isIOS) {
       try {
         await _tts.setIosAudioCategory(
           IosTextToSpeechAudioCategory.playback,

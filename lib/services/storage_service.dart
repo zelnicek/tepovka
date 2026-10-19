@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
   /// Bumped after every write, so screens showing records (the home card)
@@ -21,13 +22,23 @@ class StorageService {
     return File('${directory.path}/$_exportTxtFileName');
   }
 
+  /// A browser has no app documents folder, so the web demo keeps the
+  /// history in its local storage instead.
+  static const String _webSummaryKey = 'measurement_summary';
+
   Future<List<Map<String, dynamic>>> readSummary() async {
     try {
-      final file = await _getSummaryFile();
-      if (!await file.exists()) {
+      final String? content;
+      if (kIsWeb) {
+        content =
+            (await SharedPreferences.getInstance()).getString(_webSummaryKey);
+      } else {
+        final file = await _getSummaryFile();
+        content = await file.exists() ? await file.readAsString() : null;
+      }
+      if (content == null) {
         return <Map<String, dynamic>>[];
       }
-      final content = await file.readAsString();
       final List<dynamic> jsonList = json.decode(content);
       return jsonList.whereType<Map<String, dynamic>>().toList(growable: false);
     } catch (e) {
@@ -37,9 +48,14 @@ class StorageService {
   }
 
   Future<void> writeSummary(List<Map<String, dynamic>> records) async {
-    final file = await _getSummaryFile();
     final content = json.encode(records);
-    await file.writeAsString(content, mode: FileMode.write);
+    if (kIsWeb) {
+      await (await SharedPreferences.getInstance())
+          .setString(_webSummaryKey, content);
+    } else {
+      final file = await _getSummaryFile();
+      await file.writeAsString(content, mode: FileMode.write);
+    }
     revision.value++;
   }
 
@@ -50,6 +66,7 @@ class StorageService {
   }
 
   Future<void> appendRecordTxt(Map<String, dynamic> record) async {
+    if (kIsWeb) return;
     final file = await _getExportTxtFile();
     final buffer = StringBuffer();
     buffer.writeln('=== Tepovka measurement ===');

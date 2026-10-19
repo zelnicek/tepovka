@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tepovka/l10n/app_localizations.dart';
@@ -15,21 +16,50 @@ import 'package:tepovka/services/widget_service.dart';
 Future<void> main() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    // App je dělaná pro iPhone (TARGETED_DEVICE_FAMILY = 1) a portrait.
-    // Lock orientace zde slouží jako pojistka i pro Android.
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-    await AppSettings.init();
-    await LocalProfileService.init();
-    await ReminderService.init();
-    // Keeps the reminder plan a month ahead and in the current language.
-    unawaited(ReminderService.reschedule());
-    // The home-screen widget shows the latest reading from the history.
-    unawaited(WidgetService.init());
+
+    // None of these may keep the app from starting. In the web demo some of
+    // them have nothing to work with (orientation lock, file system,
+    // notifications), and a failure before runApp leaves a blank page.
+    Future<void> tryInit(String what, Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (e) {
+        debugPrint('Init step "$what" failed: $e');
+      }
+    }
+
+    if (!kIsWeb) {
+      // App je dělaná pro iPhone (TARGETED_DEVICE_FAMILY = 1) a portrait.
+      // Lock orientace zde slouží jako pojistka i pro Android.
+      await tryInit(
+        'orientation',
+        () => SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]),
+      );
+    }
+    await tryInit('settings', AppSettings.init);
+    if (kIsWeb) {
+      // The website embeds the demo with ?lang=cs or ?lang=en, so it speaks
+      // the language of the page around it.
+      final AppLanguage? language = switch (Uri.base.queryParameters['lang']) {
+        'cs' => AppLanguage.czech,
+        'en' => AppLanguage.english,
+        _ => null,
+      };
+      if (language != null) AppSettings.setLanguage(language);
+    }
+    await tryInit('profile', LocalProfileService.init);
+    if (!kIsWeb) {
+      await tryInit('reminders', ReminderService.init);
+      // Keeps the reminder plan a month ahead and in the current language.
+      unawaited(ReminderService.reschedule());
+      // The home-screen widget shows the latest reading from the history.
+      unawaited(WidgetService.init());
+    }
 
     // Initialize local logger
-    await LocalLogger.init();
+    await tryInit('logger', LocalLogger.init);
 
     // Capture Flutter framework errors locally
     FlutterError.onError = (details) async {
@@ -40,6 +70,8 @@ Future<void> main() async {
 
     runApp(const MyApp());
   }, (error, stack) async {
+    // The log file is the only record on a phone; the browser has a console.
+    if (kIsWeb) debugPrint('Uncaught error: $error\n$stack');
     await LocalLogger.log(
         'error', error.toString(), {'stack': stack.toString()});
   });
