@@ -130,7 +130,8 @@ class MyApp extends StatelessWidget {
             final mq = MediaQuery.of(context);
             return MediaQuery(
               data: mq.copyWith(
-                textScaler: TextScaler.linear(settings.textScale),
+                textScaler: TextScaler.linear(combinedTextScale(
+                    mq.textScaler.scale(16) / 16, settings.textScale)),
               ),
               child: child!,
             );

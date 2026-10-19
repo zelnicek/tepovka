@@ -2862,6 +2862,36 @@ abstract class L10n {
   /// In cs, this message translates to:
   /// **'Pokles tepu za 1 minutu'**
   String get recoveryTrendTitle;
+
+  /// No description provided for @recordsEditContext.
+  ///
+  /// In cs, this message translates to:
+  /// **'Upravit okolnosti a poznámku'**
+  String get recordsEditContext;
+
+  /// No description provided for @recordsAddContext.
+  ///
+  /// In cs, this message translates to:
+  /// **'Přidat okolnosti nebo poznámku'**
+  String get recordsAddContext;
+
+  /// No description provided for @recordsContextSaved.
+  ///
+  /// In cs, this message translates to:
+  /// **'Uloženo'**
+  String get recordsContextSaved;
+
+  /// No description provided for @recordsContextSaveFailed.
+  ///
+  /// In cs, this message translates to:
+  /// **'Změnu se nepodařilo uložit.'**
+  String get recordsContextSaveFailed;
+
+  /// No description provided for @recordsFrameRate.
+  ///
+  /// In cs, this message translates to:
+  /// **'{fps} snímků/s'**
+  String recordsFrameRate(int fps);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -253,3 +253,13 @@ class AppSettings {
     );
   }
 }
+
+/// The text size the app draws with: the size chosen in the iPhone's
+/// settings times the app's own slider. The slider used to replace the
+/// system size, so the iPhone setting did nothing. Kept within the range the
+/// screens are laid out for, the slider's own top included.
+double combinedTextScale(double system, double app) =>
+    (system * app).clamp(kMinTextScale, kMaxTextScale);
+
+const double kMinTextScale = 0.85;
+const double kMaxTextScale = 1.4;

@@ -868,5 +868,17 @@
   "recoveryAfter1Min": "za 1 minutu",
   "recoveryAfter2Min": "za 2 minuty",
   "recoveryHowToRead": "O kolik tepů za minutu tep klesl od začátku měření. Čím víc, tím rychleji se tělo zotavuje. Porovnávejte hlavně své vlastní testy po stejné zátěži.",
-  "recoveryTrendTitle": "Pokles tepu za 1 minutu"
+  "recoveryTrendTitle": "Pokles tepu za 1 minutu",
+  "recordsEditContext": "Upravit okolnosti a poznámku",
+  "recordsAddContext": "Přidat okolnosti nebo poznámku",
+  "recordsContextSaved": "Uloženo",
+  "recordsContextSaveFailed": "Změnu se nepodařilo uložit.",
+  "recordsFrameRate": "{fps} snímků/s",
+  "@recordsFrameRate": {
+    "placeholders": {
+      "fps": {
+        "type": "int"
+      }
+    }
+  }
 }

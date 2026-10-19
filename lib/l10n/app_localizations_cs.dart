@@ -1615,4 +1615,21 @@ class L10nCs extends L10n {
 
   @override
   String get recoveryTrendTitle => 'Pokles tepu za 1 minutu';
+
+  @override
+  String get recordsEditContext => 'Upravit okolnosti a poznámku';
+
+  @override
+  String get recordsAddContext => 'Přidat okolnosti nebo poznámku';
+
+  @override
+  String get recordsContextSaved => 'Uloženo';
+
+  @override
+  String get recordsContextSaveFailed => 'Změnu se nepodařilo uložit.';
+
+  @override
+  String recordsFrameRate(int fps) {
+    return '$fps snímků/s';
+  }
 }

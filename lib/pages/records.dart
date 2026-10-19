@@ -181,6 +181,23 @@ class Record {
     return kNominalSampleRate;
   }
 
+  /// This record with [changes] applied to its stored form; a null value
+  /// removes the field.
+  Record copyWithJson(Map<String, dynamic> changes) =>
+      Record.fromJson(patchRecordJson(toJson(), changes));
+
+  /// The measured frame rate in whole frames per second, or null when the
+  /// record carries nothing to measure it from.
+  int? get measuredFrameRate {
+    final double fs = effectiveSampleRate;
+    if (frameTimestampsMs.length < 10 &&
+        !(sampleRateHz >= 5 && sampleRateHz <= 120) &&
+        fs == kNominalSampleRate) {
+      return null;
+    }
+    return fs.round();
+  }
+
   // Convert Record to JSON format
   Map<String, dynamic> toJson() {
     return {
@@ -399,9 +416,10 @@ class _RecordsPageState extends State<RecordsPage> {
   DateTime _instantOf(Record r) =>
       _parseRecordStart(r) ?? _parseRecordDateTime(r);
 
-  /// Levels for records saved before quality was stored, computed from their
-  /// pulse wave once per visit and kept in memory only: viewing the history
-  /// must not rewrite it.
+  /// Levels for records saved before quality was stored, or by an earlier
+  /// method, computed from their pulse wave. They are written into the
+  /// history as well (see [_gradeOlderRecords]); this keeps them for the
+  /// screen until then.
   final Map<String, MeasurementQuality?> _computedQuality = {};
 
   /// 'good', 'medium' or 'poor' from the spectral indicator validated against
@@ -414,7 +432,10 @@ class _RecordsPageState extends State<RecordsPage> {
     return _computedQuality['${r.date}_${r.time}']?.name;
   }
 
-  /// Grades the records that predate stored quality, off the UI thread.
+  /// Grades the records that predate stored quality, off the UI thread, and
+  /// stores the grade with them. It used to be worked out again on every
+  /// visit and kept in memory only, so exports and the home screen did not
+  /// see it. Only the quality field is written; the measured values stay.
   Future<void> _gradeOlderRecords(List<Record> records) async {
     final Map<String, (List<double>, double)> jobs = {};
     for (final Record r in records) {
@@ -431,16 +452,58 @@ class _RecordsPageState extends State<RecordsPage> {
       if (data.length >= 32) jobs[key] = (data, fs);
     }
     if (jobs.isEmpty) return;
-    final Map<String, String?> levels = await compute(_gradeAll, jobs);
+    final Map<String, Map<String, Object>?> graded =
+        await compute(_gradeAll, jobs);
     if (!mounted) return;
+    final Map<String, Map<String, dynamic>> patches = {
+      for (final MapEntry<String, Map<String, Object>?> e in graded.entries)
+        if (e.value != null) e.key: {'signalQuality': e.value},
+    };
     setState(() {
-      for (final MapEntry<String, String?> e in levels.entries) {
-        _computedQuality[e.key] = MeasurementQuality.values
-            .where((q) => q.name == e.value)
-            .firstOrNull;
+      for (final MapEntry<String, Map<String, Object>?> e in graded.entries) {
+        _computedQuality[e.key] = SpectralQuality.fromJson(e.value)?.level;
+      }
+      for (int i = 0; i < _records.length; i++) {
+        final Map<String, dynamic>? patch =
+            patches['${_records[i].date}_${_records[i].time}'];
+        if (patch != null) _records[i] = _records[i].copyWithJson(patch);
       }
     });
     _applyFilters();
+    await _patchStored(patches);
+  }
+
+  /// Applies [patches] (record key to changed fields) to the stored history
+  /// and nothing else, so a value the list only computed in memory is not
+  /// written with them. Returns whether the history was written.
+  Future<bool> _patchStored(Map<String, Map<String, dynamic>> patches) async {
+    if (patches.isEmpty) return true;
+    try {
+      final List<Map<String, dynamic>> stored = await _storage.readSummary();
+      await _storage.writeSummary(patchRecords(stored, patches));
+      return true;
+    } catch (e) {
+      debugPrint('Could not update the stored records: $e');
+      return false;
+    }
+  }
+
+  /// Saves the circumstances and note changed in a record's detail. Only
+  /// these two fields change.
+  Future<bool> _updateContext(
+      Record record, List<MeasurementTag> tags, String note) async {
+    final String key = '${record.date}_${record.time}';
+    final Map<String, dynamic> changes = {
+      'notes': note,
+      'tags':
+          tags.isEmpty ? null : [for (final MeasurementTag t in tags) t.name],
+    };
+    final int index = _records.indexWhere((r) => '${r.date}_${r.time}' == key);
+    if (index >= 0) {
+      setState(() => _records[index] = _records[index].copyWithJson(changes));
+      _applyFilters();
+    }
+    return _patchStored({key: changes});
   }
 
   void _applyFilters() {
@@ -2480,6 +2543,11 @@ class _RecordsPageState extends State<RecordsPage> {
 
     GlobalKey chartKey = GlobalKey();
 
+    // Can be changed on this page; the share card and the PDF take the
+    // current ones.
+    List<MeasurementTag> currentTags = record.measurementTags;
+    String currentNote = record.notesContent;
+
     // HRV only from a minute up, LF and HF from two; below, they mislead.
     final bool hrvShown = record.duration >= HrvCalculator.minTimeDomainSeconds;
     final bool frequencyShown =
@@ -2510,7 +2578,7 @@ class _RecordsPageState extends State<RecordsPage> {
       final pdfPath = await createPdf(
         labels: pdfLabels,
         averageBPM: calculatedAverageBPM.toInt(),
-        notes: record.notesContent,
+        notes: currentNote,
         duration: record.duration,
         hrvMetrics: hrvMetrics,
         chartImageBytes: chartImageBytes,
@@ -2608,7 +2676,7 @@ class _RecordsPageState extends State<RecordsPage> {
                     quality: MeasurementQuality.values
                         .where((q) => q.name == quality)
                         .firstOrNull,
-                    tags: record.measurementTags,
+                    tags: currentTags,
                   ),
                 ),
               ),
@@ -2658,9 +2726,12 @@ class _RecordsPageState extends State<RecordsPage> {
                     Text(
                       [
                         t.homeSecondsSuffix(record.duration),
+                        if (record.measuredFrameRate case final int fps)
+                          t.recordsFrameRate(fps),
                         if (qualityLabel != null)
                           t.a11ySignalQuality(qualityLabel),
                       ].join(' · '),
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: r.fontSmall, color: kInfoSecondaryText),
                     ),
@@ -2669,35 +2740,20 @@ class _RecordsPageState extends State<RecordsPage> {
                   ],
                 ),
               ),
-              if (record.measurementTags.isNotEmpty ||
-                  record.notesContent.trim().isNotEmpty) ...[
-                SizedBox(height: r.spaceMd),
-                InfoCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (record.measurementTags.isNotEmpty)
-                        Wrap(
-                          spacing: r.spaceSm,
-                          runSpacing: r.spaceSm,
-                          children: [
-                            for (final MeasurementTag tag
-                                in record.measurementTags)
-                              _tagBadge(context, tag),
-                          ],
-                        ),
-                      if (record.measurementTags.isNotEmpty &&
-                          record.notesContent.trim().isNotEmpty)
-                        SizedBox(height: r.spaceMd),
-                      if (record.notesContent.trim().isNotEmpty)
-                        Text(
-                          record.notesContent,
-                          style: TextStyle(fontSize: r.fontBody, height: 1.4),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
+              SizedBox(height: r.spaceMd),
+              _RecordContextCard(
+                tags: currentTags,
+                note: currentNote,
+                badge: (tag) => _tagBadge(context, tag),
+                onSave: (tags, note) async {
+                  final bool saved = await _updateContext(record, tags, note);
+                  if (saved) {
+                    currentTags = tags;
+                    currentNote = note;
+                  }
+                  return saved;
+                },
+              ),
               SizedBox(height: r.spaceMd),
               InfoCard(
                 padding: EdgeInsets.fromLTRB(
@@ -3446,8 +3502,282 @@ class _ExportBundle {
   final String sampleRateSource;
 }
 
+/// The circumstances and the note of a saved record, with a button to change
+/// them. They could only be set right after measuring before.
+class _RecordContextCard extends StatefulWidget {
+  const _RecordContextCard({
+    required this.tags,
+    required this.note,
+    required this.badge,
+    required this.onSave,
+  });
+
+  final List<MeasurementTag> tags;
+  final String note;
+  final Widget Function(MeasurementTag tag) badge;
+
+  /// Stores the change; returns whether it was stored.
+  final Future<bool> Function(List<MeasurementTag> tags, String note) onSave;
+
+  @override
+  State<_RecordContextCard> createState() => _RecordContextCardState();
+}
+
+class _RecordContextCardState extends State<_RecordContextCard> {
+  late List<MeasurementTag> _tags = widget.tags;
+  late String _note = widget.note;
+
+  Future<void> _edit() async {
+    final L10n t = L10n.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final (List<MeasurementTag>, String)? result =
+        await showModalBottomSheet<(List<MeasurementTag>, String)>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (_) => _ContextEditor(tags: _tags, note: _note),
+    );
+    if (result == null || !mounted) return;
+    final (List<MeasurementTag> tags, String note) = result;
+    final bool saved = await widget.onSave(tags, note);
+    if (!mounted) return;
+    if (saved) {
+      setState(() {
+        _tags = tags;
+        _note = note;
+      });
+    }
+    messenger.showSnackBar(SnackBar(
+      duration: const Duration(seconds: 1),
+      behavior: SnackBarBehavior.floating,
+      content: Text(saved ? t.recordsContextSaved : t.recordsContextSaveFailed),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    final bool empty = _tags.isEmpty && _note.trim().isEmpty;
+    if (empty) {
+      return InfoCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _edit,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: r.spaceLg, vertical: r.spaceMd),
+            child: Row(
+              children: [
+                Icon(Symbols.edit_note, size: r.iconMd, color: kInfoAccent),
+                SizedBox(width: r.spaceSm),
+                Expanded(
+                  child: Text(
+                    t.recordsAddContext,
+                    style: TextStyle(
+                        fontSize: r.fontBody,
+                        fontWeight: FontWeight.w600,
+                        color: kInfoAccent),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return InfoCard(
+      padding: EdgeInsets.fromLTRB(r.spaceLg, r.spaceXs, r.spaceXs, r.spaceMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.summaryContextTitle,
+                  style: TextStyle(
+                      fontSize: r.fontSmall, color: kInfoSecondaryText),
+                ),
+              ),
+              IconButton(
+                tooltip: t.recordsEditContext,
+                icon: Icon(Symbols.edit, size: r.iconSm + 2),
+                onPressed: _edit,
+              ),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.only(right: r.spaceMd),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_tags.isNotEmpty)
+                  Wrap(
+                    spacing: r.spaceSm,
+                    runSpacing: r.spaceSm,
+                    children: [for (final tag in _tags) widget.badge(tag)],
+                  ),
+                if (_tags.isNotEmpty && _note.trim().isNotEmpty)
+                  SizedBox(height: r.spaceMd),
+                if (_note.trim().isNotEmpty)
+                  Text(
+                    _note,
+                    style: TextStyle(fontSize: r.fontBody, height: 1.4),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The sheet for changing a record's circumstances and note; pops with the
+/// new ones, or with nothing when cancelled.
+class _ContextEditor extends StatefulWidget {
+  const _ContextEditor({required this.tags, required this.note});
+
+  final List<MeasurementTag> tags;
+  final String note;
+
+  @override
+  State<_ContextEditor> createState() => _ContextEditorState();
+}
+
+class _ContextEditorState extends State<_ContextEditor> {
+  late final Set<MeasurementTag> _tags = {...widget.tags};
+  late final TextEditingController _note =
+      TextEditingController(text: widget.note);
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = Responsive.of(context);
+    final L10n t = L10n.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(r.spaceXl, 0, r.spaceXl, r.spaceLg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.summaryContextTitle,
+                style: TextStyle(
+                    fontSize: r.fontTitle, fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: r.spaceMd),
+              Wrap(
+                spacing: r.spaceSm,
+                runSpacing: r.spaceSm,
+                children: [
+                  for (final MeasurementTag tag in MeasurementTag.values)
+                    InfoChoiceChip(
+                      label: tag.label(t),
+                      icon: tag.icon,
+                      selected: _tags.contains(tag),
+                      onSelected: (on) => setState(() {
+                        if (on) {
+                          _tags.add(tag);
+                        } else {
+                          _tags.remove(tag);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+              SizedBox(height: r.spaceMd),
+              TextField(
+                controller: _note,
+                maxLines: null,
+                textCapitalization: TextCapitalization.sentences,
+                cursorColor: kInfoAccent,
+                style: TextStyle(fontSize: r.fontBody, color: Colors.black),
+                decoration: InputDecoration(
+                  labelText: t.commonNote,
+                  hintText: t.summaryNotesHint,
+                  labelStyle: const TextStyle(color: kInfoSecondaryText),
+                  floatingLabelStyle:
+                      const TextStyle(color: kInfoSecondaryText),
+                  focusedBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(color: kInfoAccent)),
+                ),
+              ),
+              SizedBox(height: r.spaceXl),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(t.commonCancel,
+                          style: const TextStyle(color: kInfoSecondaryText)),
+                    ),
+                  ),
+                  SizedBox(width: r.spaceMd),
+                  Expanded(
+                    child: FilledButton(
+                      style:
+                          FilledButton.styleFrom(backgroundColor: kInfoAccent),
+                      onPressed: () => Navigator.of(context).pop((
+                        // In the app's order, not the order of tapping.
+                        [
+                          for (final MeasurementTag tag
+                              in MeasurementTag.values)
+                            if (_tags.contains(tag)) tag
+                        ],
+                        _note.text.trim(),
+                      )),
+                      child: Text(t.commonSave),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Runs in a background isolate: grades each recording by its pulse wave.
-Map<String, String?> _gradeAll(Map<String, (List<double>, double)> jobs) => {
+Map<String, Map<String, Object>?> _gradeAll(
+        Map<String, (List<double>, double)> jobs) =>
+    {
       for (final MapEntry<String, (List<double>, double)> e in jobs.entries)
-        e.key: assessRecording(e.value.$1, e.value.$2)?.level.name,
+        e.key: assessRecording(e.value.$1, e.value.$2)?.toJson(),
     };
+
+/// [stored] with [changes] applied: a null value removes the field.
+Map<String, dynamic> patchRecordJson(
+        Map<String, dynamic> stored, Map<String, dynamic> changes) =>
+    {
+      for (final MapEntry<String, dynamic> e in stored.entries)
+        if (!changes.containsKey(e.key)) e.key: e.value,
+      for (final MapEntry<String, dynamic> e in changes.entries)
+        if (e.value != null) e.key: e.value,
+    };
+
+/// The stored history with [patches] applied to the records they name, by
+/// the same date-and-time key the list uses. Records not named stay as they
+/// were stored.
+@visibleForTesting
+List<Map<String, dynamic>> patchRecords(List<Map<String, dynamic>> stored,
+        Map<String, Map<String, dynamic>> patches) =>
+    [
+      for (final Map<String, dynamic> json in stored)
+        switch (patches['${json['date']}_${json['time']}']) {
+          final Map<String, dynamic> changes => patchRecordJson(json, changes),
+          null => json,
+        },
+    ];

@@ -1623,4 +1623,21 @@ class L10nEn extends L10n {
 
   @override
   String get recoveryTrendTitle => 'Heart rate drop after 1 minute';
+
+  @override
+  String get recordsEditContext => 'Edit context and note';
+
+  @override
+  String get recordsAddContext => 'Add context or a note';
+
+  @override
+  String get recordsContextSaved => 'Saved';
+
+  @override
+  String get recordsContextSaveFailed => 'The change could not be saved.';
+
+  @override
+  String recordsFrameRate(int fps) {
+    return '$fps fps';
+  }
 }

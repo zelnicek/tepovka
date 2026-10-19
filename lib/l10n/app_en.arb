@@ -470,5 +470,10 @@
   "recoveryAfter1Min": "after 1 minute",
   "recoveryAfter2Min": "after 2 minutes",
   "recoveryHowToRead": "How many beats per minute your heart rate fell from the start of the measurement. The more, the faster you recover. Compare mainly your own tests after the same exercise.",
-  "recoveryTrendTitle": "Heart rate drop after 1 minute"
+  "recoveryTrendTitle": "Heart rate drop after 1 minute",
+  "recordsEditContext": "Edit context and note",
+  "recordsAddContext": "Add context or a note",
+  "recordsContextSaved": "Saved",
+  "recordsContextSaveFailed": "The change could not be saved.",
+  "recordsFrameRate": "{fps} fps"
 }
